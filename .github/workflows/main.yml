@@ -19,12 +19,11 @@ jobs:
 
       - name: Instalar dependências
         run: |
-          sudo apt-get install -y xvfb
-          pip install pandas selenium undetected-chromedriver google-api-python-client google-auth-httplib2 google-auth
+          pip install pandas selenium google-api-python-client google-auth-httplib2 google-auth
           mkdir -p ./GEX_Data
 
       - name: Executar o Motor Black-Scholes
-        run: xvfb-run python gex_profile_v7_cloud.py
+        run: python gex_profile_v7_cloud.py
 
       - name: Criar Arquivo de Credenciais
         run: echo '${{ secrets.DRIVE_CREDENTIALS }}' > credentials.json
