@@ -15,7 +15,7 @@ jobs:
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Instalar dependências
         run: |
@@ -38,27 +38,36 @@ jobs:
           from googleapiclient.discovery import build
           from googleapiclient.http import MediaFileUpload
 
-          SCOPES = ['https://www.googleapis.com/auth/drive']
-          creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
-          service = build('drive', 'v3', credentials=creds)
+          print('📂 Verificando arquivos na pasta GEX_Data:')
+          path = './GEX_Data'
+          if not os.path.exists(path):
+              print('❌ A pasta GEX_Data não existe!')
+          else:
+              files = os.listdir(path)
+              print(f'📄 Arquivos encontrados: {files}')
+              
+              if files:
+                  SCOPES = ['https://www.googleapis.com/auth/drive']
+                  creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+                  service = build('drive', 'v3', credentials=creds)
+                  folder_id = os.environ.get('FOLDER_ID')
 
-          folder_id = os.environ.get('FOLDER_ID')
+                  for f in files:
+                      filepath = os.path.join(path, f)
+                      if os.path.isfile(filepath):
+                          query = f\"name='{f}' and '{folder_id}' in parents and trashed=false\"
+                          results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+                          items = results.get('files', [])
 
-          for f in os.listdir('./GEX_Data'):
-              filepath = os.path.join('./GEX_Data', f)
-              if os.path.isfile(filepath):
-                  # Verifica se o arquivo já existe no Drive para atualizar ou criar
-                  query = f\"name='{f}' and '{folder_id}' in parents and trashed=false\"
-                  results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
-                  items = results.get('files', [])
-
-                  media = MediaFileUpload(filepath, resumable=True)
-                  if items:
-                      file_id = items[0]['id']
-                      updated_file = service.files().update(fileId=file_id, media_body=media).execute()
-                      print(f'🔄 Atualizado no Drive: {f}')
-                  else:
-                      file_metadata = {'name': f, 'parents': [folder_id]}
-                      file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-                      print(f'✅ Criado no Drive: {f}')
+                          media = MediaFileUpload(filepath, resumable=True)
+                          if items:
+                              file_id = items[0]['id']
+                              service.files().update(fileId=file_id, media_body=media).execute()
+                              print(f'🔄 Atualizado no Drive: {f}')
+                          else:
+                              file_metadata = {'name': f, 'parents': [folder_id]}
+                              service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                              print(f'✅ Criado no Drive: {f}')
+              else:
+                  print('⚠️ Nenhum arquivo CSV foi gerado pelo motor para enviar.')
           "
