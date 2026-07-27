@@ -11,16 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Baixar o código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Configurar Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Instalar dependências
         run: |
-          pip install pandas selenium pydrive2
+          pip install pandas selenium pydrive2 oauth2client
           mkdir -p ./GEX_Data
 
       - name: Executar o Motor Black-Scholes
@@ -33,17 +33,22 @@ jobs:
         env:
           FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
         run: |
-          python -c "
+          cat << 'EOF' > upload.py
           import os
           from pydrive2.auth import GoogleAuth
           from pydrive2.drive import GoogleDrive
           from oauth2client.service_account import ServiceAccountCredentials
+
           gauth = GoogleAuth()
           gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', ['https://www.googleapis.com/auth/drive'])
           drive = GoogleDrive(gauth)
+
+          folder_id = os.environ.get('FOLDER_ID')
+          
           for f in os.listdir('./GEX_Data'):
-              gfile = drive.CreateFile({'parents': [{'id': os.environ['FOLDER_ID']}], 'title': f})
+              gfile = drive.CreateFile({'parents': [{'id': folder_id}], 'title': f})
               gfile.SetContentFile(f'./GEX_Data/{f}')
               gfile.Upload()
               print(f'✅ {f} enviado com sucesso!')
-          "
+          EOF
+          python upload.py
