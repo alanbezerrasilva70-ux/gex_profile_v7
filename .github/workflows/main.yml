@@ -26,10 +26,24 @@ jobs:
       - name: Executar o Motor Black-Scholes
         run: python gex_profile_v7.py
 
-      - name: Upload para o Google Drive
-        uses: adityak74/google-drive-upload-action@main
-        with:
-          credentials: ${{ secrets.DRIVE_CREDENTIALS }}
-          filename: "./GEX_Data/"
-          folderId: ${{ secrets.DRIVE_FOLDER_ID }}
-          overwrite: "true"
+      - name: Criar Arquivo de Credenciais
+        run: echo '${{ secrets.DRIVE_CREDENTIALS }}' > credentials.json
+
+      - name: Upload Nativo para o Google Drive
+        env:
+          FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+        run: |
+          python -c "
+          import os
+          from pydrive2.auth import GoogleAuth
+          from pydrive2.drive import GoogleDrive
+          from oauth2client.service_account import ServiceAccountCredentials
+          gauth = GoogleAuth()
+          gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', ['https://www.googleapis.com/auth/drive'])
+          drive = GoogleDrive(gauth)
+          for f in os.listdir('./GEX_Data'):
+              gfile = drive.CreateFile({'parents': [{'id': os.environ['FOLDER_ID']}], 'title': f})
+              gfile.SetContentFile(f'./GEX_Data/{f}')
+              gfile.Upload()
+              print(f'✅ {f} enviado com sucesso!')
+          "
