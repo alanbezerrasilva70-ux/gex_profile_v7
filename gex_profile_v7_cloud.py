@@ -235,17 +235,14 @@ def process(driver, symbol, url):
 def save(sym, res, df):
     if not os.path.exists(PASTA_DADOS): os.makedirs(PASTA_DADOS)
     if res:
-        with open(f"{PASTA_DADOS}\\NiveisGamma_{sym}.csv", "w") as f:
+        with open(f"{PASTA_DADOS}/NiveisGamma_{sym}.csv", "w") as f:
             f.write(f"{res['CW']},{res['PW']},{res['ZG']:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']}")
         
-        with open(f"{PASTA_DADOS}\\AlvosVolatilidade_{sym}.csv", "w") as f:
+        with open(f"{PASTA_DADOS}/AlvosVolatilidade_{sym}.csv", "w") as f:
             f.write(f"{res['MP']},{res['DP']},{res['Rat']},15.5,{res['FlowSig']},{res['GexSig']},{res['DPM']},{res['FlowVal']},{res['GexVal']},{res['AlvoUp']},{res['AlvoDown']}")
             
     if df is not None:
-        # Salva o Profile de Gama (Barras)
-        # Importante: Salvamos 'ng' (Net Gamma) que agora é calculado via Black-Scholes
-        df.to_csv(f"{PASTA_DADOS}\\GammaProfile_{sym}.csv", index=False, columns=['strike','ng'])
-
+        df.to_csv(f"{PASTA_DADOS}/GammaProfile_{sym}.csv", index=False, columns=['strike','ng'])
 if __name__ == "__main__":
     print("--- INICIANDO ROBÔ CLOUD DE GAMA ESTRUTURAL ---")
     d = iniciar_driver()
