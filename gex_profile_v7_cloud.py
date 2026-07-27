@@ -61,7 +61,7 @@ def iniciar_driver():
         return driver
     except Exception as e:
         print(f"❌ ERRO: {e}")
-        return None
+        return None 
 
 def clean_float(val):
     s = str(val).replace(',', '').replace('N/A', '').strip()
@@ -241,8 +241,7 @@ def save(sym, res, df):
         with open(f"{PASTA_DADOS}/AlvosVolatilidade_{sym}.csv", "w") as f:
             f.write(f"{res['MP']},{res['DP']},{res['Rat']},15.5,{res['FlowSig']},{res['GexSig']},{res['DPM']},{res['FlowVal']},{res['GexVal']},{res['AlvoUp']},{res['AlvoDown']}")
             
-    if df is not None:
-        df.to_csv(f"{PASTA_DADOS}/GammaProfile_{sym}.csv", index=False, columns=['strike','ng'])
+    
 if __name__ == "__main__":
     print("--- INICIANDO ROBÔ CLOUD DE GAMA ESTRUTURAL ---")
     d = iniciar_driver()
