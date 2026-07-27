@@ -24,7 +24,7 @@ jobs:
           mkdir -p ./GEX_Data
 
       - name: Executar o Motor Black-Scholes
-        run: python gex_profile_v7.py
+        run: python gex_profile_v7_cloud.py
 
       - name: Criar Arquivo de Credenciais
         run: echo '${{ secrets.DRIVE_CREDENTIALS }}' > credentials.json
