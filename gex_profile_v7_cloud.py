@@ -247,13 +247,11 @@ def save(sym, res, df):
         df.to_csv(f"{PASTA_DADOS}\\GammaProfile_{sym}.csv", index=False, columns=['strike','ng'])
 
 if __name__ == "__main__":
-    print("--- INICIANDO ROBÔ DE GAMA ESTRUTURAL (B&S MODEL) ---")
-    while True:
-        d = iniciar_driver()
-        if d:
-            for s, u in ATIVOS.items():
-                r, f = process(d, s, u)
-                save(s, r, f)
-            print("💤 Aguardando 60s para proximo ciclo...")
-            d.quit()
-        time.sleep(60)
+    print("--- INICIANDO ROBÔ CLOUD DE GAMA ESTRUTURAL ---")
+    d = iniciar_driver()
+    if d:
+        for s, u in ATIVOS.items():
+            r, f = process(d, s, u)
+            save(s, r, f)
+        d.quit()
+    print("✅ Ciclo finalizado! Partindo para o upload no Drive...")
