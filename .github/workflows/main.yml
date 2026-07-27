@@ -2,7 +2,6 @@ name: GEX Cloud Bot
 
 on:
   schedule:
-    # Roda a cada 30 minutos de segunda a sexta (horário UTC, ajuste conforme necessário)
     - cron: '*/30 13-21 * * 1-5'
   workflow_dispatch:
 
@@ -20,7 +19,7 @@ jobs:
 
       - name: Instalar dependências
         run: |
-          pip install pandas selenium pydrive2 oauth2client
+          pip install pandas selenium google-api-python-client google-auth-httplib2 google-auth
           mkdir -p ./GEX_Data
 
       - name: Executar o Motor Black-Scholes
@@ -29,26 +28,37 @@ jobs:
       - name: Criar Arquivo de Credenciais
         run: echo '${{ secrets.DRIVE_CREDENTIALS }}' > credentials.json
 
-      - name: Upload Nativo para o Google Drive
+      - name: Upload Direto via Google API
         env:
           FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
         run: |
-          cat << 'EOF' > upload.py
+          python -c "
           import os
-          from pydrive2.auth import GoogleAuth
-          from pydrive2.drive import GoogleDrive
-          from oauth2client.service_account import ServiceAccountCredentials
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
 
-          gauth = GoogleAuth()
-          gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', ['https://www.googleapis.com/auth/drive'])
-          drive = GoogleDrive(gauth)
+          SCOPES = ['https://www.googleapis.com/auth/drive']
+          creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+          service = build('drive', 'v3', credentials=creds)
 
           folder_id = os.environ.get('FOLDER_ID')
-          
+
           for f in os.listdir('./GEX_Data'):
-              gfile = drive.CreateFile({'parents': [{'id': folder_id}], 'title': f})
-              gfile.SetContentFile(f'./GEX_Data/{f}')
-              gfile.Upload()
-              print(f'✅ {f} enviado com sucesso!')
-          EOF
-          python upload.py
+              filepath = os.path.join('./GEX_Data', f)
+              if os.path.isfile(filepath):
+                  # Verifica se o arquivo já existe no Drive para atualizar ou criar
+                  query = f\"name='{f}' and '{folder_id}' in parents and trashed=false\"
+                  results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+                  items = results.get('files', [])
+
+                  media = MediaFileUpload(filepath, resumable=True)
+                  if items:
+                      file_id = items[0]['id']
+                      updated_file = service.files().update(fileId=file_id, media_body=media).execute()
+                      print(f'🔄 Atualizado no Drive: {f}')
+                  else:
+                      file_metadata = {'name': f, 'parents': [folder_id]}
+                      file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                      print(f'✅ Criado no Drive: {f}')
+          "
