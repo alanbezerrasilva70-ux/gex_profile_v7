@@ -46,14 +46,17 @@ def black_scholes_gamma(S, K, T, r, sigma):
     except:
         return 0.0
 def iniciar_driver():
-    print("👻 Iniciando Driver V7 com Stealth (Bypass Cloudflare)...")
-    import undetected_chromedriver as uc
-    options = uc.ChromeOptions()
-    options.add_argument("--headless=new")
+    print("👻 Iniciando Driver V7 (GEX Cloud Engine)...")
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    options = ChromeOptions()
+    options.add_argument("--headless=new") 
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    
     try:
-        driver = uc.Chrome(options=options)
+        driver = webdriver.Chrome(options=options)
         print("✅ Driver Cloud iniciado com sucesso!")
         return driver
     except Exception as e:
