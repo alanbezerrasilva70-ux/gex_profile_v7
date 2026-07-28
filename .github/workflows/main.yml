@@ -50,7 +50,7 @@ jobs:
               
               service = build('drive', 'v3', credentials=creds)
               
-              # FILTRO BLINDADO: Puxa apenas a ID exata, ignorando links, espaços ou quebras de linha
+              # FILTRO BLINDADO: Puxa apenas a ID exata
               raw_id = os.environ.get('FOLDER_ID', '')
               match = re.search(r'[-\w]{25,}', raw_id)
               if not match:
@@ -65,21 +65,20 @@ jobs:
                   if os.path.isfile(filepath):
                       query = f\"name='{f}' and '{folder_id}' in parents and trashed=false\"
                       
-                      # COMANDO FORÇADO: Lê pastas compartilhadas de contas pessoais
+                      # Leitura padrão sem tags empresariais
                       results = service.files().list(
-                          q=query, spaces='drive', fields='files(id, name)',
-                          includeItemsFromAllDrives=True, supportsAllDrives=True
+                          q=query, spaces='drive', fields='files(id, name)'
                       ).execute()
                       items = results.get('files', [])
 
                       media = MediaFileUpload(filepath, resumable=True)
                       if items:
                           file_id = items[0]['id']
-                          service.files().update(fileId=file_id, media_body=media, supportsAllDrives=True).execute()
+                          service.files().update(fileId=file_id, media_body=media).execute()
                           print(f'🔄 Atualizado: {f}')
                       else:
                           file_metadata = {'name': f, 'parents': [folder_id]}
-                          service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
+                          service.files().create(body=file_metadata, media_body=media, fields='id').execute()
                           print(f'✅ Criado: {f}')
           else:
               print('⚠️ A pasta GEX_Data está vazia.')
