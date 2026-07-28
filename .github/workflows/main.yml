@@ -34,6 +34,7 @@ jobs:
         run: |
           python -c "
           import os
+          import re
           from google.oauth2 import service_account
           from googleapiclient.discovery import build
           from googleapiclient.http import MediaFileUpload
@@ -45,31 +46,41 @@ jobs:
           if files:
               SCOPES = ['https://www.googleapis.com/auth/drive']
               creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
-              
-              # IMPRIME O CRACHÁ PARA DESCOBRIRMOS SE É O E-MAIL CERTO
-              print(f'🤖 Crachá do Robô (E-mail na nuvem): {creds.service_account_email}')
+              print(f'🤖 Crachá do Robô: {creds.service_account_email}')
               
               service = build('drive', 'v3', credentials=creds)
               
-              # A MÁGICA PARA LIMPAR ESPAÇOS INVISÍVEIS DA SUA ID
-              folder_id = os.environ.get('FOLDER_ID', '').strip()
+              # FILTRO BLINDADO: Puxa apenas a ID exata, ignorando links, espaços ou quebras de linha
+              raw_id = os.environ.get('FOLDER_ID', '')
+              match = re.search(r'[-\w]{25,}', raw_id)
+              if not match:
+                  print('❌ ERRO: ID da pasta não encontrada.')
+                  exit(1)
+              
+              folder_id = match.group(0)
+              print(f'📂 ID Alvo (Limpa e Filtrada): {folder_id}')
               
               for f in files:
                   filepath = os.path.join(path, f)
                   if os.path.isfile(filepath):
                       query = f\"name='{f}' and '{folder_id}' in parents and trashed=false\"
-                      results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+                      
+                      # COMANDO FORÇADO: Lê pastas compartilhadas de contas pessoais
+                      results = service.files().list(
+                          q=query, spaces='drive', fields='files(id, name)',
+                          includeItemsFromAllDrives=True, supportsAllDrives=True
+                      ).execute()
                       items = results.get('files', [])
 
                       media = MediaFileUpload(filepath, resumable=True)
                       if items:
                           file_id = items[0]['id']
-                          service.files().update(fileId=file_id, media_body=media).execute()
-                          print(f'🔄 Atualizado no Drive: {f}')
+                          service.files().update(fileId=file_id, media_body=media, supportsAllDrives=True).execute()
+                          print(f'🔄 Atualizado: {f}')
                       else:
                           file_metadata = {'name': f, 'parents': [folder_id]}
-                          service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-                          print(f'✅ Criado no Drive: {f}')
+                          service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
+                          print(f'✅ Criado: {f}')
           else:
-              print('⚠️ Alerta: A pasta GEX_Data está vazia.')
+              print('⚠️ A pasta GEX_Data está vazia.')
           "
