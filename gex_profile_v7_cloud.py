@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
 # ==============================================================================
-# CONFIGURAÇÕES V7 - COM MOTOR MATEMÁTICO BLACK-SCHOLES
+# CONFIGURAÇÕES V7 - COM MOTOR MATEMÁTICO BLACK-SCHOLES (UPGRADE INSTITUCIONAL)
 # ==============================================================================
 PASTA_DADOS = "./GEX_Data" 
 HEADLESS_MODE = True 
@@ -20,6 +20,16 @@ ATIVOS = {
     "GC": "https://www.barchart.com/futures/quotes/GC*0/options?futuresOptionsView=split",
     "ZB": "https://www.barchart.com/futures/quotes/ZB*0/options?futuresOptionsView=split",
     "ZN": "https://www.barchart.com/futures/quotes/ZN*0/options?futuresOptionsView=split"
+}
+
+# 1. CORREÇÃO: MULTIPLICADORES DE CONTRATOS FUTUROS REAIS
+MULTIPLIADORES = {
+    "ES": 50,   # S&P 500 = $50 por ponto
+    "NQ": 20,   # Nasdaq = $20 por ponto
+    "CL": 1000, # Petróleo = 1000 barris
+    "GC": 100,  # Ouro = 100 onças
+    "ZB": 1000, # T-Bond = ~$1000 por ponto inteiro
+    "ZN": 1000  # T-Note = ~$1000 por ponto inteiro
 }
 
 # --- MOTOR MATEMÁTICO BLACK-SCHOLES ---
@@ -110,6 +120,9 @@ def process(driver, symbol, url):
         if symbol == "NQ": iv_avg = 0.18
         if symbol == "CL": iv_avg = 0.25
         
+        # Resgata o multiplicador correto do ativo
+        mult = MULTIPLIADORES.get(symbol, 100)
+        
         for i in range(5, len(tokens)-5):
             t = tokens[i].replace(',', '')
             if not re.match(r'^\d{1,5}(\.\d{1,4})?$', t): continue
@@ -128,10 +141,12 @@ def process(driver, symbol, url):
                 if c_oi==0 and p_oi==0 and c_vol==0 and p_vol==0: continue
                 
                 gamma_unit = black_scholes_gamma(spot, strike, T_years, risk_free, iv_avg)
-                call_gex = c_oi * gamma_unit * 100 * spot 
-                put_gex = p_oi * gamma_unit * 100 * spot
-                net_gex_strike = call_gex - put_gex
                 
+                # 2. CORREÇÃO: CÁLCULO GEX COM MULTIPLICADOR FUTURO
+                call_gex = c_oi * gamma_unit * mult * spot 
+                put_gex = p_oi * gamma_unit * mult * spot
+                net_gex_strike = call_gex - put_gex
+              
                 net_flow_strike = c_vol - p_vol
                 total_vol = c_vol + p_vol
                 total_oi = c_oi + p_oi 
@@ -162,7 +177,14 @@ def process(driver, symbol, url):
             cw = df.iloc[-1]
             pw = df.iloc[0]
 
-        zero_gamma = (cw['strike'] + pw['strike']) / 2
+        # 3. CORREÇÃO: ZERO GAMMA FLIP REAL (Onde o Net GEX cruza zero)
+        try:
+            # Encontra a linha onde o valor absoluto de 'ng' é o menor (mais próximo de zero)
+            zg_idx = df['ng'].abs().idxmin()
+            zero_gamma = df.loc[zg_idx]['strike']
+        except:
+            zero_gamma = spot # Falha segura
+
         dp = df.loc[df['vol'].idxmax()]
         
         tot_gex = df['ng'].sum()
@@ -177,12 +199,12 @@ def process(driver, symbol, url):
             "ZG": zero_gamma, 
             "PG": cw['strike'], 
             "NG": pw['strike'], 
-            "DP": dp['strike'], "DPM": format_money(dp['vol']*spot*50),
+            "DP": dp['strike'], "DPM": format_money(dp['vol']*spot*mult), # Atualizado
             "MP": max_pain, 
             "Rat": f"{(abs(df['ng'][df['ng']<0].sum()) / df['ng'][df['ng']>0].sum() if df['ng'][df['ng']>0].sum() > 0 else 0):.2f}",
             "FlowSig": sig_flow,
             "GexSig": sig_gex,
-            "FlowVal": format_money(tot_flow * spot * 50),
+            "FlowVal": format_money(tot_flow * spot * mult), # Atualizado
             "GexVal": format_money(tot_gex), 
             "AlvoUp": f"{spot*1.005:.2f}",
             "AlvoDown": f"{spot*0.995:.2f}"
