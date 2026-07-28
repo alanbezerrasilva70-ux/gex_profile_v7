@@ -19,67 +19,15 @@ jobs:
 
       - name: Instalar dependências
         run: |
-          pip install pandas selenium google-api-python-client google-auth-httplib2 google-auth
+          pip install pandas selenium
           mkdir -p ./GEX_Data
 
       - name: Executar o Motor Black-Scholes
         run: python gex_profile_v7_cloud.py
 
-      - name: Criar Arquivo de Credenciais
-        run: echo '${{ secrets.DRIVE_CREDENTIALS }}' > credentials.json
-
-      - name: Upload Direto via Google API
-        env:
-          FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
-        run: |
-          python -c "
-          import os
-          import re
-          from google.oauth2 import service_account
-          from googleapiclient.discovery import build
-          from googleapiclient.http import MediaFileUpload
-
-          path = './GEX_Data'
-          files = os.listdir(path)
-          print(f'📄 Arquivos gerados no servidor: {files}')
-
-          if files:
-              SCOPES = ['https://www.googleapis.com/auth/drive']
-              creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
-              print(f'🤖 Crachá do Robô: {creds.service_account_email}')
-              
-              service = build('drive', 'v3', credentials=creds)
-              
-              # FILTRO BLINDADO: Puxa apenas a ID exata
-              raw_id = os.environ.get('FOLDER_ID', '')
-              match = re.search(r'[-\w]{25,}', raw_id)
-              if not match:
-                  print('❌ ERRO: ID da pasta não encontrada.')
-                  exit(1)
-              
-              folder_id = match.group(0)
-              print(f'📂 ID Alvo (Limpa e Filtrada): {folder_id}')
-              
-              for f in files:
-                  filepath = os.path.join(path, f)
-                  if os.path.isfile(filepath):
-                      query = f\"name='{f}' and '{folder_id}' in parents and trashed=false\"
-                      
-                      # Leitura padrão sem tags empresariais
-                      results = service.files().list(
-                          q=query, spaces='drive', fields='files(id, name)'
-                      ).execute()
-                      items = results.get('files', [])
-
-                      media = MediaFileUpload(filepath, resumable=True)
-                      if items:
-                          file_id = items[0]['id']
-                          service.files().update(fileId=file_id, media_body=media).execute()
-                          print(f'🔄 Atualizado: {f}')
-                      else:
-                          file_metadata = {'name': f, 'parents': [folder_id]}
-                          service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-                          print(f'✅ Criado: {f}')
-          else:
-              print('⚠️ A pasta GEX_Data está vazia.')
-          "
+      - name: Salvar Planilhas (GitHub Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: GEX_Data_Planilhas
+          path: ./GEX_Data/*.csv
+          retention-days: 5
