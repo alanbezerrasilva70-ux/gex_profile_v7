@@ -232,26 +232,37 @@ def process(driver, symbol, url):
         print(f" ❌ Erro processamento: {e}")
         return None, None
 
-def save(sym, res, df):
-    if not os.path.exists(PASTA_DADOS): os.makedirs(PASTA_DADOS)
-    if res:
-        with open(f"{PASTA_DADOS}/NiveisGamma_{sym}.csv", "w") as f:
-            f.write(f"{res['CW']},{res['PW']},{res['ZG']:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']}")
-        
-        with open(f"{PASTA_DADOS}/AlvosVolatilidade_{sym}.csv", "w") as f:
-            f.write(f"{res['MP']},{res['DP']},{res['Rat']},15.5,{res['FlowSig']},{res['GexSig']},{res['DPM']},{res['FlowVal']},{res['GexVal']},{res['AlvoUp']},{res['AlvoDown']}")
-            
-    if df is not None:
-        # Salva o Profile de Gama (Barras)
-        # Importante: Salvamos 'ng' (Net Gamma) que agora é calculado via Black-Scholes
-        df.to_csv(f"{PASTA_DADOS}/GammaProfile_{sym}.csv", index=False, columns=['strike','ng'])
+def upload_to_dropbox():
+    import dropbox
+    app_key = "4pm4yvuedoezz7u"
+    app_secret = os.environ.get("DBX_SECRET")
+    refresh_token = os.environ.get("DBX_REFRESH")
+    
+    if not app_secret or not refresh_token:
+        return
+
+    print("☁️ Conectando ao Dropbox...")
+    try:
+        dbx = dropbox.Dropbox(app_key=app_key, app_secret=app_secret, oauth2_refresh_token=refresh_token)
+        files = os.listdir(PASTA_DADOS)
+        for f in files:
+            filepath = os.path.join(PASTA_DADOS, f)
+            if os.path.isfile(filepath):
+                with open(filepath, 'rb') as file_data:
+                    dbx.files_upload(file_data.read(), f"/{f}", mode=dropbox.files.WriteMode.overwrite)
+                    print(f"✅ Sincronizado no Dropbox: {f}")
+    except Exception as e:
+        print(f"❌ Erro no Dropbox: {e}")
 
 if __name__ == "__main__":
-    print("--- INICIANDO ROBÔ CLOUD DE GAMA ESTRUTURAL ---")
+    print("--- INICIANDO ROBÔ DE GAMA ESTRUTURAL (B&S MODEL) ---")
     d = iniciar_driver()
     if d:
         for s, u in ATIVOS.items():
             r, f = process(d, s, u)
             save(s, r, f)
         d.quit()
-    print("✅ Ciclo finalizado! Partindo para o upload no Drive...")
+        
+    # Sincroniza direto para a sua máquina!
+    upload_to_dropbox()
+    print("✅ Ciclo finalizado!")
