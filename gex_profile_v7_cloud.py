@@ -260,9 +260,9 @@ if __name__ == "__main__":
     if d:
         for s, u in ATIVOS.items():
             r, f = process(d, s, u)
-            save(s, r, f)
+            save(s, r, f) # Mantido minúsculo corretamente
         d.quit()
         
-    # Sincroniza direto para a sua máquina!
+    # Sincroniza direto para o Dropbox!
     upload_to_dropbox()
     print("✅ Ciclo finalizado!")
