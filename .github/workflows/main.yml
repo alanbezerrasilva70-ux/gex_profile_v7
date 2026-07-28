@@ -45,9 +45,15 @@ jobs:
           if files:
               SCOPES = ['https://www.googleapis.com/auth/drive']
               creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+              
+              # IMPRIME O CRACHÁ PARA DESCOBRIRMOS SE É O E-MAIL CERTO
+              print(f'🤖 Crachá do Robô (E-mail na nuvem): {creds.service_account_email}')
+              
               service = build('drive', 'v3', credentials=creds)
-              folder_id = os.environ.get('FOLDER_ID')
-
+              
+              # A MÁGICA PARA LIMPAR ESPAÇOS INVISÍVEIS DA SUA ID
+              folder_id = os.environ.get('FOLDER_ID', '').strip()
+              
               for f in files:
                   filepath = os.path.join(path, f)
                   if os.path.isfile(filepath):
