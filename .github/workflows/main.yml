@@ -19,15 +19,11 @@ jobs:
 
       - name: Instalar dependências
         run: |
-          pip install pandas selenium
+          pip install pandas selenium dropbox
           mkdir -p ./GEX_Data
 
-      - name: Executar o Motor Black-Scholes
+      - name: Executar Motor e Sincronizar Dropbox
+        env:
+          DBX_SECRET: ${{ secrets.DBX_SECRET }}
+          DBX_REFRESH: ${{ secrets.DBX_REFRESH }}
         run: python gex_profile_v7_cloud.py
-
-      - name: Salvar Planilhas (GitHub Artifacts)
-        uses: actions/upload-artifact@v4
-        with:
-          name: GEX_Data_Planilhas
-          path: ./GEX_Data/*.csv
-          retention-days: 5
