@@ -193,6 +193,12 @@ def process(driver, symbol, url):
         tot_flow = df['nf'].sum()
         sig_flow = "Bull" if tot_flow > 0 else "Bear"
         
+        # 🟢🔴 NOVA LÓGICA: REGIME DE MERCADO INSTITUCIONAL
+        if tot_gex > 0:
+            regime = "LONG GAMMA (Estavel/Suporte)"
+        else:
+            regime = "SHORT GAMMA (Volatil/Squeeze)"
+            
         res = {
             "CW": cw['strike'], "CWM": format_money(cw['ng']), 
             "PW": pw['strike'], "PWM": format_money(pw['ng']),
@@ -207,7 +213,8 @@ def process(driver, symbol, url):
             "FlowVal": format_money(tot_flow * spot * mult), # Atualizado
             "GexVal": format_money(tot_gex), 
             "AlvoUp": f"{spot*1.005:.2f}",
-            "AlvoDown": f"{spot*0.995:.2f}"
+            "AlvoDown": f"{spot*0.995:.2f}",
+            "Regime": regime
         }
         
         print(f" ✅ P:{spot} | CW:{res['CW']} | PW:{res['PW']} | ZG:{res['ZG']:.2f}")
@@ -227,7 +234,7 @@ def save(sym, res, df):
         
         file_alvos = os.path.join(PASTA_DADOS, f"AlvosVolatilidade_{sym}.csv")
         with open(file_alvos, "w") as f:
-            f.write(f"{res['MP']},{res['DP']},{res['Rat']},15.5,{res['FlowSig']},{res['GexSig']},{res['DPM']},{res['FlowVal']},{res['GexVal']},{res['AlvoUp']},{res['AlvoDown']}")
+            f.write(f"{res['MP']},{res['DP']},{res['Rat']},15.5,{res['FlowSig']},{res['GexSig']},{res['DPM']},{res['FlowVal']},{res['GexVal']},{res['AlvoUp']},{res['AlvoDown']},{res['Regime']}")
             
     if df is not None:
         file_profile = os.path.join(PASTA_DADOS, f"GammaProfile_{sym}.csv")
