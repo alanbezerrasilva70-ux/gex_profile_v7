@@ -13,15 +13,6 @@ from selenium.webdriver.common.keys import Keys
 PASTA_DADOS = "./GEX_Data" 
 HEADLESS_MODE = True 
 
-ATIVOS = {
-    "ES": "https://www.barchart.com/futures/quotes/ES*0/options?futuresOptionsView=split", 
-    "NQ": "https://www.barchart.com/futures/quotes/NQ*0/options?futuresOptionsView=split", 
-    "CL": "https://www.barchart.com/futures/quotes/CL*0/options?futuresOptionsView=split", 
-    "GC": "https://www.barchart.com/futures/quotes/GC*0/options?futuresOptionsView=split",
-    "ZB": "https://www.barchart.com/futures/quotes/ZB*0/options?futuresOptionsView=split",
-    "ZN": "https://www.barchart.com/futures/quotes/ZN*0/options?futuresOptionsView=split"
-}
-
 # 1. CORREÇÃO: MULTIPLICADORES DE CONTRATOS FUTUROS REAIS
 MULTIPLIADORES = {
     "ES": 50,   # S&P 500 = $50 por ponto
@@ -179,11 +170,10 @@ def process(driver, symbol, url):
 
         # 3. CORREÇÃO: ZERO GAMMA FLIP REAL (Onde o Net GEX cruza zero)
         try:
-            # Encontra a linha onde o valor absoluto de 'ng' é o menor (mais próximo de zero)
             zg_idx = df['ng'].abs().idxmin()
             zero_gamma = df.loc[zg_idx]['strike']
         except:
-            zero_gamma = spot # Falha segura
+            zero_gamma = spot
 
         dp = df.loc[df['vol'].idxmax()]
         
@@ -205,12 +195,12 @@ def process(driver, symbol, url):
             "ZG": zero_gamma, 
             "PG": cw['strike'], 
             "NG": pw['strike'], 
-            "DP": dp['strike'], "DPM": format_money(dp['vol']*spot*mult), # Atualizado
+            "DP": dp['strike'], "DPM": format_money(dp['vol']*spot*mult), 
             "MP": max_pain, 
             "Rat": f"{(abs(df['ng'][df['ng']<0].sum()) / df['ng'][df['ng']>0].sum() if df['ng'][df['ng']>0].sum() > 0 else 0):.2f}",
             "FlowSig": sig_flow,
             "GexSig": sig_gex,
-            "FlowVal": format_money(tot_flow * spot * mult), # Atualizado
+            "FlowVal": format_money(tot_flow * spot * mult), 
             "GexVal": format_money(tot_gex), 
             "AlvoUp": f"{spot*1.005:.2f}",
             "AlvoDown": f"{spot*0.995:.2f}",
@@ -263,38 +253,30 @@ def upload_to_dropbox():
     except Exception as e:
         print(f"❌ Erro no Dropbox: {e}")
 
-if __name__ == "__main__":
-    # ==============================================================================
-# MOTOR DE AGREGAÇÃO INSTITUCIONAL (COLE NO FINAL DO ARQUIVO)
+# ==============================================================================
+# MOTOR DE AGREGAÇÃO INSTITUCIONAL
 # ==============================================================================
 def process_group(driver, symbol, asset_list):
-    import pandas as pd
     print(f"\n🔄 AGREGANDO FLUXO MACRO PARA: {symbol} (Institucional)...")
     df_master = pd.DataFrame()
     spot_master = 0
     
     for asset in asset_list:
-        # Chama a função de processamento original 
         res, df = process(driver, symbol, asset["url"]) 
         if df is not None and not df.empty:
-            # 1. Alinha os Strikes (Ex: O strike 500 do SPY vira 5000 para casar com o ES)
             df['strike'] = df['strike'] * asset['strike_mult']
-            # 2. Arredonda para o múltiplo de 5 mais próximo para fundir as muralhas
             df['strike'] = (df['strike'] / 5).round() * 5
-            # 3. Corrige o cálculo do GEX baseado no peso real do ativo
             df['ng'] = df['ng'] * asset['gex_correcao']
             df['nf'] = df['nf'] * asset['gex_correcao']
             
             df_master = pd.concat([df_master, df], ignore_index=True)
             
-            # Guarda o preço do contrato futuro principal (ES, NQ, GC) como referência
             if asset['strike_mult'] == 1 and spot_master == 0:
                 try: spot_master = get_price(driver, symbol)
                 except: pass
                 
     if df_master.empty: return None, None
     
-    # Consolida tudo: Soma o GEX e o Volume dos 3 mercados exatamente nos mesmos níveis
     df_agg = df_master.groupby('strike', as_index=False).sum().sort_values('strike')
     
     try:
@@ -331,7 +313,6 @@ def process_group(driver, symbol, asset_list):
 if __name__ == "__main__":
     print("--- INICIANDO QUANT ENGINE V8 AGREGADO (NÍVEL INSTITUCIONAL) ---")
     
-    # Dicionário avançado: Agrega o Índice Principal, o ETF e o Futuro
     ATIVOS_AGREGADOS = {
         "ES": [
             {"url": "https://www.barchart.com/futures/quotes/ES*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
@@ -346,7 +327,6 @@ if __name__ == "__main__":
             {"url": "https://www.barchart.com/futures/quotes/GC*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
             {"url": "https://www.barchart.com/etfs-funds/quotes/GLD/options?view=split", "strike_mult": 10, "gex_correcao": 1}
         ],
-        # Petróleo e T-Bonds mantemos diretos apenas com o futuro
         "CL": [{"url": "https://www.barchart.com/futures/quotes/CL*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
         "ZB": [{"url": "https://www.barchart.com/futures/quotes/ZB*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
         "ZN": [{"url": "https://www.barchart.com/futures/quotes/ZN*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}]
