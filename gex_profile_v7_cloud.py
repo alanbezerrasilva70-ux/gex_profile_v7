@@ -264,13 +264,100 @@ def upload_to_dropbox():
         print(f"❌ Erro no Dropbox: {e}")
 
 if __name__ == "__main__":
-    print("--- INICIANDO ROBÔ DE GAMA ESTRUTURAL (B&S MODEL) ---")
+    # ==============================================================================
+# MOTOR DE AGREGAÇÃO INSTITUCIONAL (COLE NO FINAL DO ARQUIVO)
+# ==============================================================================
+def process_group(driver, symbol, asset_list):
+    import pandas as pd
+    print(f"\n🔄 AGREGANDO FLUXO MACRO PARA: {symbol} (Institucional)...")
+    df_master = pd.DataFrame()
+    spot_master = 0
+    
+    for asset in asset_list:
+        # Chama a função de processamento original 
+        res, df = process(driver, symbol, asset["url"]) 
+        if df is not None and not df.empty:
+            # 1. Alinha os Strikes (Ex: O strike 500 do SPY vira 5000 para casar com o ES)
+            df['strike'] = df['strike'] * asset['strike_mult']
+            # 2. Arredonda para o múltiplo de 5 mais próximo para fundir as muralhas
+            df['strike'] = (df['strike'] / 5).round() * 5
+            # 3. Corrige o cálculo do GEX baseado no peso real do ativo
+            df['ng'] = df['ng'] * asset['gex_correcao']
+            df['nf'] = df['nf'] * asset['gex_correcao']
+            
+            df_master = pd.concat([df_master, df], ignore_index=True)
+            
+            # Guarda o preço do contrato futuro principal (ES, NQ, GC) como referência
+            if asset['strike_mult'] == 1 and spot_master == 0:
+                try: spot_master = get_price(driver, symbol)
+                except: pass
+                
+    if df_master.empty: return None, None
+    
+    # Consolida tudo: Soma o GEX e o Volume dos 3 mercados exatamente nos mesmos níveis
+    df_agg = df_master.groupby('strike', as_index=False).sum().sort_values('strike')
+    
+    try:
+        cw = df_agg.loc[df_agg['ng'].idxmax()]
+        pw = df_agg.loc[df_agg['ng'].idxmin()]
+        zg_idx = df_agg['ng'].abs().idxmin()
+        zero_gamma = df_agg.loc[zg_idx]['strike']
+        max_pain = df_agg.loc[df_agg['toi'].idxmax()]['strike'] if 'toi' in df_agg.columns else spot_master
+        dp = df_agg.loc[df_agg['vol'].idxmax()] if 'vol' in df_agg.columns else cw
+    except: return None, None
+        
+    tot_gex = df_agg['ng'].sum()
+    regime = "LONG GAMMA (Estavel/Suporte)" if tot_gex > 0 else "SHORT GAMMA (Volatil/Squeeze)"
+    
+    res_agg = {
+        "CW": cw['strike'], "CWM": format_money(cw['ng']),
+        "PW": pw['strike'], "PWM": format_money(pw['ng']),
+        "ZG": zero_gamma, "PG": cw['strike'], "NG": pw['strike'],
+        "DP": dp['strike'], "DPM": format_money(dp['vol'] * spot_master if 'vol' in dp else 0),
+        "MP": max_pain,
+        "Rat": f"{(abs(df_agg['ng'][df_agg['ng']<0].sum()) / df_agg['ng'][df_agg['ng']>0].sum() if df_agg['ng'][df_agg['ng']>0].sum() > 0 else 0):.2f}",
+        "FlowSig": "Bull" if df_agg.get('nf', pd.Series([0])).sum() > 0 else "Bear",
+        "GexSig": "Bull" if tot_gex > 0 else "Bear",
+        "FlowVal": format_money(df_agg.get('nf', pd.Series([0])).sum() * spot_master),
+        "GexVal": format_money(tot_gex),
+        "AlvoUp": f"{spot_master*1.005:.2f}" if spot_master else "0",
+        "AlvoDown": f"{spot_master*0.995:.2f}" if spot_master else "0",
+        "Regime": regime
+    }
+    
+    print(f" 🌟 MURALHAS CONSOLIDADAS {symbol} -> CW:{res_agg['CW']} | PW:{res_agg['PW']} | ZG:{res_agg['ZG']:.2f}")
+    return res_agg, df_agg
+
+if __name__ == "__main__":
+    print("--- INICIANDO QUANT ENGINE V8 AGREGADO (NÍVEL INSTITUCIONAL) ---")
+    
+    # Dicionário avançado: Agrega o Índice Principal, o ETF e o Futuro
+    ATIVOS_AGREGADOS = {
+        "ES": [
+            {"url": "https://www.barchart.com/futures/quotes/ES*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
+            {"url": "https://www.barchart.com/stocks/quotes/$SPX/options?view=split", "strike_mult": 1, "gex_correcao": 2},
+            {"url": "https://www.barchart.com/etfs-funds/quotes/SPY/options?view=split", "strike_mult": 10, "gex_correcao": 2}
+        ],
+        "NQ": [
+            {"url": "https://www.barchart.com/futures/quotes/NQ*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
+            {"url": "https://www.barchart.com/etfs-funds/quotes/QQQ/options?view=split", "strike_mult": 40, "gex_correcao": 5}
+        ],
+        "GC": [
+            {"url": "https://www.barchart.com/futures/quotes/GC*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
+            {"url": "https://www.barchart.com/etfs-funds/quotes/GLD/options?view=split", "strike_mult": 10, "gex_correcao": 1}
+        ],
+        # Petróleo e T-Bonds mantemos diretos apenas com o futuro
+        "CL": [{"url": "https://www.barchart.com/futures/quotes/CL*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
+        "ZB": [{"url": "https://www.barchart.com/futures/quotes/ZB*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
+        "ZN": [{"url": "https://www.barchart.com/futures/quotes/ZN*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}]
+    }
+
     d = iniciar_driver()
     if d:
-        for s, u in ATIVOS.items():
-            r, f = process(d, s, u)
+        for s, urls in ATIVOS_AGREGADOS.items():
+            r, f = process_group(d, s, urls)
             save(s, r, f)
         d.quit()
         
     upload_to_dropbox()
-    print("✅ Ciclo finalizado!")
+    print("✅ Ciclo de Agregação Finalizado!")
