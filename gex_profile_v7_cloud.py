@@ -220,7 +220,8 @@ def save(sym, res, df):
     if res:
         file_niveis = os.path.join(PASTA_DADOS, f"NiveisGamma_{sym}.csv")
         with open(file_niveis, "w") as f:
-            f.write(f"{res['CW']},{res['PW']},{res['ZG']:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res['CW']},{res['PW']}")
+            # Agora gravando os valores reais do 0DTE nas posições 7 e 8
+            f.write(f"{res['CW']},{res['PW']},{res['ZG']:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res['CW_0DTE']},{res['PW_0DTE']}")
         
         file_alvos = os.path.join(PASTA_DADOS, f"AlvosVolatilidade_{sym}.csv")
         with open(file_alvos, "w") as f:
@@ -290,7 +291,19 @@ def process_group(driver, symbol, asset_list):
         
     tot_gex = df_agg['ng'].sum()
     regime = "LONG GAMMA (Estavel/Suporte)" if tot_gex > 0 else "SHORT GAMMA (Volatil/Squeeze)"
-    
+        
+    # --- INÍCIO DO DUPLO PASSE FURTIVO (0DTE) ---
+    print(" 🕵️ Iniciando passe furtivo para 0DTE (Pausa de 5s para evitar bloqueio Barchart)...")
+    time.sleep(5)
+        
+    # Fazemos uma segunda leitura focada no ativo principal (Front Month) para extrair o curtíssimo prazo
+    res_0dte, _ = process(driver, symbol, asset_list[0]["url"]) 
+        
+    # Se houver falha, usamos a Macro como proteção (Fallback)
+    cw_0dte = res_0dte['CW'] if res_0dte else cw['strike']
+    pw_0dte = res_0dte['PW'] if res_0dte else pw['strike']
+    # --- FIM DO DUPLO PASSE ---
+
     res_agg = {
         "CW": cw['strike'], "CWM": format_money(cw['ng']),
         "PW": pw['strike'], "PWM": format_money(pw['ng']),
@@ -304,10 +317,13 @@ def process_group(driver, symbol, asset_list):
         "GexVal": format_money(tot_gex),
         "AlvoUp": f"{spot_master*1.005:.2f}" if spot_master else "0",
         "AlvoDown": f"{spot_master*0.995:.2f}" if spot_master else "0",
-        "Regime": regime
+        "Regime": regime,
+        "CW_0DTE": cw_0dte,
+        "PW_0DTE": pw_0dte
     }
-    
-    print(f" 🌟 MURALHAS CONSOLIDADAS {symbol} -> CW:{res_agg['CW']} | PW:{res_agg['PW']} | ZG:{res_agg['ZG']:.2f}")
+        
+    print(f" 🌟 MURALHAS MACRO -> CW:{res_agg['CW']} | PW:{res_agg['PW']} | ZG:{res_agg['ZG']:.2f}")
+    print(f" ⚡ MURALHAS 0DTE  -> CW_0:{res_agg['CW_0DTE']} | PW_0:{res_agg['PW_0DTE']}")
     return res_agg, df_agg
 
 if __name__ == "__main__":
