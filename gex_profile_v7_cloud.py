@@ -220,7 +220,7 @@ def save(sym, res, df):
     if res:
         file_niveis = os.path.join(PASTA_DADOS, f"NiveisGamma_{sym}.csv")
         with open(file_niveis, "w") as f:
-            f.write(f"{res['CW']},{res['PW']},{res['ZG']:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']}")
+            f.write(f"{res['CW']},{res['PW']},{res['ZG']:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res['CW']},{res['PW']}")
         
         file_alvos = os.path.join(PASTA_DADOS, f"AlvosVolatilidade_{sym}.csv")
         with open(file_alvos, "w") as f:
