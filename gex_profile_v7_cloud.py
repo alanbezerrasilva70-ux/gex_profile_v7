@@ -15,12 +15,15 @@ HEADLESS_MODE = True
 
 # 1. CORREÇÃO: MULTIPLICADORES DE CONTRATOS FUTUROS REAIS
 MULTIPLIADORES = {
-    "ES": 50,   # S&P 500 = $50 por ponto
-    "NQ": 20,   # Nasdaq = $20 por ponto
-    "CL": 1000, # Petróleo = 1000 barris
-    "GC": 100,  # Ouro = 100 onças
-    "ZB": 1000, # T-Bond = ~$1000 por ponto inteiro
-    "ZN": 1000  # T-Note = ~$1000 por ponto inteiro
+    "ES": 50,    # S&P 500 = $50 por ponto
+    "NQ": 20,    # Nasdaq = $20 por ponto
+    "CL": 1000,  # Petróleo = 1000 barris
+    "GC": 100,   # Ouro = 100 onças
+    "ZB": 1000,  # T-Bond = ~$1000 por ponto inteiro
+    "ZN": 1000,  # T-Note = ~$1000 por ponto inteiro
+    "YM": 5,     # Dow Jones = $5 por ponto
+    "RTY": 50,   # Russell 2000 = $50 por ponto
+    "NG": 10000  # Gás Natural = 10.000 mmBtu
 }
 
 # --- MOTOR MATEMÁTICO BLACK-SCHOLES ---
@@ -108,8 +111,13 @@ def process(driver, symbol, url):
         T_years = 1.0 / 365.0  
         risk_free = 0.05       
         iv_avg = 0.14          
+        
+        # Ajuste de IV para os novos ativos
         if symbol == "NQ": iv_avg = 0.18
         if symbol == "CL": iv_avg = 0.25
+        if symbol == "YM": iv_avg = 0.12
+        if symbol == "RTY": iv_avg = 0.20
+        if symbol == "NG": iv_avg = 0.40
         
         # Resgata o multiplicador correto do ativo
         mult = MULTIPLIADORES.get(symbol, 100)
@@ -345,7 +353,10 @@ if __name__ == "__main__":
         ],
         "CL": [{"url": "https://www.barchart.com/futures/quotes/CL*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
         "ZB": [{"url": "https://www.barchart.com/futures/quotes/ZB*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
-        "ZN": [{"url": "https://www.barchart.com/futures/quotes/ZN*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}]
+        "ZN": [{"url": "https://www.barchart.com/futures/quotes/ZN*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
+        "YM": [{"url": "https://www.barchart.com/futures/quotes/YM*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
+        "RTY": [{"url": "https://www.barchart.com/futures/quotes/RTY*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
+        "NG": [{"url": "https://www.barchart.com/futures/quotes/NG*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}]
     }
 
     d = iniciar_driver()
