@@ -69,11 +69,10 @@ def format_money(val):
     if v >= 1e6: return f"{s}${v/1e6:.2f}M"
     return f"{s}${v:.0f}"
 
-# 🟢 SISTEMA DE RESILIÊNCIA: RETRY PARA BUSCAR O PREÇO
 def get_price(driver, symbol):
     selectors = ["span.last-change", "div.price-change", ".quote-price", ".symbol-last-price", ".last-price"]
     
-    for attempt in range(3): # Tenta achar o preço 3 vezes
+    for attempt in range(3): 
         for sel in selectors:
             try:
                 el = driver.find_element(By.CSS_SELECTOR, sel)
@@ -89,7 +88,7 @@ def get_price(driver, symbol):
                         except: pass
             except:
                 continue
-        time.sleep(2) # Pausa de 2s antes da próxima tentativa para a página carregar
+        time.sleep(2) 
         
     return 0.0
 
@@ -97,17 +96,16 @@ def process(driver, symbol, url):
     print(f" 🔎 {symbol}...", end="")
     try:
         driver.get(url)
-        time.sleep(5) # 🟢 Aumentado para 5s para dar tempo aos servidores do Barchart
+        time.sleep(5) 
         spot = get_price(driver, symbol)
         
-        # 🟢 FALLBACK: Se falhar, recarrega a página antes de abortar
         if spot == 0: 
             print(" ⚠️ Atraso detectado. Recarregando a página (F5)...")
             driver.refresh()
             time.sleep(6)
             spot = get_price(driver, symbol)
             if spot == 0:
-                print(" ❌ Spot Zero definitivo (Pode ser bloqueio anti-bot ou sem volume no momento).")
+                print(" ❌ Spot Zero definitivo.")
                 return None, None
 
         body = driver.find_element(By.TAG_NAME, "body")
@@ -271,9 +269,6 @@ def upload_to_dropbox():
 
 def process_group(driver, symbol, asset_list):
     print(f"\n🔄 AGREGANDO FLUXO MACRO PARA: {symbol} (Institucional)...")
-    
-    # 🟢 Pausa estratégica de 4 segundos antes de iniciar um novo grupo de ativos
-    # Isso impede que o Barchart bloqueie nosso robô por excesso de velocidade
     time.sleep(4) 
     
     df_master = pd.DataFrame()
@@ -289,8 +284,11 @@ def process_group(driver, symbol, asset_list):
             
             df_master = pd.concat([df_master, df], ignore_index=True)
             
-            if asset['strike_mult'] == 1 and spot_master == 0:
-                try: spot_master = get_price(driver, symbol)
+            # 🟢 NOVO: Se falhou o primeiro (ex: futuro), captura o Spot do ETF e escala!
+            if spot_master == 0:
+                try: 
+                    raw_spot = get_price(driver, symbol)
+                    spot_master = raw_spot * asset['strike_mult']
                 except: pass
                 
     if df_master.empty: return None, None
@@ -342,6 +340,7 @@ def process_group(driver, symbol, asset_list):
 if __name__ == "__main__":
     print("--- INICIANDO QUANT ENGINE V8 AGREGADO (NÍVEL INSTITUCIONAL) ---")
     
+    # 🟢 NOVO: Adicionados os ETFs DIA e IWM como Fallback (Backup)
     ATIVOS_AGREGADOS = {
         "ES": [
             {"url": "https://www.barchart.com/futures/quotes/ES*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
@@ -359,8 +358,14 @@ if __name__ == "__main__":
         "CL": [{"url": "https://www.barchart.com/futures/quotes/CL*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
         "ZB": [{"url": "https://www.barchart.com/futures/quotes/ZB*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
         "ZN": [{"url": "https://www.barchart.com/futures/quotes/ZN*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
-        "YM": [{"url": "https://www.barchart.com/futures/quotes/YM*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
-        "RTY": [{"url": "https://www.barchart.com/futures/quotes/RTY*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}],
+        "YM": [
+            {"url": "https://www.barchart.com/futures/quotes/YM*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
+            {"url": "https://www.barchart.com/etfs-funds/quotes/DIA/options?view=split", "strike_mult": 100, "gex_correcao": 1}
+        ],
+        "RTY": [
+            {"url": "https://www.barchart.com/futures/quotes/RTY*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
+            {"url": "https://www.barchart.com/etfs-funds/quotes/IWM/options?view=split", "strike_mult": 10, "gex_correcao": 5}
+        ],
         "NG": [{"url": "https://www.barchart.com/futures/quotes/NG*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}]
     }
 
