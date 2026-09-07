@@ -13,7 +13,7 @@ from selenium.webdriver.common.keys import Keys
 PASTA_DADOS = "./GEX_Data" 
 HEADLESS_MODE = True 
 
-# 1. CORREÇÃO: MULTIPLICADORES DE CONTRATOS FUTUROS REAIS
+# 1. MULTIPLICADORES DE CONTRATOS FUTUROS REAIS
 MULTIPLIADORES = {
     "ES": 50,    # S&P 500 = $50 por ponto
     "NQ": 20,    # Nasdaq = $20 por ponto
@@ -69,33 +69,46 @@ def format_money(val):
     if v >= 1e6: return f"{s}${v/1e6:.2f}M"
     return f"{s}${v:.0f}"
 
+# 🟢 SISTEMA DE RESILIÊNCIA: RETRY PARA BUSCAR O PREÇO
 def get_price(driver, symbol):
-    selectors = ["span.last-change", "div.price-change", ".quote-price"]
-    txt = ""
-    for sel in selectors:
-        try:
-            el = driver.find_element(By.CSS_SELECTOR, sel)
-            txt = el.text.split()[0].strip()
-            if txt and txt != "---": break
-        except: continue
-    if not txt: return 0.0
+    selectors = ["span.last-change", "div.price-change", ".quote-price", ".symbol-last-price", ".last-price"]
     
-    if symbol in ["ZB","ZN"] and "-" in txt:
-        try: p=txt.split('-'); return float(p[0])+(float(p[1])/32.0)
-        except: return 0.0
+    for attempt in range(3): # Tenta achar o preço 3 vezes
+        for sel in selectors:
+            try:
+                el = driver.find_element(By.CSS_SELECTOR, sel)
+                txt = el.text.split()[0].strip()
+                if txt and txt != "---": 
+                    if symbol in ["ZB","ZN"] and "-" in txt:
+                        try: 
+                            p = txt.split('-')
+                            return float(p[0]) + (float(p[1])/32.0)
+                        except: pass
+                    else:
+                        try: return float(txt.replace(',',''))
+                        except: pass
+            except:
+                continue
+        time.sleep(2) # Pausa de 2s antes da próxima tentativa para a página carregar
         
-    try: return float(txt.replace(',',''))
-    except: return 0.0
+    return 0.0
 
 def process(driver, symbol, url):
     print(f" 🔎 {symbol}...", end="")
     try:
         driver.get(url)
-        time.sleep(3)
+        time.sleep(5) # 🟢 Aumentado para 5s para dar tempo aos servidores do Barchart
         spot = get_price(driver, symbol)
+        
+        # 🟢 FALLBACK: Se falhar, recarrega a página antes de abortar
         if spot == 0: 
-            print(" ❌ Spot Zero (Site carregou?).")
-            return None, None
+            print(" ⚠️ Atraso detectado. Recarregando a página (F5)...")
+            driver.refresh()
+            time.sleep(6)
+            spot = get_price(driver, symbol)
+            if spot == 0:
+                print(" ❌ Spot Zero definitivo (Pode ser bloqueio anti-bot ou sem volume no momento).")
+                return None, None
 
         body = driver.find_element(By.TAG_NAME, "body")
         for _ in range(6):
@@ -112,14 +125,12 @@ def process(driver, symbol, url):
         risk_free = 0.05       
         iv_avg = 0.14          
         
-        # Ajuste de IV para os novos ativos
         if symbol == "NQ": iv_avg = 0.18
         if symbol == "CL": iv_avg = 0.25
         if symbol == "YM": iv_avg = 0.12
         if symbol == "RTY": iv_avg = 0.20
         if symbol == "NG": iv_avg = 0.40
         
-        # Resgata o multiplicador correto do ativo
         mult = MULTIPLIADORES.get(symbol, 100)
         
         for i in range(5, len(tokens)-5):
@@ -141,7 +152,6 @@ def process(driver, symbol, url):
                 
                 gamma_unit = black_scholes_gamma(spot, strike, T_years, risk_free, iv_avg)
                 
-                # 2. CORREÇÃO: CÁLCULO GEX COM MULTIPLICADOR FUTURO
                 call_gex = c_oi * gamma_unit * mult * spot 
                 put_gex = p_oi * gamma_unit * mult * spot
                 net_gex_strike = call_gex - put_gex
@@ -176,7 +186,6 @@ def process(driver, symbol, url):
             cw = df.iloc[-1]
             pw = df.iloc[0]
 
-        # 3. CORREÇÃO: ZERO GAMMA FLIP REAL (Onde o Net GEX cruza zero)
         try:
             zg_idx = df['ng'].abs().idxmin()
             zero_gamma = df.loc[zg_idx]['strike']
@@ -191,7 +200,6 @@ def process(driver, symbol, url):
         tot_flow = df['nf'].sum()
         sig_flow = "Bull" if tot_flow > 0 else "Bear"
         
-        # 🟢🔴 NOVA LÓGICA: REGIME DE MERCADO INSTITUCIONAL
         if tot_gex > 0:
             regime = "LONG GAMMA (Estavel/Suporte)"
         else:
@@ -228,7 +236,6 @@ def save(sym, res, df):
     if res:
         file_niveis = os.path.join(PASTA_DADOS, f"NiveisGamma_{sym}.csv")
         with open(file_niveis, "w") as f:
-            # Agora gravando os valores reais do 0DTE nas posições 7 e 8
             f.write(f"{res['CW']},{res['PW']},{res['ZG']:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res['CW_0DTE']},{res['PW_0DTE']}")
         
         file_alvos = os.path.join(PASTA_DADOS, f"AlvosVolatilidade_{sym}.csv")
@@ -262,11 +269,13 @@ def upload_to_dropbox():
     except Exception as e:
         print(f"❌ Erro no Dropbox: {e}")
 
-# ==============================================================================
-# MOTOR DE AGREGAÇÃO INSTITUCIONAL
-# ==============================================================================
 def process_group(driver, symbol, asset_list):
     print(f"\n🔄 AGREGANDO FLUXO MACRO PARA: {symbol} (Institucional)...")
+    
+    # 🟢 Pausa estratégica de 4 segundos antes de iniciar um novo grupo de ativos
+    # Isso impede que o Barchart bloqueie nosso robô por excesso de velocidade
+    time.sleep(4) 
+    
     df_master = pd.DataFrame()
     spot_master = 0
     
@@ -300,17 +309,13 @@ def process_group(driver, symbol, asset_list):
     tot_gex = df_agg['ng'].sum()
     regime = "LONG GAMMA (Estavel/Suporte)" if tot_gex > 0 else "SHORT GAMMA (Volatil/Squeeze)"
         
-    # --- INÍCIO DO DUPLO PASSE FURTIVO (0DTE) ---
     print(" 🕵️ Iniciando passe furtivo para 0DTE (Pausa de 5s para evitar bloqueio Barchart)...")
     time.sleep(5)
         
-    # Fazemos uma segunda leitura focada no ativo principal (Front Month) para extrair o curtíssimo prazo
     res_0dte, _ = process(driver, symbol, asset_list[0]["url"]) 
         
-    # Se houver falha, usamos a Macro como proteção (Fallback)
     cw_0dte = res_0dte['CW'] if res_0dte else cw['strike']
     pw_0dte = res_0dte['PW'] if res_0dte else pw['strike']
-    # --- FIM DO DUPLO PASSE ---
 
     res_agg = {
         "CW": cw['strike'], "CWM": format_money(cw['ng']),
