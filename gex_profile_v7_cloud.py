@@ -117,8 +117,11 @@ def get_price(driver, symbol):
 # ==============================================================================
 # 🟢 FUNÇÃO NOVA: TIME TRAVEL (Extrai as datas ocultas do Barchart)
 # ==============================================================================
-def extract_expiration_dates(driver):
+def extract_expiration_dates(driver, url=None):
     try:
+        if url:
+            driver.get(url)
+            time.sleep(5)
         # Injeta um script JS para raspar todas as opções de data do menu "Expiration"
         script = "return Array.from(document.querySelectorAll('select option')).map(o => o.value).filter(v => v.includes('-'));"
         dates = driver.execute_script(script)
@@ -374,8 +377,8 @@ def process_group(driver, symbol, asset_list):
     print(" 🕵️ Iniciando Time Travel para fatias DTE...")
     base_url = asset_list[0]["url"]
     
-    # Extrai o menu de datas do Barchart
-    dates = extract_expiration_dates(driver)
+    # Lê as datas da mesma URL usada para selecionar a expiração.
+    dates = extract_expiration_dates(driver, base_url)
     cw_0dte = cw['strike']
     pw_0dte = pw['strike']
     
@@ -392,6 +395,12 @@ def process_group(driver, symbol, asset_list):
             print(f"    ⏳ Lendo 1DTE ({dates[1]})...")
             res_1dte, df_1dte = process(driver, symbol, f"{base_url}&expirationDate={dates[1]}")
             save(symbol, res_1dte, df_1dte, "_1DTE")
+
+        # Extrai 2DTE (segunda próxima data de vencimento)
+        if len(dates) > 2:
+            print(f"    ⏳ Lendo 2DTE ({dates[2]})...")
+            res_2dte, df_2dte = process(driver, symbol, f"{base_url}&expirationDate={dates[2]}")
+            save(symbol, res_2dte, df_2dte, "_2DTE")
             
         # Extrai 7DTE (~Próxima Semana)
         if len(dates) > 5:
