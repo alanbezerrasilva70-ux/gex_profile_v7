@@ -19,7 +19,7 @@ jobs:
 
       - name: Instalar dependências
         run: |
-          pip install pandas selenium dropbox
+          pip install pandas selenium dropbox tzdata
           mkdir -p ./GEX_Data
 
       - name: Executar Motor e Sincronizar Dropbox

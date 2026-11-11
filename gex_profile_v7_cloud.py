@@ -3,12 +3,12 @@ import os
 import pandas as pd
 import re
 import math
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
+from datetime import date, datetime, time as datetime_time, timezone
+from urllib.parse import parse_qs, urlparse
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 # ==============================================================================
-# CONFIGURAÇÕES V9 - QUANT ENGINE (HEATMAP + TIME TRAVEL 1DTE/7DTE)
+# CONFIGURAÇÕES V9 - QUANT ENGINE (HEATMAP + TIME TRAVEL 1DTE/2DTE/7DTE)
 # ==============================================================================
 PASTA_DADOS = "./GEX_Data" 
 HEADLESS_MODE = True 
@@ -42,11 +42,219 @@ def black_scholes_gamma(S, K, T, r, sigma):
     except:
         return 0.0
 
+
+def _normalize_header(value):
+    return re.sub(r"[^a-z]", "", value.lower())
+
+
+def _parse_contract_count(value):
+    text = str(value).strip().replace(",", "").upper()
+    if text in {"", "-", "--", "—", "–", "N/A"}:
+        return 0.0
+    multiplier = 1.0
+    if text.endswith("K"):
+        multiplier = 1_000.0
+        text = text[:-1]
+    elif text.endswith("M"):
+        multiplier = 1_000_000.0
+        text = text[:-1]
+    try:
+        count = float(text) * multiplier
+    except ValueError:
+        return None
+    if not math.isfinite(count) or count < 0 or not count.is_integer():
+        return None
+    return count
+
+
+def parse_option_tables(tables, spot, margin):
+    # Antes, os valores eram lidos por posicoes em um texto achatado; uma celula
+    # ausente podia deslocar OI/volume e fazer um strike virar contagem.
+    # Agora, preservamos linhas e colunas da tabela e aceitamos apenas contagens validas.
+    best_rows = []
+    for table in tables:
+        parsed_table = []
+        headers = [_normalize_header(header) for header in table.get("headers", [])]
+        strike_columns = [i for i, header in enumerate(headers) if "strike" in header]
+        if not strike_columns:
+            continue
+        strike_index = strike_columns[0]
+        volume_columns = [
+            i for i, header in enumerate(headers)
+            if "volume" in header or header.endswith("vol")
+        ]
+        oi_columns = [
+            i for i, header in enumerate(headers)
+            if "openinterest" in header or "openint" in header
+        ]
+        call_volume = [i for i in volume_columns if i < strike_index]
+        put_volume = [i for i in volume_columns if i > strike_index]
+        call_oi = [i for i in oi_columns if i < strike_index]
+        put_oi = [i for i in oi_columns if i > strike_index]
+        if not call_volume or not put_volume or not call_oi or not put_oi:
+            continue
+        indices = (call_volume[-1], call_oi[-1], strike_index, put_volume[0], put_oi[0])
+
+        for cells in table.get("rows", []):
+            if len(cells) <= max(indices):
+                continue
+            strike_text = str(cells[strike_index]).strip().replace(",", "")
+            try:
+                strike = float(strike_text)
+            except ValueError:
+                continue
+            if not math.isfinite(strike) or not (spot - margin <= strike <= spot + margin):
+                continue
+
+            c_vol, c_oi, _, p_vol, p_oi = (
+                _parse_contract_count(cells[index]) for index in indices
+            )
+            if None in (c_vol, c_oi, p_vol, p_oi):
+                continue
+            if c_vol == 0 and c_oi == 0 and p_vol == 0 and p_oi == 0:
+                continue
+            parsed_table.append({
+                "strike": strike,
+                "c_vol": c_vol,
+                "p_vol": p_vol,
+                "coi": c_oi,
+                "poi": p_oi,
+            })
+        if len(parsed_table) > len(best_rows):
+            best_rows = parsed_table
+
+    if not best_rows:
+        raise ValueError(
+            "Nenhuma linha válida de opções encontrada. "
+            "A tabela não apresentou colunas de Calls/Strike/Puts reconhecíveis."
+        )
+    return (
+        pd.DataFrame(best_rows)
+        .groupby("strike", as_index=False)
+        .sum()
+        .sort_values("strike")
+    )
+
+
+def _expiration_date(driver, url):
+    query_date = parse_qs(urlparse(url).query).get("expirationDate", [])
+    if query_date:
+        return date.fromisoformat(query_date[0])
+
+    selected_date = driver.execute_script("""
+        return Array.from(document.querySelectorAll('select'))
+            .flatMap(select => Array.from(select.selectedOptions).map(option => option.value))
+            .find(value => /^\\d{4}-\\d{2}-\\d{2}$/.test(value)) || null;
+    """)
+    if not selected_date:
+        dates = extract_expiration_dates(driver)
+        selected_date = dates[0] if dates else None
+    if not selected_date:
+        raise ValueError("Não foi possível identificar a data de vencimento selecionada.")
+    return date.fromisoformat(selected_date)
+
+
+def _time_to_expiry(expiration_date, now=None):
+    try:
+        # Barchart supplies the date, not the contract-specific expiration time.
+        expiry = datetime.combine(
+            expiration_date,
+            datetime_time(16, 0),
+            tzinfo=ZoneInfo("America/New_York"),
+        )
+    except ZoneInfoNotFoundError as exc:
+        raise RuntimeError(
+            "Fuso America/New_York indisponível. Instale o pacote tzdata."
+        ) from exc
+    current_time = now or datetime.now(timezone.utc)
+    if current_time.tzinfo is None:
+        raise ValueError("O horário de referência precisa incluir fuso horário.")
+    seconds_remaining = (expiry.astimezone(timezone.utc) - current_time.astimezone(timezone.utc)).total_seconds()
+    return max(seconds_remaining, 0.0) / (365.0 * 24.0 * 60.0 * 60.0)
+
+
+def total_gex_at_spot(df, candidate_spot, risk_free=0.05):
+    total = 0.0
+    for row in df.itertuples(index=False):
+        strike_mult = getattr(row, "strike_mult", 1.0)
+        source_spot = candidate_spot / strike_mult
+        source_strike = getattr(row, "base_strike", None)
+        if source_strike is None:
+            source_strike = row.strike / strike_mult
+        gamma = black_scholes_gamma(
+            source_spot,
+            source_strike,
+            row.time_to_expiry,
+            risk_free,
+            row.iv,
+        )
+        total += (
+            (row.coi - row.poi)
+            * gamma
+            * row.contract_mult
+            * source_spot
+        )
+    return total
+
+
+def find_gex_flip(df, current_spot, steps=601):
+    # Antes, "Zero Gamma" era o strike com ng por strike mais perto de zero.
+    # Agora, buscamos onde o GEX total do modelo troca de sinal ao variar o spot.
+    if df.empty or current_spot <= 0 or steps < 2:
+        return None
+    lower = current_spot * 0.85
+    upper = current_spot * 1.15
+    samples = (
+        (price, total_gex_at_spot(df, price))
+        for price in (
+            lower + (upper - lower) * index / (steps - 1)
+            for index in range(steps)
+        )
+    )
+    crossings = []
+    previous = None
+    for price, exposure in samples:
+        if not math.isfinite(exposure) or exposure == 0:
+            continue
+        if previous is not None:
+            previous_price, previous_exposure = previous
+            if (previous_exposure < 0 < exposure) or (exposure < 0 < previous_exposure):
+                low_price, low_exposure = previous_price, previous_exposure
+                high_price = price
+                for _ in range(50):
+                    middle_price = (low_price + high_price) / 2
+                    middle_exposure = total_gex_at_spot(df, middle_price)
+                    if middle_exposure == 0:
+                        low_price = high_price = middle_price
+                        break
+                    if (low_exposure < 0 < middle_exposure) or (
+                        middle_exposure < 0 < low_exposure
+                    ):
+                        high_price = middle_price
+                    else:
+                        low_price, low_exposure = middle_price, middle_exposure
+                crossings.append((low_price + high_price) / 2)
+        previous = (price, exposure)
+    return min(crossings, key=lambda value: abs(value - current_spot)) if crossings else None
+
+
+def calculate_max_pain(df):
+    strikes = sorted(df["strike"].unique())
+    if not strikes:
+        return None
+    payouts = []
+    for settlement in strikes:
+        call_payout = ((settlement - df["strike"]).clip(lower=0) * df["coi"]).sum()
+        put_payout = ((df["strike"] - settlement).clip(lower=0) * df["poi"]).sum()
+        payouts.append((call_payout + put_payout, settlement))
+    return min(payouts, key=lambda payout: payout[0])[1]
+
 # ==============================================================================
 # INICIALIZAÇÃO DO NAVEGADOR
 # ==============================================================================
 def iniciar_driver():
     print("👻 Iniciando Driver V9 (Time Travel e Heatmap Ativados)...")
+    from selenium import webdriver
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     options = ChromeOptions()
     if HEADLESS_MODE:
@@ -67,13 +275,6 @@ def iniciar_driver():
 # ==============================================================================
 # FUNÇÕES DE LIMPEZA E FORMATAÇÃO
 # ==============================================================================
-def clean_float(val):
-    s = str(val).replace(',', '').replace('N/A', '').strip()
-    try: 
-        return float(s)
-    except: 
-        return 0.0
-
 def format_money(val):
     v = abs(val)
     s = "-" if val < 0 else ""
@@ -87,6 +288,7 @@ def format_money(val):
 # LEITURA DE PREÇO COM RESILIÊNCIA (ANTI-BLOQUEIO)
 # ==============================================================================
 def get_price(driver, symbol):
+    from selenium.webdriver.common.by import By
     selectors = ["span.last-change", "div.price-change", ".quote-price", ".symbol-last-price", ".last-price"]
     
     for attempt in range(3): 
@@ -151,18 +353,49 @@ def process(driver, symbol, url):
                 print(" ❌ Spot Zero. Abortando extração.")
                 return None, None
 
-        # Scroll para forçar o Barchart a renderizar a tabela HTML
-        body = driver.find_element(By.TAG_NAME, "body")
-        for _ in range(6):
-            body.send_keys(Keys.PAGE_DOWN)
-            time.sleep(0.3)
-        
-        page_text = driver.find_element(By.TAG_NAME, "body").text
-        tokens = page_text.split()
-        
-        data = []
-        margin = spot * 0.15 
-        T_years = 1.0 / 365.0  
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+        time.sleep(1)
+        tables = driver.execute_script("""
+            return Array.from(document.querySelectorAll('table')).map(table => {
+                const headerRows = Array.from(table.querySelectorAll('tr'))
+                    .filter(row => Array.from(row.children).some(cell =>
+                        cell.tagName.toLowerCase() === 'th'
+                    ));
+                const grid = [];
+                headerRows.forEach((row, rowIndex) => {
+                    grid[rowIndex] = grid[rowIndex] || [];
+                    let columnIndex = 0;
+                    Array.from(row.children).forEach(cell => {
+                        while (grid[rowIndex][columnIndex] !== undefined) columnIndex++;
+                        const text = (cell.innerText || '').trim();
+                        const columnSpan = Number(cell.getAttribute('colspan') || 1);
+                        const rowSpan = Number(cell.getAttribute('rowspan') || 1);
+                        for (let r = rowIndex; r < Math.min(headerRows.length, rowIndex + rowSpan); r++) {
+                            grid[r] = grid[r] || [];
+                            for (let c = columnIndex; c < columnIndex + columnSpan; c++) {
+                                grid[r][c] = grid[r][c] || [];
+                                if (text && !grid[r][c].includes(text)) grid[r][c].push(text);
+                            }
+                        }
+                        columnIndex += columnSpan;
+                    });
+                });
+                const width = Math.max(0, ...grid.map(row => row.length));
+                const headers = Array.from({ length: width }, (_, columnIndex) =>
+                    grid.map(row => (row[columnIndex] || []).join(' ')).filter(Boolean).join(' ')
+                );
+                const rows = Array.from(table.querySelectorAll('tbody tr')).map(row =>
+                    Array.from(row.children).filter(cell => cell.tagName.toLowerCase() === 'td')
+                        .map(cell => (cell.innerText || '').trim())
+                );
+                return { headers, rows };
+            });
+        """)
+        margin = spot * 0.15
+        expiration_date = _expiration_date(driver, url)
+        T_years = _time_to_expiry(expiration_date)
+        if T_years <= 0:
+            raise ValueError(f"O vencimento {expiration_date} já expirou no horário de Nova York.")
         risk_free = 0.05       
         
         # Volatilidade adaptada por ativo
@@ -174,79 +407,30 @@ def process(driver, symbol, url):
         if symbol == "NG": iv_avg = 0.40
         
         mult = MULTIPLIADORES.get(symbol, 100)
+        df = parse_option_tables(tables, spot, margin)
+        df["nf"] = df["c_vol"] - df["p_vol"]
+        df["vol"] = df["c_vol"] + df["p_vol"]
+        df["toi"] = df["coi"] + df["poi"]
+        df["time_to_expiry"] = T_years
+        df["iv"] = iv_avg
+        df["contract_mult"] = mult
+        df["strike_mult"] = 1.0
+        df["spot"] = spot
+        df["base_strike"] = df["strike"]
+        gamma_by_strike = df["strike"].map(
+            lambda strike: black_scholes_gamma(spot, strike, T_years, risk_free, iv_avg)
+        )
+        df["cgex"] = df["coi"] * gamma_by_strike * mult * spot
+        df["pgex"] = df["poi"] * gamma_by_strike * mult * spot
+        df["ng"] = df["cgex"] - df["pgex"]
         
-        for i in range(5, len(tokens)-5):
-            t = tokens[i].replace(',', '')
-            if not re.match(r'^\d{1,5}(\.\d{1,4})?$', t): 
-                continue
-            
-            try: 
-                strike = float(t)
-            except: 
-                continue
+        max_pain = calculate_max_pain(df)
 
-            # Cortando as asas extremas (economiza processamento)
-            if strike < (spot - margin) or strike > (spot + margin): 
-                continue
-            
-            try:
-                c_oi = clean_float(tokens[i-2])
-                c_vol = clean_float(tokens[i-3])
-                p_oi = clean_float(tokens[i+3])
-                p_vol = clean_float(tokens[i+2])
-                
-                if c_oi == 0 and p_oi == 0 and c_vol == 0 and p_vol == 0: 
-                    continue
-                
-                gamma_unit = black_scholes_gamma(spot, strike, T_years, risk_free, iv_avg)
-                
-                call_gex = c_oi * gamma_unit * mult * spot 
-                put_gex = p_oi * gamma_unit * mult * spot
-                net_gex_strike = call_gex - put_gex
-              
-                net_flow_strike = c_vol - p_vol
-                total_vol = c_vol + p_vol
-                total_oi = c_oi + p_oi 
-                
-                # 🟢 DADOS COMPLETOS PARA O HEATMAP
-                data.append({
-                    "strike": strike, 
-                    "ng": net_gex_strike,
-                    "nf": net_flow_strike,
-                    "c_vol": c_vol, 
-                    "p_vol": p_vol, 
-                    "coi": c_oi, 
-                    "poi": p_oi, 
-                    "vol": total_vol,
-                    "toi": total_oi
-                })
-            except: 
-                continue
-            
-        if not data: 
-            print(" ❌ Sem contratos abertos nesta faixa.")
-            return None, None
-        
-        df = pd.DataFrame(data).drop_duplicates('strike').sort_values('strike')
-        
-        try:
-            mp_idx = df['toi'].idxmax() if 'toi' in df.columns else df.index[0]
-            max_pain = df.loc[mp_idx]['strike']
-        except: 
-            max_pain = spot
-
-        try:
-            cw = df.loc[df['ng'].idxmax()] 
-            pw = df.loc[df['ng'].idxmin()] 
-        except:
-            cw = df.iloc[-1]
-            pw = df.iloc[0]
-
-        try:
-            zg_idx = df['ng'].abs().idxmin()
-            zero_gamma = df.loc[zg_idx]['strike']
-        except:
-            zero_gamma = spot
+        # Antes, as paredes eram o maximo/minimo do GEX liquido.
+        # Agora, Call e Put Wall sao maximos separados das exposicoes de calls e puts.
+        cw = df.loc[df["cgex"].idxmax()]
+        pw = df.loc[df["pgex"].idxmax()]
+        zero_gamma = find_gex_flip(df, spot, steps=601)
 
         dp = df.loc[df['vol'].idxmax()]
         
@@ -259,8 +443,8 @@ def process(driver, symbol, url):
             regime = "SHORT GAMMA (Volatil/Squeeze)"
             
         res = {
-            "CW": cw['strike'], "CWM": format_money(cw['ng']), 
-            "PW": pw['strike'], "PWM": format_money(pw['ng']),
+            "CW": cw['strike'], "CWM": format_money(cw['cgex']),
+            "PW": pw['strike'], "PWM": format_money(-pw['pgex']),
             "ZG": zero_gamma, 
             "PG": cw['strike'], 
             "NG": pw['strike'], 
@@ -276,7 +460,10 @@ def process(driver, symbol, url):
             "Regime": regime
         }
         
-        print(f" ✅ ZG:{res['ZG']:.2f}")
+        if zero_gamma is None:
+            print(" ⚠️ Nenhum cruzamento de GEX encontrado na faixa analisada.")
+        else:
+            print(f" ✅ GEX Flip estimado:{zero_gamma:.2f}")
         return res, df
         
     except Exception as e: 
@@ -292,7 +479,8 @@ def save(sym, res, df, suffix=""):
     if res:
         file_niveis = os.path.join(PASTA_DADOS, f"NiveisGamma_{sym}{suffix}.csv")
         with open(file_niveis, "w") as f:
-            f.write(f"{res['CW']},{res['PW']},{res['ZG']:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res.get('CW_0DTE',0)},{res.get('PW_0DTE',0)}")
+            zero_gamma = res["ZG"] if res["ZG"] is not None else 0
+            f.write(f"{res['CW']},{res['PW']},{zero_gamma:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res.get('CW_0DTE',0)},{res.get('PW_0DTE',0)}")
         
         file_alvos = os.path.join(PASTA_DADOS, f"AlvosVolatilidade_{sym}{suffix}.csv")
         with open(file_alvos, "w") as f:
@@ -313,8 +501,7 @@ def upload_to_dropbox():
     refresh_token = os.environ.get("DBX_REFRESH")
     
     if not app_secret or not refresh_token:
-        print("⚠️ Credenciais do Dropbox não encontradas.")
-        return
+        raise RuntimeError("Credenciais DBX_SECRET/DBX_REFRESH do Dropbox não encontradas.")
 
     print("☁️ Conectando ao Dropbox...")
     try:
@@ -328,6 +515,7 @@ def upload_to_dropbox():
                     print(f"✅ Sincronizado: {f}")
     except Exception as e:
         print(f"❌ Erro no Dropbox: {e}")
+        raise
 
 # ==============================================================================
 # MASTER PROCESSOR (AGREGAÇÃO + TIME TRAVEL)
@@ -342,35 +530,45 @@ def process_group(driver, symbol, asset_list):
     # --- PASSO 1: RASPAR TODOS OS VENCIMENTOS (MACRO) ---
     for asset in asset_list:
         res, df = process(driver, symbol, asset["url"]) 
-        if df is not None and not df.empty:
-            df['strike'] = df['strike'] * asset['strike_mult']
-            df['strike'] = (df['strike'] / 5).round() * 5
-            for col in ['ng', 'nf', 'c_vol', 'p_vol', 'coi', 'poi']:
-                df[col] = df[col] * asset['gex_correcao']
-            
-            df_master = pd.concat([df_master, df], ignore_index=True)
-            
-            if spot_master == 0:
-                try: 
-                    spot_master = get_price(driver, symbol) * asset['strike_mult']
-                except: 
-                    pass
-                
+        if res is None or df is None or df.empty:
+            raise RuntimeError(f"Falha ao extrair a cadeia de opções de {symbol}: {asset['url']}")
+        strike_mult = asset["strike_mult"]
+        gex_correction = asset["gex_correcao"]
+        df['base_strike'] = df['strike']
+        df['strike'] = df['strike'] * strike_mult
+        df['strike'] = (df['strike'] / 5).round() * 5
+        df["strike_mult"] = strike_mult
+        for col in ['ng', 'nf', 'coi', 'poi', 'cgex', 'pgex']:
+            df[col] = df[col] * gex_correction
+
+        df_master = pd.concat([df_master, df], ignore_index=True)
+
+        if spot_master == 0:
+            spot_master = float(df["spot"].iloc[0]) * strike_mult
+
     if df_master.empty: 
         return None, None
     
-    df_agg = df_master.groupby('strike', as_index=False).sum().sort_values('strike')
+    summed_columns = [
+        "ng", "nf", "c_vol", "p_vol", "coi", "poi", "vol", "toi", "cgex", "pgex"
+    ]
+    df_agg = (
+        df_master.groupby("strike", as_index=False)[summed_columns]
+        .sum()
+        .sort_values("strike")
+    )
     
     try:
-        cw = df_agg.loc[df_agg['ng'].idxmax()]
-        pw = df_agg.loc[df_agg['ng'].idxmin()]
-        zg_idx = df_agg['ng'].abs().idxmin()
-        zero_gamma = df_agg.loc[zg_idx]['strike']
+        # Mantem a mesma definicao de paredes separadas no agregado multi-ativo.
+        cw = df_agg.loc[df_agg["cgex"].idxmax()]
+        pw = df_agg.loc[df_agg["pgex"].idxmax()]
         dp_strike = df_agg.loc[df_agg['c_vol'].idxmax()]['strike'] if 'c_vol' in df_agg.columns else cw['strike']
     except: 
         return None, None
         
     tot_gex = df_agg['ng'].sum()
+    zero_gamma = find_gex_flip(df_master, spot_master, steps=601)
+    max_pain = calculate_max_pain(df_agg)
     regime = "LONG GAMMA (Estavel/Suporte)" if tot_gex > 0 else "SHORT GAMMA (Volatil/Squeeze)"
     
     # --- PASSO 2: TIME TRAVEL (1DTE, 7DTE) ---
@@ -379,6 +577,8 @@ def process_group(driver, symbol, asset_list):
     
     # Lê as datas da mesma URL usada para selecionar a expiração.
     dates = extract_expiration_dates(driver, base_url)
+    if not dates:
+        raise RuntimeError(f"Não foi possível obter as datas de vencimento para {symbol}.")
     cw_0dte = cw['strike']
     pw_0dte = pw['strike']
     
@@ -394,12 +594,16 @@ def process_group(driver, symbol, asset_list):
         if len(dates) > 1:
             print(f"    ⏳ Lendo 1DTE ({dates[1]})...")
             res_1dte, df_1dte = process(driver, symbol, f"{base_url}&expirationDate={dates[1]}")
+            if res_1dte is None or df_1dte is None:
+                raise RuntimeError(f"Falha ao extrair 1DTE de {symbol} ({dates[1]}).")
             save(symbol, res_1dte, df_1dte, "_1DTE")
 
         # Extrai 2DTE (segunda próxima data de vencimento)
         if len(dates) > 2:
             print(f"    ⏳ Lendo 2DTE ({dates[2]})...")
             res_2dte, df_2dte = process(driver, symbol, f"{base_url}&expirationDate={dates[2]}")
+            if res_2dte is None or df_2dte is None:
+                raise RuntimeError(f"Falha ao extrair 2DTE de {symbol} ({dates[2]}).")
             save(symbol, res_2dte, df_2dte, "_2DTE")
             
         # Extrai 7DTE (~Próxima Semana)
@@ -407,15 +611,19 @@ def process_group(driver, symbol, asset_list):
             idx_7 = min(7, len(dates)-1)
             print(f"    ⏳ Lendo 7DTE ({dates[idx_7]})...")
             res_7dte, df_7dte = process(driver, symbol, f"{base_url}&expirationDate={dates[idx_7]}")
+            if res_7dte is None or df_7dte is None:
+                raise RuntimeError(f"Falha ao extrair 7DTE de {symbol} ({dates[idx_7]}).")
             save(symbol, res_7dte, df_7dte, "_7DTE")
+        else:
+            raise RuntimeError(f"Há apenas {len(dates)} vencimentos disponíveis para {symbol}; 7DTE não foi atualizado.")
 
     # Monta o pacote final Macro
     res_agg = {
-        "CW": cw['strike'], "CWM": format_money(cw['ng']),
-        "PW": pw['strike'], "PWM": format_money(pw['ng']),
+        "CW": cw['strike'], "CWM": format_money(cw['cgex']),
+        "PW": pw['strike'], "PWM": format_money(-pw['pgex']),
         "ZG": zero_gamma, "PG": cw['strike'], "NG": pw['strike'],
         "DP": dp_strike, "DPM": "$0",
-        "MP": spot_master,
+        "MP": max_pain,
         "Rat": f"{(abs(df_agg['ng'][df_agg['ng']<0].sum()) / df_agg['ng'][df_agg['ng']>0].sum() if df_agg['ng'][df_agg['ng']>0].sum() > 0 else 0):.2f}",
         "FlowSig": "Bull" if df_agg.get('nf', pd.Series([0])).sum() > 0 else "Bear",
         "GexSig": "Bull" if tot_gex > 0 else "Bear",
@@ -428,7 +636,10 @@ def process_group(driver, symbol, asset_list):
         "PW_0DTE": pw_0dte
     }
         
-    print(f" 🌟 MURALHAS FINAIS -> CW:{res_agg['CW']} | PW:{res_agg['PW']} | ZG:{res_agg['ZG']:.2f}")
+    if zero_gamma is None:
+        print(f" 🌟 MURALHAS FINAIS -> CW:{res_agg['CW']} | PW:{res_agg['PW']} | GEX Flip: sem cruzamento")
+    else:
+        print(f" 🌟 MURALHAS FINAIS -> CW:{res_agg['CW']} | PW:{res_agg['PW']} | GEX Flip estimado:{zero_gamma:.2f}")
     return res_agg, df_agg
 
 # ==============================================================================
@@ -475,10 +686,16 @@ if __name__ == "__main__":
 
     d = iniciar_driver()
     if d:
-        for s, urls in ATIVOS_AGREGADOS.items():
-            r, f = process_group(d, s, urls)
-            save(s, r, f)
-        d.quit()
+        try:
+            for s, urls in ATIVOS_AGREGADOS.items():
+                r, f = process_group(d, s, urls)
+                if r is None or f is None:
+                    raise RuntimeError(f"Não foi possível gerar os dados completos de {s}.")
+                save(s, r, f)
+        finally:
+            d.quit()
+    else:
+        raise RuntimeError("Não foi possível iniciar o navegador para coletar as opções.")
         
     upload_to_dropbox()
     print("✅ Ciclo de Engenharia Finalizado com Sucesso!")
