@@ -11,6 +11,7 @@ from gex_profile_v7_cloud import (
     _futures_weekly_api_config,
     _time_to_expiry,
     calculate_max_pain,
+    extract_equity_expiration_options,
     find_gex_flip,
     parse_barchart_option_payload,
     parse_futures_expiration_options,
@@ -121,6 +122,48 @@ class GammaCalculationTests(unittest.TestCase):
                 "https://www.barchart.com/futures/quotes/ES*0/options"
                 "?futuresOptionsView=split"
             )
+        )
+
+    def test_equity_expiration_options_accepts_barchart_suffixes_and_filters_past_dates(self):
+        class FakeDriver:
+            def get(self, url):
+                self.url = url
+
+            def execute_script(self, _script):
+                return [
+                    {
+                        "value": "2026-11-10-w",
+                        "url": "https://www.barchart.com/options?expiration=2026-11-10-w",
+                    },
+                    {
+                        "value": "2026-11-11-w",
+                        "url": "https://www.barchart.com/options?expiration=2026-11-11-w",
+                    },
+                    {
+                        "value": "2026-11-12-w",
+                        "url": "https://www.barchart.com/options?expiration=2026-11-12-w",
+                    },
+                ]
+
+        with patch("gex_profile_v7_cloud.time.sleep"):
+            expirations = extract_equity_expiration_options(
+                FakeDriver(),
+                "https://www.barchart.com/etfs-funds/quotes/IWM/options?view=split",
+                date(2026, 11, 11),
+            )
+
+        self.assertEqual(
+            expirations,
+            [
+                {
+                    "date": date(2026, 11, 11),
+                    "url": "https://www.barchart.com/options?expiration=2026-11-11-w",
+                },
+                {
+                    "date": date(2026, 11, 12),
+                    "url": "https://www.barchart.com/options?expiration=2026-11-12-w",
+                },
+            ],
         )
 
     def test_process_returns_profile_with_expiration_date(self):
@@ -456,7 +499,140 @@ class GammaCalculationTests(unittest.TestCase):
                 save("YM", result, profile)
             levels = (Path(output_dir) / "NiveisGamma_YM.csv").read_text()
 
-        self.assertEqual(levels.split(",")[-2:], ["0", "0"])
+        self.assertEqual(levels.split(",")[7:9], ["0", "0"])
+
+    def test_rty_proxy_marks_outputs_and_processes_equity_dte_expirations(self):
+        macro_profile = pd.DataFrame({
+            "strike": [280.0],
+            "ng": [10.0],
+            "nf": [2.0],
+            "coi": [3.0],
+            "poi": [1.0],
+            "cgex": [10.0],
+            "pgex": [1.0],
+            "c_vol": [2.0],
+            "p_vol": [1.0],
+            "vol": [3.0],
+            "toi": [4.0],
+            "spot": [280.0],
+            "base_strike": [280.0],
+            "time_to_expiry": [1 / 365],
+            "iv": [0.2],
+            "contract_mult": [50.0],
+            "strike_mult": [10.0],
+            "expiration_date": ["2026-11-11"],
+        })
+        expirations = [
+            {"date": expiration, "url": f"iwm-{expiration.isoformat()}"}
+            for expiration in (
+                date(2026, 11, 11),
+                date(2026, 11, 12),
+                date(2026, 11, 13),
+                date(2026, 11, 18),
+            )
+        ]
+        process_results = [
+            ({"CW": 2800.0, "PW": 2800.0}, macro_profile),
+            *[
+                (
+                    {"CW": 2810.0, "PW": 2790.0},
+                    pd.DataFrame({"expiration_date": [expiration.isoformat()]}),
+                )
+                for expiration in (
+                    date(2026, 11, 11),
+                    date(2026, 11, 12),
+                    date(2026, 11, 13),
+                    date(2026, 11, 18),
+                )
+            ],
+        ]
+        proxy_asset = {
+            "url": "https://www.barchart.com/etfs-funds/quotes/IWM/options?view=split",
+            "strike_mult": 10,
+            "gex_correcao": 5,
+            "source_label": "IWM proxy for RTY",
+        }
+
+        with (
+            patch("gex_profile_v7_cloud.datetime") as datetime_mock,
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch(
+                "gex_profile_v7_cloud.extract_equity_expiration_options",
+                return_value=expirations,
+            ) as equity_expirations_mock,
+            patch("gex_profile_v7_cloud.extract_futures_expiration_options") as futures_expirations_mock,
+            patch("gex_profile_v7_cloud.process", side_effect=process_results),
+            patch("gex_profile_v7_cloud.find_gex_flip", return_value=2800.0),
+            patch("gex_profile_v7_cloud.calculate_max_pain", return_value=2800.0),
+            patch("gex_profile_v7_cloud.save") as save_mock,
+        ):
+            datetime_mock.now.return_value = datetime(2026, 11, 11, 12, 0)
+            result, profile = process_group(object(), "RTY", [proxy_asset])
+
+        self.assertIsNotNone(profile)
+        self.assertEqual(result["Source"], "IWM proxy for RTY")
+        self.assertEqual(result["IV"], 20.0)
+        self.assertEqual(result["IVSource"], "IV base assumida")
+        self.assertEqual(result["CW"], 2800.0)
+        self.assertEqual(profile["strike"].tolist(), [2800.0])
+        equity_expirations_mock.assert_called_once()
+        futures_expirations_mock.assert_not_called()
+        self.assertEqual(
+            [call.args[3] for call in save_mock.call_args_list],
+            ["_1DTE", "_2DTE", "_7DTE"],
+        )
+        self.assertEqual(
+            [call.args[1]["Source"] for call in save_mock.call_args_list],
+            ["IWM proxy for RTY"] * 3,
+        )
+
+    def test_save_exports_actual_iv_basis_and_source_without_changing_existing_columns(self):
+        result = {
+            "CW": 2800.0,
+            "PW": 2790.0,
+            "ZG": 2810.0,
+            "PG": 2800.0,
+            "NG": 2790.0,
+            "CWM": "$100",
+            "PWM": "$100",
+            "CW_0DTE": None,
+            "PW_0DTE": None,
+            "MP": 2800.0,
+            "DP": 2800.0,
+            "Rat": "1.00",
+            "IV": 20.0,
+            "IVSource": "IV base assumida",
+            "FlowSig": "Bull",
+            "GexSig": "Bull",
+            "DPM": "$0",
+            "FlowVal": "$0",
+            "GexVal": "$100",
+            "AlvoUp": "2810",
+            "AlvoDown": "2790",
+            "Regime": "LONG GAMMA",
+            "Source": "IWM proxy for RTY",
+        }
+        profile = pd.DataFrame({
+            "strike": [2800.0],
+            "ng": [1.0],
+            "c_vol": [1.0],
+            "p_vol": [0.0],
+            "coi": [1.0],
+            "poi": [0.0],
+        })
+
+        with TemporaryDirectory() as output_dir:
+            with patch("gex_profile_v7_cloud.PASTA_DADOS", output_dir):
+                save("RTY", result, profile)
+            levels = (Path(output_dir) / "NiveisGamma_RTY.csv").read_text().split(",")
+            targets = (Path(output_dir) / "AlvosVolatilidade_RTY.csv").read_text().split(",")
+
+        self.assertEqual(levels[7:9], ["0", "0"])
+        self.assertEqual(levels[9], "IWM proxy for RTY")
+        self.assertEqual(targets[3], "20.0")
+        self.assertEqual(targets[11], "LONG GAMMA")
+        self.assertEqual(targets[12], "IV base assumida")
+        self.assertEqual(targets[13], "IWM proxy for RTY")
 
     def test_max_pain_minimizes_total_option_payout(self):
         profile = pd.DataFrame({

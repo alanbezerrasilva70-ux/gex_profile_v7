@@ -620,6 +620,42 @@ def extract_futures_expiration_options(driver, url, as_of):
     ]
 
 
+def extract_equity_expiration_options(driver, url, as_of):
+    driver.get(url)
+    time.sleep(5)
+    options = driver.execute_script("""
+        return Array.from(document.querySelectorAll('select option'))
+            .filter(option => /^\\d{4}-\\d{2}-\\d{2}(?:-[A-Za-z])?$/.test(option.value))
+            .map(option => {
+                const route = new URL(location.href);
+                route.searchParams.set('expiration', option.value);
+                return {value: option.value, url: route.href};
+            });
+    """)
+    expiration_routes = {}
+    for option in options or []:
+        match = re.fullmatch(
+            r"(\d{4}-\d{2}-\d{2})(?:-[A-Za-z])?",
+            str(option.get("value", "")),
+        )
+        if not match:
+            continue
+        try:
+            expiration = date.fromisoformat(match.group(1))
+        except ValueError:
+            continue
+        if expiration >= as_of:
+            expiration_routes.setdefault(expiration, option["url"])
+    if not expiration_routes:
+        raise RuntimeError(
+            f"Nenhum vencimento de opções disponível em {url} a partir de {as_of}."
+        )
+    return [
+        {"date": expiration, "url": route}
+        for expiration, route in sorted(expiration_routes.items())
+    ]
+
+
 # ==============================================================================
 # MOTOR PRINCIPAL DE PROCESSAMENTO DA TABELA DE OPÇÕES
 # ==============================================================================
@@ -747,7 +783,9 @@ def process(driver, symbol, url):
             "GexVal": format_money(tot_gex), 
             "AlvoUp": f"{spot*1.005:.2f}",
             "AlvoDown": f"{spot*0.995:.2f}",
-            "Regime": regime
+            "Regime": regime,
+            "IV": iv_avg * 100,
+            "IVSource": "IV base assumida",
         }
         
         if zero_gamma is None:
@@ -770,11 +808,11 @@ def save(sym, res, df, suffix=""):
         file_niveis = os.path.join(PASTA_DADOS, f"NiveisGamma_{sym}{suffix}.csv")
         with open(file_niveis, "w") as f:
             zero_gamma = res["ZG"] if res["ZG"] is not None else 0
-            f.write(f"{res['CW']},{res['PW']},{zero_gamma:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res.get('CW_0DTE') or 0},{res.get('PW_0DTE') or 0}")
+            f.write(f"{res['CW']},{res['PW']},{zero_gamma:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res.get('CW_0DTE') or 0},{res.get('PW_0DTE') or 0},{res.get('Source', '')}")
         
         file_alvos = os.path.join(PASTA_DADOS, f"AlvosVolatilidade_{sym}{suffix}.csv")
         with open(file_alvos, "w") as f:
-            f.write(f"{res['MP']},{res['DP']},{res['Rat']},15.5,{res['FlowSig']},{res['GexSig']},{res['DPM']},{res['FlowVal']},{res['GexVal']},{res['AlvoUp']},{res['AlvoDown']},{res['Regime']}")
+            f.write(f"{res['MP']},{res['DP']},{res['Rat']},{res.get('IV', 15.5)},{res['FlowSig']},{res['GexSig']},{res['DPM']},{res['FlowVal']},{res['GexVal']},{res['AlvoUp']},{res['AlvoDown']},{res['Regime']},{res.get('IVSource', 'IV base assumida')},{res.get('Source', '')}")
             
     if df is not None:
         file_profile = os.path.join(PASTA_DADOS, f"GammaProfile_{sym}{suffix}.csv")
@@ -866,7 +904,18 @@ def process_group(driver, symbol, asset_list):
     base_url = asset_list[0]["url"]
     
     today_new_york = datetime.now(ZoneInfo("America/New_York")).date()
-    expirations = extract_futures_expiration_options(driver, base_url, today_new_york)
+    if urlparse(base_url).path.startswith("/etfs-funds/"):
+        expirations = extract_equity_expiration_options(
+            driver, base_url, today_new_york
+        )
+    else:
+        expirations = extract_futures_expiration_options(
+            driver, base_url, today_new_york
+        )
+    source_label = next(
+        (asset["source_label"] for asset in asset_list if asset.get("source_label")),
+        "",
+    )
     cw_0dte = None
     pw_0dte = None
     
@@ -885,6 +934,7 @@ def process_group(driver, symbol, asset_list):
                 f"O Barchart carregou {actual_expiration} para {label} de {symbol}; "
                 f"era esperado {expiration_text}. Nenhum nível DTE será salvo."
             )
+        result["Source"] = source_label
         if suffix:
             save(symbol, result, profile, suffix)
         return result, profile
@@ -917,6 +967,9 @@ def process_group(driver, symbol, asset_list):
         "AlvoUp": f"{spot_master*1.005:.2f}",
         "AlvoDown": f"{spot_master*0.995:.2f}",
         "Regime": regime,
+        "IV": IV_BASE_POR_ATIVO.get(symbol, 0.14) * 100,
+        "IVSource": "IV base assumida",
+        "Source": source_label,
         "CW_0DTE": cw_0dte,
         "PW_0DTE": pw_0dte
     }
@@ -961,8 +1014,12 @@ if __name__ == "__main__":
             {"url": "https://www.barchart.com/etfs-funds/quotes/DIA/options?view=split", "strike_mult": 100, "gex_correcao": 1}
         ],
         "RTY": [
-            {"url": "https://www.barchart.com/futures/quotes/RTY*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
-            {"url": "https://www.barchart.com/etfs-funds/quotes/IWM/options?view=split", "strike_mult": 10, "gex_correcao": 5}
+            {
+                "url": "https://www.barchart.com/etfs-funds/quotes/IWM/options?view=split",
+                "strike_mult": 10,
+                "gex_correcao": 5,
+                "source_label": "IWM proxy for RTY",
+            }
         ],
         "NG": [
             {"url": "https://www.barchart.com/futures/quotes/NG*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}
