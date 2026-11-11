@@ -12,6 +12,7 @@ from gex_profile_v7_cloud import (
     parse_barchart_option_payload,
     parse_futures_expiration_options,
     parse_option_tables,
+    process,
 )
 
 
@@ -85,6 +86,49 @@ class GammaCalculationTests(unittest.TestCase):
     def test_barchart_payload_without_grouped_data_fails_explicitly(self):
         with self.assertRaisesRegex(ValueError, "não contém dados agrupados"):
             parse_barchart_option_payload({"data": []})
+
+    def test_process_returns_profile_with_expiration_date(self):
+        class FakeDriver:
+            def get(self, _url):
+                pass
+
+            def execute_script(self, _script):
+                pass
+
+            def execute_async_script(self, _script):
+                return {
+                    "data": {
+                        "100.00": [
+                            {
+                                "optionType": "Call",
+                                "volume": "10",
+                                "openInterest": "20",
+                                "strikePrice": "100.00",
+                            },
+                            {
+                                "optionType": "Put",
+                                "volume": "5",
+                                "openInterest": "15",
+                                "strikePrice": "100.00",
+                            },
+                        ],
+                    }
+                }
+
+        with (
+            patch("gex_profile_v7_cloud.get_price", return_value=100.0),
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch("gex_profile_v7_cloud._time_to_expiry", return_value=1 / 365),
+        ):
+            result, profile = process(
+                FakeDriver(),
+                "ES",
+                "https://www.barchart.com/futures/quotes/ES*0/options"
+                "?expirationDate=2026-11-11",
+            )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(profile["expiration_date"].tolist(), ["2026-11-11"])
 
     def test_flip_is_interpolated_at_total_exposure_sign_change(self):
         profile = pd.DataFrame([{

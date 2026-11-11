@@ -625,7 +625,6 @@ def process(driver, symbol, url):
         tables = [parse_barchart_option_payload(payload)]
         margin = spot * 0.15
         expiration_date = _expiration_date(driver, url)
-        df["expiration_date"] = expiration_date.isoformat()
         T_years = _time_to_expiry(expiration_date)
         if T_years <= 0:
             raise ValueError(f"O vencimento {expiration_date} já expirou no horário de Nova York.")
@@ -637,6 +636,7 @@ def process(driver, symbol, url):
         
         mult = MULTIPLIADORES.get(symbol, 100)
         df = parse_option_tables(tables, spot, margin)
+        df["expiration_date"] = expiration_date.isoformat()
         df["nf"] = df["c_vol"] - df["p_vol"]
         df["vol"] = df["c_vol"] + df["p_vol"]
         df["toi"] = df["coi"] + df["poi"]
