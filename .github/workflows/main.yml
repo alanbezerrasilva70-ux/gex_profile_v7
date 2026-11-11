@@ -22,6 +22,9 @@ jobs:
           pip install pandas selenium dropbox tzdata
           mkdir -p ./GEX_Data
 
+      - name: Testar processamento
+        run: python -m unittest -v test_gex_profile_v7_cloud.py
+
       - name: Executar Motor e Sincronizar Dropbox
         env:
           DBX_SECRET: ${{ secrets.DBX_SECRET }}

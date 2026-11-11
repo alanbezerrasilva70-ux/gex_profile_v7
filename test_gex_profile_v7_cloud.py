@@ -1,5 +1,7 @@
 import unittest
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import pandas as pd
@@ -14,6 +16,8 @@ from gex_profile_v7_cloud import (
     parse_futures_expiration_options,
     parse_option_tables,
     process,
+    process_group,
+    save,
     select_expiration_for_dte,
 )
 
@@ -372,6 +376,87 @@ class GammaCalculationTests(unittest.TestCase):
         )
 
         self.assertEqual(selected["url"], "after-target")
+
+    def test_missing_same_day_expiration_keeps_macro_and_other_dte_outputs(self):
+        macro_profile = pd.DataFrame({
+            "strike": [100.0],
+            "ng": [10.0],
+            "nf": [2.0],
+            "coi": [3.0],
+            "poi": [1.0],
+            "cgex": [10.0],
+            "pgex": [1.0],
+            "c_vol": [2.0],
+            "p_vol": [1.0],
+            "vol": [3.0],
+            "toi": [4.0],
+            "spot": [100.0],
+            "base_strike": [100.0],
+            "time_to_expiry": [1 / 365],
+            "iv": [0.2],
+            "contract_mult": [1.0],
+            "strike_mult": [1.0],
+            "expiration_date": ["2026-11-18"],
+        })
+        dte_expirations = [
+            {"date": date(2026, 11, 12), "url": "next-day"},
+            {"date": date(2026, 11, 13), "url": "two-day"},
+            {"date": date(2026, 11, 18), "url": "seven-day"},
+        ]
+        process_results = [
+            ({"CW": 100.0, "PW": 100.0}, macro_profile),
+            *[
+                (
+                    {"CW": 101.0, "PW": 99.0},
+                    pd.DataFrame({"expiration_date": [expiration.isoformat()]}),
+                )
+                for expiration in (
+                    date(2026, 11, 12),
+                    date(2026, 11, 13),
+                    date(2026, 11, 18),
+                )
+            ],
+        ]
+
+        with (
+            patch("gex_profile_v7_cloud.datetime") as datetime_mock,
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch(
+                "gex_profile_v7_cloud.extract_futures_expiration_options",
+                return_value=dte_expirations,
+            ),
+            patch("gex_profile_v7_cloud.process", side_effect=process_results) as process_mock,
+            patch("gex_profile_v7_cloud.find_gex_flip", return_value=100.0),
+            patch("gex_profile_v7_cloud.calculate_max_pain", return_value=100.0),
+            patch("gex_profile_v7_cloud.save") as save_mock,
+        ):
+            datetime_mock.now.return_value = datetime(2026, 11, 11, 12, 0)
+            result, profile = process_group(
+                object(),
+                "YM",
+                [{
+                    "url": "https://www.barchart.com/futures/quotes/YM*0/options",
+                    "strike_mult": 1,
+                    "gex_correcao": 1,
+                }],
+            )
+
+        self.assertIsNotNone(result)
+        self.assertIsNotNone(profile)
+        self.assertIsNone(result["CW_0DTE"])
+        self.assertIsNone(result["PW_0DTE"])
+        self.assertEqual(process_mock.call_count, 4)
+        self.assertEqual(
+            [call.args[3] for call in save_mock.call_args_list],
+            ["_1DTE", "_2DTE", "_7DTE"],
+        )
+
+        with TemporaryDirectory() as output_dir:
+            with patch("gex_profile_v7_cloud.PASTA_DADOS", output_dir):
+                save("YM", result, profile)
+            levels = (Path(output_dir) / "NiveisGamma_YM.csv").read_text()
+
+        self.assertEqual(levels.split(",")[-2:], ["0", "0"])
 
     def test_max_pain_minimizes_total_option_payout(self):
         profile = pd.DataFrame({

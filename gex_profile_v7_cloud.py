@@ -770,7 +770,7 @@ def save(sym, res, df, suffix=""):
         file_niveis = os.path.join(PASTA_DADOS, f"NiveisGamma_{sym}{suffix}.csv")
         with open(file_niveis, "w") as f:
             zero_gamma = res["ZG"] if res["ZG"] is not None else 0
-            f.write(f"{res['CW']},{res['PW']},{zero_gamma:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res.get('CW_0DTE',0)},{res.get('PW_0DTE',0)}")
+            f.write(f"{res['CW']},{res['PW']},{zero_gamma:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res.get('CW_0DTE') or 0},{res.get('PW_0DTE') or 0}")
         
         file_alvos = os.path.join(PASTA_DADOS, f"AlvosVolatilidade_{sym}{suffix}.csv")
         with open(file_alvos, "w") as f:
@@ -867,8 +867,8 @@ def process_group(driver, symbol, asset_list):
     
     today_new_york = datetime.now(ZoneInfo("America/New_York")).date()
     expirations = extract_futures_expiration_options(driver, base_url, today_new_york)
-    cw_0dte = cw['strike']
-    pw_0dte = pw['strike']
+    cw_0dte = None
+    pw_0dte = None
     
     def process_dte(dte, label, suffix=None):
         expiration = select_expiration_for_dte(expirations, today_new_york, dte)
@@ -889,9 +889,15 @@ def process_group(driver, symbol, asset_list):
             save(symbol, result, profile, suffix)
         return result, profile
 
-    res_0dte, _ = process_dte(0, "0DTE")
-    cw_0dte = res_0dte['CW']
-    pw_0dte = res_0dte['PW']
+    if any(expiration["date"] == today_new_york for expiration in expirations):
+        res_0dte, _ = process_dte(0, "0DTE")
+        cw_0dte = res_0dte["CW"]
+        pw_0dte = res_0dte["PW"]
+    else:
+        print(
+            f" ⚠️ {symbol} não tem vencimento Futures em {today_new_york}; "
+            "0DTE será omitido. O macro e as outras fatias DTE continuarão."
+        )
     process_dte(1, "1DTE", "_1DTE")
     process_dte(2, "2DTE", "_2DTE")
     process_dte(7, "7DTE", "_7DTE")
