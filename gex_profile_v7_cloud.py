@@ -128,6 +128,29 @@ def parse_barchart_option_payload(payload):
     }
 
 
+def _futures_weekly_api_config(url):
+    match = re.match(
+        r"^/futures/quotes/[^/]+/options/([^/]+)/?$",
+        urlparse(url).path,
+    )
+    if not match:
+        return None
+    return {
+        "method": "quotes",
+        "symbol": match.group(1),
+        "list": "futures.options",
+        "fields": (
+            "optionType,lastPrice,volume,openInterest,premium,strikePrice,"
+            "longSymbol,symbolName,symbolType"
+        ),
+        "groupBy": "strikePrice",
+        "meta": "field.shortName,field.description,field.type",
+        "orderBy": "strikePrice",
+        "orderDir": "asc",
+        "raw": 1,
+    }
+
+
 def parse_option_tables(tables, spot, margin):
     # Antes, os valores eram lidos por posicoes em um texto achatado; uma celula
     # ausente podia deslocar OI/volume e fazer um strike virar contagem.
@@ -587,18 +610,24 @@ def process(driver, symbol, url):
 
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
         time.sleep(1)
+        fallback_api = _futures_weekly_api_config(url)
         payload = driver.execute_async_script("""
+            const fallbackApi = arguments[0];
             const done = arguments[arguments.length - 1];
             (async () => {
                 const container = document.querySelector(
                     '.bc-futures-options-quotes__columns, .bc-options-quotes__columns'
                 );
-                if (!container) {
+                let api;
+                if (container) {
+                    const config = JSON.parse(container.getAttribute('data-settings'));
+                    const settings = config.settings || config;
+                    api = settings.api;
+                } else if (fallbackApi) {
+                    api = fallbackApi;
+                } else {
                     throw new Error('Configuração da cadeia de opções não encontrada na página.');
                 }
-                const config = JSON.parse(container.getAttribute('data-settings'));
-                const settings = config.settings || config;
-                const api = settings.api;
                 if (!api || !api.method) {
                     throw new Error('Configuração da API de opções do Barchart ausente.');
                 }
@@ -619,7 +648,7 @@ def process(driver, symbol, url):
                 }
                 done(await response.json());
             })().catch(error => done({ scrapeError: error.message }));
-        """)
+        """, fallback_api)
         if isinstance(payload, dict) and payload.get("scrapeError"):
             raise RuntimeError(f"Falha ao consultar API de opções do Barchart: {payload['scrapeError']}")
         tables = [parse_barchart_option_payload(payload)]

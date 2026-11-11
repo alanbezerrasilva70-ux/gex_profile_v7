@@ -6,6 +6,7 @@ import pandas as pd
 
 from gex_profile_v7_cloud import (
     _expiration_date,
+    _futures_weekly_api_config,
     _time_to_expiry,
     calculate_max_pain,
     find_gex_flip,
@@ -87,6 +88,36 @@ class GammaCalculationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "não contém dados agrupados"):
             parse_barchart_option_payload({"data": []})
 
+    def test_weekly_futures_route_builds_api_config_without_page_settings(self):
+        self.assertEqual(
+            _futures_weekly_api_config(
+                "https://www.barchart.com/futures/quotes/ESZ26/options/MI2X26"
+                "?futuresOptionsView=split"
+            ),
+            {
+                "method": "quotes",
+                "symbol": "MI2X26",
+                "list": "futures.options",
+                "fields": (
+                    "optionType,lastPrice,volume,openInterest,premium,strikePrice,"
+                    "longSymbol,symbolName,symbolType"
+                ),
+                "groupBy": "strikePrice",
+                "meta": "field.shortName,field.description,field.type",
+                "orderBy": "strikePrice",
+                "orderDir": "asc",
+                "raw": 1,
+            },
+        )
+
+    def test_monthly_futures_route_uses_page_settings(self):
+        self.assertIsNone(
+            _futures_weekly_api_config(
+                "https://www.barchart.com/futures/quotes/ES*0/options"
+                "?futuresOptionsView=split"
+            )
+        )
+
     def test_process_returns_profile_with_expiration_date(self):
         class FakeDriver:
             def get(self, _url):
@@ -95,7 +126,7 @@ class GammaCalculationTests(unittest.TestCase):
             def execute_script(self, _script):
                 pass
 
-            def execute_async_script(self, _script):
+            def execute_async_script(self, _script, *_args):
                 return {
                     "data": {
                         "100.00": [
