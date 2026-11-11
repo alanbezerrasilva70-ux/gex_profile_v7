@@ -777,8 +777,19 @@ def process(driver, symbol, url):
         
         if tot_gex > 0:
             regime = "LONG GAMMA (Estavel/Suporte)"
-        else:
+            gex_signal = "POSITIVE"
+        elif tot_gex < 0:
             regime = "SHORT GAMMA (Volatil/Squeeze)"
+            gex_signal = "NEGATIVE"
+        else:
+            regime = "NEUTRAL GAMMA"
+            gex_signal = "NEUTRAL"
+
+        flow_signal = (
+            "CALLS > PUTS" if tot_flow > 0
+            else "PUTS > CALLS" if tot_flow < 0
+            else "CALLS = PUTS"
+        )
             
         res = {
             "CW": cw['strike'], "CWM": format_money(cw['cgex']),
@@ -786,12 +797,12 @@ def process(driver, symbol, url):
             "ZG": zero_gamma, 
             "PG": cw['strike'], 
             "NG": pw['strike'], 
-            "DP": dp['strike'], "DPM": format_money(dp['vol']*spot*mult), 
+            "DP": dp['strike'], "DPM": f"{dp['vol']:.0f}",
             "MP": max_pain, 
             "Rat": f"{(abs(df['ng'][df['ng']<0].sum()) / df['ng'][df['ng']>0].sum() if df['ng'][df['ng']>0].sum() > 0 else 0):.2f}",
-            "FlowSig": "Bull" if tot_flow > 0 else "Bear",
-            "GexSig": "Bull" if tot_gex > 0 else "Bear",
-            "FlowVal": format_money(tot_flow * spot * mult), 
+            "FlowSig": flow_signal,
+            "GexSig": gex_signal,
+            "FlowVal": f"{tot_flow:.0f}",
             "GexVal": format_money(tot_gex), 
             "AlvoUp": f"{spot*1.005:.2f}",
             "AlvoDown": f"{spot*0.995:.2f}",
@@ -819,8 +830,8 @@ def save(sym, res, df, suffix=""):
     if res:
         file_niveis = os.path.join(PASTA_DADOS, f"NiveisGamma_{sym}{suffix}.csv")
         with open(file_niveis, "w") as f:
-            zero_gamma = res["ZG"] if res["ZG"] is not None else 0
-            f.write(f"{res['CW']},{res['PW']},{zero_gamma:.2f},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res.get('CW_0DTE') or 0},{res.get('PW_0DTE') or 0},{res.get('Source', '')}")
+            zero_gamma = f"{res['ZG']:.2f}" if res["ZG"] is not None else ""
+            f.write(f"{res['CW']},{res['PW']},{zero_gamma},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res.get('CW_0DTE') or 0},{res.get('PW_0DTE') or 0},{res.get('Source', '')}")
         
         file_alvos = os.path.join(PASTA_DADOS, f"AlvosVolatilidade_{sym}{suffix}.csv")
         with open(file_alvos, "w") as f:
@@ -902,14 +913,28 @@ def process_group(driver, symbol, asset_list):
         # Mantem a mesma definicao de paredes separadas no agregado multi-ativo.
         cw = df_agg.loc[df_agg["cgex"].idxmax()]
         pw = df_agg.loc[df_agg["pgex"].idxmax()]
-        dp_strike = df_agg.loc[df_agg['c_vol'].idxmax()]['strike'] if 'c_vol' in df_agg.columns else cw['strike']
+        dp = df_agg.loc[df_agg["vol"].idxmax()]
     except: 
         return None, None
         
     tot_gex = df_agg['ng'].sum()
     zero_gamma = find_gex_flip(df_master, spot_master, steps=601)
     max_pain = calculate_max_pain(df_agg)
-    regime = "LONG GAMMA (Estavel/Suporte)" if tot_gex > 0 else "SHORT GAMMA (Volatil/Squeeze)"
+    if tot_gex > 0:
+        regime = "LONG GAMMA (Estavel/Suporte)"
+        gex_signal = "POSITIVE"
+    elif tot_gex < 0:
+        regime = "SHORT GAMMA (Volatil/Squeeze)"
+        gex_signal = "NEGATIVE"
+    else:
+        regime = "NEUTRAL GAMMA"
+        gex_signal = "NEUTRAL"
+    total_flow = df_agg["nf"].sum()
+    flow_signal = (
+        "CALLS > PUTS" if total_flow > 0
+        else "PUTS > CALLS" if total_flow < 0
+        else "CALLS = PUTS"
+    )
     
     # --- PASSO 2: TIME TRAVEL (1DTE, 7DTE) ---
     print(" 🕵️ Iniciando Time Travel para fatias DTE...")
@@ -969,12 +994,12 @@ def process_group(driver, symbol, asset_list):
         "CW": cw['strike'], "CWM": format_money(cw['cgex']),
         "PW": pw['strike'], "PWM": format_money(-pw['pgex']),
         "ZG": zero_gamma, "PG": cw['strike'], "NG": pw['strike'],
-        "DP": dp_strike, "DPM": "$0",
+        "DP": dp["strike"], "DPM": f"{dp['vol']:.0f}",
         "MP": max_pain,
         "Rat": f"{(abs(df_agg['ng'][df_agg['ng']<0].sum()) / df_agg['ng'][df_agg['ng']>0].sum() if df_agg['ng'][df_agg['ng']>0].sum() > 0 else 0):.2f}",
-        "FlowSig": "Bull" if df_agg.get('nf', pd.Series([0])).sum() > 0 else "Bear",
-        "GexSig": "Bull" if tot_gex > 0 else "Bear",
-        "FlowVal": format_money(df_agg.get('nf', pd.Series([0])).sum() * spot_master),
+        "FlowSig": flow_signal,
+        "GexSig": gex_signal,
+        "FlowVal": f"{total_flow:.0f}",
         "GexVal": format_money(tot_gex),
         "AlvoUp": f"{spot_master*1.005:.2f}",
         "AlvoDown": f"{spot_master*0.995:.2f}",

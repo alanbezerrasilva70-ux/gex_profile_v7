@@ -281,6 +281,59 @@ class GammaCalculationTests(unittest.TestCase):
 
         self.assertIsNotNone(result)
         self.assertEqual(profile["expiration_date"].tolist(), ["2026-11-11"])
+        self.assertEqual(result["DP"], 100.0)
+        self.assertEqual(result["DPM"], "15")
+        self.assertEqual(result["FlowSig"], "CALLS > PUTS")
+        self.assertEqual(result["FlowVal"], "5")
+        self.assertEqual(result["GexSig"], "POSITIVE")
+
+    def test_process_selects_highest_combined_call_and_put_volume(self):
+        class FakeDriver:
+            def get(self, _url):
+                pass
+
+            def execute_script(self, _script):
+                pass
+
+            def execute_async_script(self, _script, *_args):
+                return {
+                    "data": {
+                        "100.00": [
+                            {
+                                "optionType": "Call",
+                                "volume": "100",
+                                "openInterest": "20",
+                                "strikePrice": "100.00",
+                            },
+                        ],
+                        "110.00": [
+                            {
+                                "optionType": "Put",
+                                "volume": "200",
+                                "openInterest": "30",
+                                "strikePrice": "110.00",
+                            },
+                        ],
+                    }
+                }
+
+        with (
+            patch("gex_profile_v7_cloud.get_price", return_value=100.0),
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch("gex_profile_v7_cloud._time_to_expiry", return_value=1 / 365),
+        ):
+            result, _profile = process(
+                FakeDriver(),
+                "ES",
+                "https://www.barchart.com/futures/quotes/ES*0/options"
+                "?expirationDate=2026-11-11",
+            )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["DP"], 110.0)
+        self.assertEqual(result["DPM"], "200")
+        self.assertEqual(result["FlowSig"], "PUTS > CALLS")
+        self.assertEqual(result["FlowVal"], "-100")
 
     def test_flip_is_interpolated_at_total_exposure_sign_change(self):
         profile = pd.DataFrame([{
@@ -561,6 +614,10 @@ class GammaCalculationTests(unittest.TestCase):
         self.assertIsNotNone(profile)
         self.assertIsNone(result["CW_0DTE"])
         self.assertIsNone(result["PW_0DTE"])
+        self.assertEqual(result["DP"], 100.0)
+        self.assertEqual(result["DPM"], "3")
+        self.assertEqual(result["FlowSig"], "CALLS > PUTS")
+        self.assertEqual(result["FlowVal"], "2")
         self.assertEqual(process_mock.call_count, 4)
         self.assertEqual(
             [call.args[3] for call in save_mock.call_args_list],
@@ -675,10 +732,10 @@ class GammaCalculationTests(unittest.TestCase):
             "Rat": "1.00",
             "IV": 20.0,
             "IVSource": "IV base assumida",
-            "FlowSig": "Bull",
-            "GexSig": "Bull",
-            "DPM": "$0",
-            "FlowVal": "$0",
+            "FlowSig": "CALLS > PUTS",
+            "GexSig": "POSITIVE",
+            "DPM": "12",
+            "FlowVal": "3",
             "GexVal": "$100",
             "AlvoUp": "2810",
             "AlvoDown": "2790",
@@ -701,11 +758,43 @@ class GammaCalculationTests(unittest.TestCase):
             targets = (Path(output_dir) / "AlvosVolatilidade_RTY.csv").read_text().split(",")
 
         self.assertEqual(levels[7:9], ["0", "0"])
+        self.assertEqual(levels[2], "2810.00")
         self.assertEqual(levels[9], "IWM proxy for RTY")
         self.assertEqual(targets[3], "20.0")
         self.assertEqual(targets[11], "LONG GAMMA")
         self.assertEqual(targets[12], "IV base assumida")
         self.assertEqual(targets[13], "IWM proxy for RTY")
+
+    def test_save_exports_missing_gex_flip_as_blank(self):
+        result = {
+            "CW": 100.0,
+            "PW": 90.0,
+            "ZG": None,
+            "PG": 100.0,
+            "NG": 90.0,
+            "CWM": "$1",
+            "PWM": "$1",
+            "MP": 95.0,
+            "DP": 100.0,
+            "Rat": "1.00",
+            "IV": 14.0,
+            "IVSource": "IV base assumida",
+            "FlowSig": "CALLS = PUTS",
+            "GexSig": "NEUTRAL",
+            "DPM": "12",
+            "FlowVal": "0",
+            "GexVal": "$0",
+            "AlvoUp": "101",
+            "AlvoDown": "99",
+            "Regime": "NEUTRAL GAMMA",
+        }
+
+        with TemporaryDirectory() as output_dir:
+            with patch("gex_profile_v7_cloud.PASTA_DADOS", output_dir):
+                save("ES", result, None)
+            levels = (Path(output_dir) / "NiveisGamma_ES.csv").read_text().split(",")
+
+        self.assertEqual(levels[2], "")
 
     def test_max_pain_minimizes_total_option_payout(self):
         profile = pd.DataFrame({
