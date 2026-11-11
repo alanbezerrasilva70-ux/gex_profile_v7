@@ -94,6 +94,79 @@ class GammaCalculationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "não contém dados agrupados"):
             parse_barchart_option_payload({"data": []})
 
+    def test_ng_weekly_route_normalizes_tenfold_barchart_strikes(self):
+        payload = {
+            "data": {
+                "32.000": [
+                    {
+                        "optionType": "Call",
+                        "volume": "N/A",
+                        "openInterest": "3",
+                        "strikePrice": "32.000",
+                    },
+                    {
+                        "optionType": "Put",
+                        "volume": "N/A",
+                        "openInterest": "N/A",
+                        "strikePrice": "32.000",
+                    },
+                ],
+                "33.000": [
+                    {
+                        "optionType": "Call",
+                        "volume": "N/A",
+                        "openInterest": "3",
+                        "strikePrice": "33.000",
+                    },
+                    {
+                        "optionType": "Put",
+                        "volume": "1",
+                        "openInterest": "3",
+                        "strikePrice": "33.000",
+                    },
+                ],
+                "34.000": [
+                    {
+                        "optionType": "Call",
+                        "volume": "N/A",
+                        "openInterest": "3",
+                        "strikePrice": "34.000",
+                    },
+                    {
+                        "optionType": "Put",
+                        "volume": "N/A",
+                        "openInterest": "N/A",
+                        "strikePrice": "34.000",
+                    },
+                ],
+            }
+        }
+
+        class FakeDriver:
+            def get(self, _url):
+                pass
+
+            def execute_script(self, _script):
+                pass
+
+            def execute_async_script(self, _script, *_args):
+                return payload
+
+        with (
+            patch("gex_profile_v7_cloud.get_price", return_value=3.36),
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch("gex_profile_v7_cloud._time_to_expiry", return_value=1 / 365),
+        ):
+            result, profile = process(
+                FakeDriver(),
+                "NG",
+                "https://www.barchart.com/futures/quotes/NGZ26/options/IN2X26"
+                "?expirationDate=2026-11-13",
+            )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(profile["strike"].round(2).tolist(), [3.2, 3.3, 3.4])
+
     def test_weekly_futures_route_builds_api_config_without_page_settings(self):
         self.assertEqual(
             _futures_weekly_api_config(

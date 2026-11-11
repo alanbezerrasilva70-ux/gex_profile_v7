@@ -151,72 +151,79 @@ def _futures_weekly_api_config(url):
     }
 
 
-def parse_option_tables(tables, spot, margin):
+def parse_option_tables(tables, spot, margin, strike_scales=(1.0,)):
     # Antes, os valores eram lidos por posicoes em um texto achatado; uma celula
     # ausente podia deslocar OI/volume e fazer um strike virar contagem.
     # Agora, preservamos linhas e colunas da tabela e aceitamos apenas contagens validas.
-    best_rows = []
-    for table in tables:
-        parsed_table = []
-        headers = [_normalize_header(header) for header in table.get("headers", [])]
-        strike_columns = [i for i, header in enumerate(headers) if "strike" in header]
-        if not strike_columns:
-            continue
-        strike_index = strike_columns[0]
-        volume_columns = [
-            i for i, header in enumerate(headers)
-            if "volume" in header or header.endswith("vol")
-        ]
-        oi_columns = [
-            i for i, header in enumerate(headers)
-            if "openinterest" in header or "openint" in header
-        ]
-        call_volume = [i for i in volume_columns if i < strike_index]
-        put_volume = [i for i in volume_columns if i > strike_index]
-        call_oi = [i for i in oi_columns if i < strike_index]
-        put_oi = [i for i in oi_columns if i > strike_index]
-        if not call_volume or not put_volume or not call_oi or not put_oi:
-            continue
-        indices = (call_volume[-1], call_oi[-1], strike_index, put_volume[0], put_oi[0])
+    for strike_scale in strike_scales:
+        best_rows = []
+        for table in tables:
+            parsed_table = []
+            headers = [_normalize_header(header) for header in table.get("headers", [])]
+            strike_columns = [i for i, header in enumerate(headers) if "strike" in header]
+            if not strike_columns:
+                continue
+            strike_index = strike_columns[0]
+            volume_columns = [
+                i for i, header in enumerate(headers)
+                if "volume" in header or header.endswith("vol")
+            ]
+            oi_columns = [
+                i for i, header in enumerate(headers)
+                if "openinterest" in header or "openint" in header
+            ]
+            call_volume = [i for i in volume_columns if i < strike_index]
+            put_volume = [i for i in volume_columns if i > strike_index]
+            call_oi = [i for i in oi_columns if i < strike_index]
+            put_oi = [i for i in oi_columns if i > strike_index]
+            if not call_volume or not put_volume or not call_oi or not put_oi:
+                continue
+            indices = (call_volume[-1], call_oi[-1], strike_index, put_volume[0], put_oi[0])
 
-        for cells in table.get("rows", []):
-            if len(cells) <= max(indices):
-                continue
-            strike_text = str(cells[strike_index]).strip().replace(",", "")
-            try:
-                strike = float(strike_text)
-            except ValueError:
-                continue
-            if not math.isfinite(strike) or not (spot - margin <= strike <= spot + margin):
-                continue
+            for cells in table.get("rows", []):
+                if len(cells) <= max(indices):
+                    continue
+                strike_text = str(cells[strike_index]).strip().replace(",", "")
+                try:
+                    strike = float(strike_text) * strike_scale
+                except ValueError:
+                    continue
+                if not math.isfinite(strike) or not (spot - margin <= strike <= spot + margin):
+                    continue
 
-            c_vol, c_oi, _, p_vol, p_oi = (
-                _parse_contract_count(cells[index]) for index in indices
+                c_vol, c_oi, _, p_vol, p_oi = (
+                    _parse_contract_count(cells[index]) for index in indices
+                )
+                if None in (c_vol, c_oi, p_vol, p_oi):
+                    continue
+                if c_vol == 0 and c_oi == 0 and p_vol == 0 and p_oi == 0:
+                    continue
+                parsed_table.append({
+                    "strike": strike,
+                    "c_vol": c_vol,
+                    "p_vol": p_vol,
+                    "coi": c_oi,
+                    "poi": p_oi,
+                })
+            if len(parsed_table) > len(best_rows):
+                best_rows = parsed_table
+
+        if best_rows:
+            if strike_scale != 1.0:
+                print(
+                    f" ⚠️ Escala de strike do Barchart normalizada por "
+                    f"{strike_scale:g} para corresponder ao spot."
+                )
+            return (
+                pd.DataFrame(best_rows)
+                .groupby("strike", as_index=False)
+                .sum()
+                .sort_values("strike")
             )
-            if None in (c_vol, c_oi, p_vol, p_oi):
-                continue
-            if c_vol == 0 and c_oi == 0 and p_vol == 0 and p_oi == 0:
-                continue
-            parsed_table.append({
-                "strike": strike,
-                "c_vol": c_vol,
-                "p_vol": p_vol,
-                "coi": c_oi,
-                "poi": p_oi,
-            })
-        if len(parsed_table) > len(best_rows):
-            best_rows = parsed_table
 
-    if not best_rows:
-        raise ValueError(
-            "Nenhuma linha válida de opções encontrada. "
-            "A tabela não apresentou colunas de Calls/Strike/Puts reconhecíveis."
-        )
-    return (
-        pd.DataFrame(best_rows)
-        .groupby("strike", as_index=False)
-        .sum()
-        .sort_values("strike")
+    raise ValueError(
+        "Nenhuma linha válida de opções encontrada. "
+        "A tabela não apresentou colunas de Calls/Strike/Puts reconhecíveis."
     )
 
 
@@ -732,7 +739,12 @@ def process(driver, symbol, url):
         print(f" IV base assumida para {symbol}: {iv_avg:.0%} (não individual por contrato)")
         
         mult = MULTIPLIADORES.get(symbol, 100)
-        df = parse_option_tables(tables, spot, margin)
+        strike_scales = (
+            (1.0, 0.1)
+            if symbol == "NG" and fallback_api is not None
+            else (1.0,)
+        )
+        df = parse_option_tables(tables, spot, margin, strike_scales)
         df["expiration_date"] = expiration_date.isoformat()
         df["nf"] = df["c_vol"] - df["p_vol"]
         df["vol"] = df["c_vol"] + df["p_vol"]
