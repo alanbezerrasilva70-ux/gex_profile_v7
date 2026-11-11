@@ -2,12 +2,15 @@ name: GEX Cloud Bot
 
 on:
   schedule:
-    - cron: '*/20 13-21 * * 1-5'
+    # GitHub Actions uses UTC; this runs 10:07-18:47 BRT on weekdays.
+    # Offset from minute 0 to reduce the chance of schedule congestion.
+    - cron: '7,27,47 13-21 * * 1-5'
   workflow_dispatch:
 
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
+    timeout-minutes: 18
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
