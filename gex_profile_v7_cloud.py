@@ -76,6 +76,58 @@ def _parse_contract_count(value):
     return count
 
 
+def parse_barchart_option_payload(payload):
+    option_data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(option_data, dict):
+        raise ValueError("A resposta da API de opções do Barchart não contém dados agrupados.")
+
+    rows = []
+    for strike_label, contracts in option_data.items():
+        if not isinstance(contracts, list):
+            continue
+        call = next(
+            (
+                contract for contract in contracts
+                if str(contract.get("optionType", "")).lower() == "call"
+            ),
+            None,
+        )
+        put = next(
+            (
+                contract for contract in contracts
+                if str(contract.get("optionType", "")).lower() == "put"
+            ),
+            None,
+        )
+        if call is None and put is None:
+            continue
+        strike = (
+            (call or {}).get("strikePrice")
+            or (put or {}).get("strikePrice")
+            or strike_label
+        )
+        rows.append([
+            (call or {}).get("volume", "N/A"),
+            (call or {}).get("openInterest", "N/A"),
+            strike,
+            (put or {}).get("volume", "N/A"),
+            (put or {}).get("openInterest", "N/A"),
+        ])
+
+    if not rows:
+        raise ValueError("A API do Barchart não retornou contratos Call/Put reconhecíveis.")
+    return {
+        "headers": [
+            "Call Volume",
+            "Call Open Interest",
+            "Strike",
+            "Put Volume",
+            "Put Open Interest",
+        ],
+        "rows": rows,
+    }
+
+
 def parse_option_tables(tables, spot, margin):
     # Antes, os valores eram lidos por posicoes em um texto achatado; uma celula
     # ausente podia deslocar OI/volume e fazer um strike virar contagem.
@@ -400,42 +452,42 @@ def process(driver, symbol, url):
 
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
         time.sleep(1)
-        tables = driver.execute_script("""
-            return Array.from(document.querySelectorAll('table')).map(table => {
-                const headerRows = Array.from(table.querySelectorAll('tr'))
-                    .filter(row => Array.from(row.children).some(cell =>
-                        cell.tagName.toLowerCase() === 'th'
-                    ));
-                const grid = [];
-                headerRows.forEach((row, rowIndex) => {
-                    grid[rowIndex] = grid[rowIndex] || [];
-                    let columnIndex = 0;
-                    Array.from(row.children).forEach(cell => {
-                        while (grid[rowIndex][columnIndex] !== undefined) columnIndex++;
-                        const text = (cell.innerText || '').trim();
-                        const columnSpan = Number(cell.getAttribute('colspan') || 1);
-                        const rowSpan = Number(cell.getAttribute('rowspan') || 1);
-                        for (let r = rowIndex; r < Math.min(headerRows.length, rowIndex + rowSpan); r++) {
-                            grid[r] = grid[r] || [];
-                            for (let c = columnIndex; c < columnIndex + columnSpan; c++) {
-                                grid[r][c] = grid[r][c] || [];
-                                if (text && !grid[r][c].includes(text)) grid[r][c].push(text);
-                            }
-                        }
-                        columnIndex += columnSpan;
-                    });
+        payload = driver.execute_async_script("""
+            const done = arguments[arguments.length - 1];
+            (async () => {
+                const container = document.querySelector(
+                    '.bc-futures-options-quotes__columns, .bc-options-quotes__columns'
+                );
+                if (!container) {
+                    throw new Error('Configuração da cadeia de opções não encontrada na página.');
+                }
+                const config = JSON.parse(container.getAttribute('data-settings'));
+                const settings = config.settings || config;
+                const api = settings.api;
+                if (!api || !api.method) {
+                    throw new Error('Configuração da API de opções do Barchart ausente.');
+                }
+                const endpoint = api.method.startsWith('/')
+                    ? '/proxies/core-api/v1' + api.method
+                    : '/proxies/core-api/v1/' + api.method + '/get';
+                const params = new URLSearchParams();
+                Object.entries(api).forEach(([key, value]) => {
+                    if (key !== 'method' && value !== undefined && value !== null) {
+                        params.append(key, String(value));
+                    }
                 });
-                const width = Math.max(0, ...grid.map(row => row.length));
-                const headers = Array.from({ length: width }, (_, columnIndex) =>
-                    grid.map(row => (row[columnIndex] || []).join(' ')).filter(Boolean).join(' ')
-                );
-                const rows = Array.from(table.querySelectorAll('tbody tr')).map(row =>
-                    Array.from(row.children).filter(cell => cell.tagName.toLowerCase() === 'td')
-                        .map(cell => (cell.innerText || '').trim())
-                );
-                return { headers, rows };
-            });
+                const response = await fetch(endpoint + '?' + params.toString(), {
+                    credentials: 'same-origin'
+                });
+                if (!response.ok) {
+                    throw new Error('API do Barchart respondeu HTTP ' + response.status);
+                }
+                done(await response.json());
+            })().catch(error => done({ scrapeError: error.message }));
         """)
+        if isinstance(payload, dict) and payload.get("scrapeError"):
+            raise RuntimeError(f"Falha ao consultar API de opções do Barchart: {payload['scrapeError']}")
+        tables = [parse_barchart_option_payload(payload)]
         margin = spot * 0.15
         expiration_date = _expiration_date(driver, url)
         T_years = _time_to_expiry(expiration_date)

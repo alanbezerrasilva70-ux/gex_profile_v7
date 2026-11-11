@@ -9,6 +9,7 @@ from gex_profile_v7_cloud import (
     _time_to_expiry,
     calculate_max_pain,
     find_gex_flip,
+    parse_barchart_option_payload,
     parse_option_tables,
 )
 
@@ -35,6 +36,54 @@ class GammaCalculationTests(unittest.TestCase):
         self.assertEqual(profile["strike"].tolist(), [7500.0])
         self.assertEqual(profile.iloc[0]["coi"], 34)
         self.assertEqual(profile.iloc[0]["poi"], 78)
+
+    def test_barchart_grouped_api_payload_converts_call_put_contracts(self):
+        table = parse_barchart_option_payload({
+            "data": {
+                "7,600.00": [
+                    {
+                        "optionType": "Call",
+                        "volume": "20",
+                        "openInterest": "5,737",
+                        "strikePrice": "7,600.00",
+                    },
+                    {
+                        "optionType": "Put",
+                        "volume": "12",
+                        "openInterest": "5,757",
+                        "strikePrice": "7,600.00",
+                    },
+                ],
+                "7,625.00": [
+                    {
+                        "optionType": "Call",
+                        "volume": "N/A",
+                        "openInterest": "0",
+                        "strikePrice": "7,625.00",
+                    },
+                    {
+                        "optionType": "Put",
+                        "volume": "3",
+                        "openInterest": "4",
+                        "strikePrice": "7,625.00",
+                    },
+                ],
+            }
+        })
+
+        profile = parse_option_tables([table], spot=7600, margin=1200)
+
+        self.assertEqual(profile["strike"].tolist(), [7600.0, 7625.0])
+        self.assertEqual(profile.iloc[0]["c_vol"], 20)
+        self.assertEqual(profile.iloc[0]["coi"], 5737)
+        self.assertEqual(profile.iloc[0]["p_vol"], 12)
+        self.assertEqual(profile.iloc[0]["poi"], 5757)
+        self.assertEqual(profile.iloc[1]["c_vol"], 0)
+        self.assertEqual(profile.iloc[1]["poi"], 4)
+
+    def test_barchart_payload_without_grouped_data_fails_explicitly(self):
+        with self.assertRaisesRegex(ValueError, "não contém dados agrupados"):
+            parse_barchart_option_payload({"data": []})
 
     def test_flip_is_interpolated_at_total_exposure_sign_change(self):
         profile = pd.DataFrame([{
