@@ -198,10 +198,19 @@ def parse_option_tables(tables, spot, margin):
 
 
 def _expiration_date(driver, url):
-    query_date = parse_qs(urlparse(url).query).get("expirationDate", [])
+    query = parse_qs(urlparse(url).query)
+    query_date = query.get("expirationDate") or query.get("expiration", [])
     if query_date:
+        expiration_match = re.fullmatch(
+            r"(\d{4}-\d{2}-\d{2})(?:-[A-Za-z])?",
+            query_date[0],
+        )
+        if not expiration_match:
+            raise ValueError(
+                f"Data de vencimento inválida na URL: {query_date[0]!r}"
+            )
         try:
-            return date.fromisoformat(query_date[0])
+            return date.fromisoformat(expiration_match.group(1))
         except ValueError as exc:
             raise ValueError(
                 f"Data de vencimento inválida na URL: {query_date[0]!r}"
@@ -224,13 +233,30 @@ def _expiration_date(driver, url):
             f"Data de vencimento exibida pelo Barchart inválida: {expiration_text!r}"
         )
 
+    expiration_match = re.search(
+        r"\bExp\s*:\s*(\d{4}-\d{2}-\d{2})",
+        page_text,
+        flags=re.IGNORECASE,
+    )
+    if expiration_match:
+        try:
+            return date.fromisoformat(expiration_match.group(1))
+        except ValueError as exc:
+            raise ValueError(
+                "Data de vencimento exibida pelo Barchart inválida: "
+                f"{expiration_match.group(1)!r}"
+            ) from exc
+
     selected_date = driver.execute_script("""
         return Array.from(document.querySelectorAll('select'))
             .flatMap(select => Array.from(select.selectedOptions).map(option => option.value))
-            .find(value => /^\\d{4}-\\d{2}-\\d{2}$/.test(value)) || null;
+            .map(value => value.match(/^(\\d{4}-\\d{2}-\\d{2})(?:-[A-Za-z])?$/))
+            .find(match => match) || null;
     """)
     try:
-        selected_expiration = date.fromisoformat(selected_date) if selected_date else None
+        selected_expiration = (
+            date.fromisoformat(selected_date[1]) if selected_date else None
+        )
     except ValueError:
         selected_expiration = None
     if selected_expiration is None:

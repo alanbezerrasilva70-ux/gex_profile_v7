@@ -164,6 +164,35 @@ class GammaCalculationTests(unittest.TestCase):
             date(2026, 12, 18),
         )
 
+    def test_expiration_date_parses_spx_weekly_query_parameter(self):
+        class FakeDriver:
+            def execute_script(self, _script):
+                self.fail("A query expiration should not inspect the page.")
+
+        self.assertEqual(
+            _expiration_date(
+                FakeDriver(),
+                "https://www.barchart.com/stocks/quotes/$SPX/options"
+                "?view=split&expiration=2026-11-11-w",
+            ),
+            date(2026, 11, 11),
+        )
+
+    def test_expiration_date_parses_spx_displayed_date(self):
+        class FakeDriver:
+            def execute_script(self, script):
+                if "document.body.innerText" in script:
+                    return "Exp: 2026-11-11 (1 DTE)"
+                self.fail("A displayed expiration should not need a fallback.")
+
+        self.assertEqual(
+            _expiration_date(
+                FakeDriver(),
+                "https://www.barchart.com/stocks/quotes/$SPX/options?view=split",
+            ),
+            date(2026, 11, 11),
+        )
+
     def test_futures_weekly_routes_are_mapped_to_calendar_expiration_dates(self):
         routes = parse_futures_expiration_options(
             [
