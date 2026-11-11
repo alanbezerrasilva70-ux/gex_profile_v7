@@ -26,6 +26,15 @@ MULTIPLIADORES = {
     "NG": 10000  # Gás Natural = 10.000 mmBtu
 }
 
+IV_BASE_POR_ATIVO = {
+    "ES": 0.14,
+    "NQ": 0.18,
+    "CL": 0.25,
+    "YM": 0.12,
+    "RTY": 0.20,
+    "NG": 0.40,
+}
+
 # ==============================================================================
 # MOTOR MATEMÁTICO BLACK-SCHOLES
 # ==============================================================================
@@ -398,13 +407,9 @@ def process(driver, symbol, url):
             raise ValueError(f"O vencimento {expiration_date} já expirou no horário de Nova York.")
         risk_free = 0.05       
         
-        # Volatilidade adaptada por ativo
-        iv_avg = 0.14
-        if symbol == "NQ": iv_avg = 0.18
-        if symbol == "CL": iv_avg = 0.25
-        if symbol == "YM": iv_avg = 0.12
-        if symbol == "RTY": iv_avg = 0.20
-        if symbol == "NG": iv_avg = 0.40
+        # Hipótese do modelo: não é uma IV observada por contrato.
+        iv_avg = IV_BASE_POR_ATIVO.get(symbol, 0.14)
+        print(f" IV base assumida para {symbol}: {iv_avg:.0%} (não individual por contrato)")
         
         mult = MULTIPLIADORES.get(symbol, 100)
         df = parse_option_tables(tables, spot, margin)
