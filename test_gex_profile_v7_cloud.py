@@ -10,6 +10,7 @@ from gex_profile_v7_cloud import (
     calculate_max_pain,
     find_gex_flip,
     parse_barchart_option_payload,
+    parse_futures_expiration_options,
     parse_option_tables,
 )
 
@@ -161,6 +162,61 @@ class GammaCalculationTests(unittest.TestCase):
                 "https://www.barchart.com/options?expirationDate=2026-12-18",
             ),
             date(2026, 12, 18),
+        )
+
+    def test_futures_weekly_routes_are_mapped_to_calendar_expiration_dates(self):
+        routes = parse_futures_expiration_options(
+            [
+                {
+                    "weekday": "Wednesday Weekly Options",
+                    "options": [
+                        {
+                            "label": "Week 2: Nov 2026",
+                            "value": "/futures/quotes/ESZ26/options/MI2X26",
+                        },
+                        {
+                            "label": "Week 3: Nov 2026",
+                            "value": "/futures/quotes/ESZ26/options/MI3X26",
+                        },
+                        {
+                            "label": "Week 1: Dec 2026",
+                            "value": "/futures/quotes/ESZ26/options/MI1Z26",
+                        },
+                    ],
+                },
+                {
+                    "weekday": "Thursday Weekly Options",
+                    "options": [
+                        {
+                            "label": "Week 2: Nov 2026",
+                            "value": "/futures/quotes/ESZ26/options/MV7X26",
+                        },
+                    ],
+                },
+            ],
+            as_of=date(2026, 11, 11),
+        )
+
+        self.assertEqual(
+            routes,
+            [
+                {
+                    "date": date(2026, 11, 11),
+                    "url": "/futures/quotes/ESZ26/options/MI2X26",
+                },
+                {
+                    "date": date(2026, 11, 12),
+                    "url": "/futures/quotes/ESZ26/options/MV7X26",
+                },
+                {
+                    "date": date(2026, 11, 18),
+                    "url": "/futures/quotes/ESZ26/options/MI3X26",
+                },
+                {
+                    "date": date(2026, 12, 2),
+                    "url": "/futures/quotes/ESZ26/options/MI1Z26",
+                },
+            ],
         )
 
     def test_max_pain_minimizes_total_option_payout(self):

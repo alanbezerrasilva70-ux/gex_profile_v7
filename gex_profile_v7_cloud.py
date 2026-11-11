@@ -3,8 +3,8 @@ import os
 import pandas as pd
 import re
 import math
-from datetime import date, datetime, time as datetime_time, timezone
-from urllib.parse import parse_qs, urlparse
+from datetime import date, datetime, time as datetime_time, timedelta, timezone
+from urllib.parse import parse_qs, urljoin, urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 # ==============================================================================
@@ -260,6 +260,60 @@ def _time_to_expiry(expiration_date, now=None):
     return max(seconds_remaining, 0.0) / (365.0 * 24.0 * 60.0 * 60.0)
 
 
+def parse_futures_expiration_options(option_groups, as_of):
+    weekday_numbers = {
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4,
+    }
+    expiration_routes = {}
+    for group in option_groups or []:
+        weekday_match = re.match(
+            r"(\w+)\s+Weekly Options",
+            str(group.get("weekday", "")),
+            flags=re.IGNORECASE,
+        )
+        if not weekday_match:
+            continue
+        weekday = weekday_numbers.get(weekday_match.group(1).lower())
+        if weekday is None:
+            continue
+
+        for option in group.get("options", []):
+            label_match = re.fullmatch(
+                r"Week\s+(\d+):\s+([A-Za-z]{3})\s+(\d{4})",
+                str(option.get("label", "")).strip(),
+                flags=re.IGNORECASE,
+            )
+            route = option.get("value")
+            if not label_match or not route:
+                continue
+            week_number = int(label_match.group(1))
+            if week_number < 1:
+                continue
+            try:
+                month_start = datetime.strptime(
+                    f"{label_match.group(2)} {label_match.group(3)}",
+                    "%b %Y",
+                ).date().replace(day=1)
+            except ValueError:
+                continue
+            first_weekday = month_start + timedelta(
+                days=(weekday - month_start.weekday()) % 7
+            )
+            expiration = first_weekday + timedelta(days=(week_number - 1) * 7)
+            if expiration.month != month_start.month or expiration < as_of:
+                continue
+            expiration_routes.setdefault(expiration, route)
+
+    return [
+        {"date": expiration, "url": route}
+        for expiration, route in sorted(expiration_routes.items())
+    ]
+
+
 def total_gex_at_spot(df, candidate_spot, risk_free=0.05):
     total = 0.0
     for row in df.itertuples(index=False):
@@ -430,6 +484,61 @@ def extract_expiration_dates(driver, url=None):
         print(f"Erro ao extrair datas: {e}")
         return []
 
+
+def extract_futures_expiration_options(driver, url, as_of):
+    driver.get(url)
+    time.sleep(5)
+    option_groups = driver.execute_async_script("""
+        const done = arguments[arguments.length - 1];
+        (async () => {
+            const types = Array.from(
+                document.querySelectorAll('#bc-options-toolbar__dropdown-type option')
+            ).filter(option => /Weekly Options/i.test(option.textContent || ''));
+            if (!types.length) {
+                throw new Error('A página não listou opções semanais de Futures.');
+            }
+            const groups = await Promise.all(types.map(async option => {
+                const route = new URL(option.value, location.origin);
+                route.searchParams.set('futuresOptionsView', 'split');
+                const response = await fetch(route.href, {credentials: 'same-origin'});
+                if (!response.ok) {
+                    throw new Error(
+                        'Falha ao carregar o calendário de vencimentos: HTTP ' +
+                        response.status
+                    );
+                }
+                const html = await response.text();
+                const page = new DOMParser().parseFromString(html, 'text/html');
+                const monthSelect = page.querySelector(
+                    '#bc-options-toolbar__dropdown-month'
+                );
+                if (!monthSelect) {
+                    throw new Error(
+                        'Calendário de vencimentos semanais não encontrado.'
+                    );
+                }
+                return {
+                    weekday: option.textContent.trim(),
+                    options: Array.from(monthSelect.options).map(expiration => ({
+                        label: expiration.textContent.trim(),
+                        value: expiration.value
+                    }))
+                };
+            }));
+            done(groups);
+        })().catch(error => done({scrapeError: error.message}));
+    """)
+    if isinstance(option_groups, dict) and option_groups.get("scrapeError"):
+        raise RuntimeError(
+            "Falha ao obter vencimentos semanais do Barchart: "
+            f"{option_groups['scrapeError']}"
+        )
+    return [
+        {"date": expiration["date"], "url": urljoin(url, expiration["url"])}
+        for expiration in parse_futures_expiration_options(option_groups, as_of)
+    ]
+
+
 # ==============================================================================
 # MOTOR PRINCIPAL DE PROCESSAMENTO DA TABELA DE OPÇÕES
 # ==============================================================================
@@ -490,6 +599,7 @@ def process(driver, symbol, url):
         tables = [parse_barchart_option_payload(payload)]
         margin = spot * 0.15
         expiration_date = _expiration_date(driver, url)
+        df["expiration_date"] = expiration_date.isoformat()
         T_years = _time_to_expiry(expiration_date)
         if T_years <= 0:
             raise ValueError(f"O vencimento {expiration_date} já expirou no horário de Nova York.")
@@ -668,47 +778,41 @@ def process_group(driver, symbol, asset_list):
     print(" 🕵️ Iniciando Time Travel para fatias DTE...")
     base_url = asset_list[0]["url"]
     
-    # Lê as datas da mesma URL usada para selecionar a expiração.
-    dates = extract_expiration_dates(driver, base_url)
-    if not dates:
-        raise RuntimeError(f"Não foi possível obter as datas de vencimento para {symbol}.")
+    today_new_york = datetime.now(ZoneInfo("America/New_York")).date()
+    expirations = extract_futures_expiration_options(driver, base_url, today_new_york)
+    if len(expirations) <= 7:
+        raise RuntimeError(
+            f"Foram encontrados apenas {len(expirations)} vencimentos semanais "
+            f"futuros para {symbol}; não há dados suficientes para atualizar 7DTE."
+        )
     cw_0dte = cw['strike']
     pw_0dte = pw['strike']
     
-    if dates:
-        # Extrai 0DTE (Hoje)
-        print(f"    ⏳ Lendo 0DTE real ({dates[0]})...")
-        res_0dte, _ = process(driver, symbol, f"{base_url}&expirationDate={dates[0]}")
-        if res_0dte:
-            cw_0dte = res_0dte['CW']
-            pw_0dte = res_0dte['PW']
-            
-        # Extrai 1DTE (Amanhã)
-        if len(dates) > 1:
-            print(f"    ⏳ Lendo 1DTE ({dates[1]})...")
-            res_1dte, df_1dte = process(driver, symbol, f"{base_url}&expirationDate={dates[1]}")
-            if res_1dte is None or df_1dte is None:
-                raise RuntimeError(f"Falha ao extrair 1DTE de {symbol} ({dates[1]}).")
-            save(symbol, res_1dte, df_1dte, "_1DTE")
+    def process_dte(index, label, suffix=None):
+        expiration = expirations[index]
+        expiration_text = expiration["date"].isoformat()
+        print(f"    ⏳ Lendo {label} ({expiration_text})...")
+        result, profile = process(driver, symbol, expiration["url"])
+        if result is None or profile is None or profile.empty:
+            raise RuntimeError(
+                f"Falha ao extrair {label} de {symbol} ({expiration_text})."
+            )
+        actual_expiration = profile["expiration_date"].iloc[0]
+        if actual_expiration != expiration_text:
+            raise RuntimeError(
+                f"O Barchart carregou {actual_expiration} para {label} de {symbol}; "
+                f"era esperado {expiration_text}. Nenhum nível DTE será salvo."
+            )
+        if suffix:
+            save(symbol, result, profile, suffix)
+        return result, profile
 
-        # Extrai 2DTE (segunda próxima data de vencimento)
-        if len(dates) > 2:
-            print(f"    ⏳ Lendo 2DTE ({dates[2]})...")
-            res_2dte, df_2dte = process(driver, symbol, f"{base_url}&expirationDate={dates[2]}")
-            if res_2dte is None or df_2dte is None:
-                raise RuntimeError(f"Falha ao extrair 2DTE de {symbol} ({dates[2]}).")
-            save(symbol, res_2dte, df_2dte, "_2DTE")
-            
-        # Extrai 7DTE (~Próxima Semana)
-        if len(dates) > 5:
-            idx_7 = min(7, len(dates)-1)
-            print(f"    ⏳ Lendo 7DTE ({dates[idx_7]})...")
-            res_7dte, df_7dte = process(driver, symbol, f"{base_url}&expirationDate={dates[idx_7]}")
-            if res_7dte is None or df_7dte is None:
-                raise RuntimeError(f"Falha ao extrair 7DTE de {symbol} ({dates[idx_7]}).")
-            save(symbol, res_7dte, df_7dte, "_7DTE")
-        else:
-            raise RuntimeError(f"Há apenas {len(dates)} vencimentos disponíveis para {symbol}; 7DTE não foi atualizado.")
+    res_0dte, _ = process_dte(0, "0DTE")
+    cw_0dte = res_0dte['CW']
+    pw_0dte = res_0dte['PW']
+    process_dte(1, "1DTE", "_1DTE")
+    process_dte(2, "2DTE", "_2DTE")
+    process_dte(7, "7DTE", "_7DTE")
 
     # Monta o pacote final Macro
     res_agg = {
