@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from gex_profile_v7_cloud import (
+    _expiration_date,
     _time_to_expiry,
     calculate_max_pain,
     find_gex_flip,
@@ -84,6 +85,34 @@ class GammaCalculationTests(unittest.TestCase):
 
         self.assertGreater(remaining, 1 / 365)
         self.assertLess(remaining, 2 / 365)
+
+    def test_expiration_date_reads_barchart_displayed_expiration(self):
+        class FakeDriver:
+            def execute_script(self, script):
+                if "document.body.innerText" in script:
+                    return "37 Days to expiration on 12/18/26"
+                self.fail("A valid displayed expiration should not need a fallback.")
+
+        self.assertEqual(
+            _expiration_date(
+                FakeDriver(),
+                "https://www.barchart.com/futures/quotes/ES*0/options",
+            ),
+            date(2026, 12, 18),
+        )
+
+    def test_expiration_date_still_prefers_explicit_iso_query_parameter(self):
+        class FakeDriver:
+            def execute_script(self, _script):
+                self.fail("An explicit expirationDate should not inspect the page.")
+
+        self.assertEqual(
+            _expiration_date(
+                FakeDriver(),
+                "https://www.barchart.com/options?expirationDate=2026-12-18",
+            ),
+            date(2026, 12, 18),
+        )
 
     def test_max_pain_minimizes_total_option_payout(self):
         profile = pd.DataFrame({

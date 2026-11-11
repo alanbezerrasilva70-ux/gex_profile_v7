@@ -155,6 +155,23 @@ def _expiration_date(driver, url):
                 f"Data de vencimento inválida na URL: {query_date[0]!r}"
             ) from exc
 
+    page_text = driver.execute_script("return document.body.innerText;") or ""
+    expiration_match = re.search(
+        r"\bto expiration on\s+(\d{1,2}/\d{1,2}/\d{2,4})",
+        page_text,
+        flags=re.IGNORECASE,
+    )
+    if expiration_match:
+        expiration_text = expiration_match.group(1)
+        for date_format in ("%m/%d/%y", "%m/%d/%Y"):
+            try:
+                return datetime.strptime(expiration_text, date_format).date()
+            except ValueError:
+                continue
+        raise ValueError(
+            f"Data de vencimento exibida pelo Barchart inválida: {expiration_text!r}"
+        )
+
     selected_date = driver.execute_script("""
         return Array.from(document.querySelectorAll('select'))
             .flatMap(select => Array.from(select.selectedOptions).map(option => option.value))
