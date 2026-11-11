@@ -148,19 +148,28 @@ def parse_option_tables(tables, spot, margin):
 def _expiration_date(driver, url):
     query_date = parse_qs(urlparse(url).query).get("expirationDate", [])
     if query_date:
-        return date.fromisoformat(query_date[0])
+        try:
+            return date.fromisoformat(query_date[0])
+        except ValueError as exc:
+            raise ValueError(
+                f"Data de vencimento inválida na URL: {query_date[0]!r}"
+            ) from exc
 
     selected_date = driver.execute_script("""
         return Array.from(document.querySelectorAll('select'))
             .flatMap(select => Array.from(select.selectedOptions).map(option => option.value))
             .find(value => /^\\d{4}-\\d{2}-\\d{2}$/.test(value)) || null;
     """)
-    if not selected_date:
+    try:
+        selected_expiration = date.fromisoformat(selected_date) if selected_date else None
+    except ValueError:
+        selected_expiration = None
+    if selected_expiration is None:
         dates = extract_expiration_dates(driver)
-        selected_date = dates[0] if dates else None
-    if not selected_date:
+        selected_expiration = date.fromisoformat(dates[0]) if dates else None
+    if selected_expiration is None:
         raise ValueError("Não foi possível identificar a data de vencimento selecionada.")
-    return date.fromisoformat(selected_date)
+    return selected_expiration
 
 
 def _time_to_expiry(expiration_date, now=None):
@@ -333,11 +342,21 @@ def extract_expiration_dates(driver, url=None):
         if url:
             driver.get(url)
             time.sleep(5)
-        # Injeta um script JS para raspar todas as opções de data do menu "Expiration"
-        script = "return Array.from(document.querySelectorAll('select option')).map(o => o.value).filter(v => v.includes('-'));"
-        dates = driver.execute_script(script)
-        # Remove duplicatas mas mantém a ordem cronológica
-        return list(dict.fromkeys(dates)) 
+        script = """
+            return Array.from(document.querySelectorAll('select option'))
+                .map(option => option.value)
+                .filter(value => /^\\d{4}-\\d{2}-\\d{2}$/.test(value));
+        """
+        values = driver.execute_script(script)
+        dates = set()
+        for value in values or []:
+            try:
+                parsed_date = date.fromisoformat(value)
+            except (TypeError, ValueError):
+                continue
+            if parsed_date.isoformat() == value:
+                dates.add(parsed_date)
+        return [expiration.isoformat() for expiration in sorted(dates)]
     except Exception as e:
         print(f"Erro ao extrair datas: {e}")
         return []
