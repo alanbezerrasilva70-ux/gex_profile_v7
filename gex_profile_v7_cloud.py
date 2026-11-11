@@ -363,6 +363,38 @@ def parse_futures_expiration_options(option_groups, as_of):
     ]
 
 
+def select_expiration_for_dte(expirations, as_of, dte):
+    if dte < 0:
+        raise ValueError("DTE não pode ser negativo.")
+    if dte == 0:
+        for expiration in expirations:
+            if expiration["date"] == as_of:
+                return expiration
+        raise RuntimeError(
+            f"Não há vencimento Futures disponível para 0DTE em {as_of}."
+        )
+
+    candidates = [
+        expiration
+        for expiration in expirations
+        if expiration["date"] >= as_of
+    ]
+    if not candidates:
+        raise RuntimeError(
+            f"Não há vencimentos Futures disponíveis para selecionar {dte}DTE."
+        )
+
+    target_date = as_of + timedelta(days=dte)
+    return min(
+        candidates,
+        key=lambda expiration: (
+            abs((expiration["date"] - target_date).days),
+            expiration["date"] < target_date,
+            expiration["date"],
+        ),
+    )
+
+
 def total_gex_at_spot(df, candidate_spot, risk_free=0.05):
     total = 0.0
     for row in df.itertuples(index=False):
@@ -835,16 +867,11 @@ def process_group(driver, symbol, asset_list):
     
     today_new_york = datetime.now(ZoneInfo("America/New_York")).date()
     expirations = extract_futures_expiration_options(driver, base_url, today_new_york)
-    if len(expirations) <= 7:
-        raise RuntimeError(
-            f"Foram encontrados apenas {len(expirations)} vencimentos semanais "
-            f"futuros para {symbol}; não há dados suficientes para atualizar 7DTE."
-        )
     cw_0dte = cw['strike']
     pw_0dte = pw['strike']
     
-    def process_dte(index, label, suffix=None):
-        expiration = expirations[index]
+    def process_dte(dte, label, suffix=None):
+        expiration = select_expiration_for_dte(expirations, today_new_york, dte)
         expiration_text = expiration["date"].isoformat()
         print(f"    ⏳ Lendo {label} ({expiration_text})...")
         result, profile = process(driver, symbol, expiration["url"])

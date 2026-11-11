@@ -14,6 +14,7 @@ from gex_profile_v7_cloud import (
     parse_futures_expiration_options,
     parse_option_tables,
     process,
+    select_expiration_for_dte,
 )
 
 
@@ -322,6 +323,55 @@ class GammaCalculationTests(unittest.TestCase):
                 },
             ],
         )
+
+    def test_dte_selection_uses_calendar_target_instead_of_list_position(self):
+        expirations = [
+            {"date": expiration, "url": expiration.isoformat()}
+            for expiration in (
+                date(2026, 11, 11),
+                date(2026, 11, 12),
+                date(2026, 11, 13),
+                date(2026, 11, 16),
+                date(2026, 11, 17),
+                date(2026, 11, 18),
+                date(2026, 11, 19),
+                date(2026, 11, 23),
+            )
+        ]
+
+        selected = select_expiration_for_dte(
+            expirations,
+            as_of=date(2026, 11, 11),
+            dte=7,
+        )
+
+        self.assertEqual(selected["date"], date(2026, 11, 18))
+
+    def test_dte_selection_requires_a_real_same_day_expiration_for_zero_dte(self):
+        expirations = [
+            {"date": date(2026, 11, 12), "url": "next-day"},
+        ]
+
+        with self.assertRaisesRegex(RuntimeError, "0DTE"):
+            select_expiration_for_dte(
+                expirations,
+                as_of=date(2026, 11, 11),
+                dte=0,
+            )
+
+    def test_dte_selection_chooses_nearest_expiration_and_prefers_future_on_tie(self):
+        expirations = [
+            {"date": date(2026, 11, 16), "url": "before-target"},
+            {"date": date(2026, 11, 18), "url": "after-target"},
+        ]
+
+        selected = select_expiration_for_dte(
+            expirations,
+            as_of=date(2026, 11, 11),
+            dte=6,
+        )
+
+        self.assertEqual(selected["url"], "after-target")
 
     def test_max_pain_minimizes_total_option_payout(self):
         profile = pd.DataFrame({
