@@ -2,25 +2,40 @@ name: GEX Cloud Bot
 
 on:
   schedule:
-    # GitHub Actions uses UTC; this runs 10:07-18:47 BRT on weekdays.
-    # Offset from minute 0 to reduce the chance of schedule congestion.
-    - cron: '7,27,47 13-21 * * 1-5'
+    # GitHub Actions usa UTC (BRT = UTC-3):
+    # 1) Roda a cada 30 minutos das 10:12 às 17:42 BRT (13:12 às 20:42 UTC) de segunda a sexta.
+    #    O intervalo de 30 min evita que uma execução de ~12 min colida com a próxima na fila
+    #    do GitHub Actions (o que fazia o agendador descartar execuções intermediárias).
+    - cron: '12,42 13-20 * * 1-5'
+    # 2) Coleta de fechamento das opções de índice/ETF (16:15 ET = 18:15 BRT = 21:15 UTC).
+    - cron: '15 21 * * 1-5'
+  push:
+    branches:
+      - main
+    paths:
+      - 'gex_profile_v7_cloud.py'
+      - '.github/workflows/main.yml'
   workflow_dispatch:
+
+# Garante que duas execuções nunca se atropelem caso a fila do GitHub atrase
+concurrency:
+  group: gex-cloud-bot-production
+  cancel-in-progress: false
 
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
-    # [CORREÇÃO 7] Aumentado de 18 para 35 minutos para não cancelar o job antes
-    # do upload para o Dropbox quando o Barchart demora nos 9 ativos + fatias DTE.
+    # [CORREÇÃO 7] Orçamento amplo para os 9 ativos + fatias DTE + upload no Dropbox
     timeout-minutes: 35
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
 
-      - name: Configurar Python
+      - name: Configurar Python com Cache
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Instalar dependências
         run: |
