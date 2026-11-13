@@ -72,10 +72,12 @@ INDEX_FUTURES_ROOTS = {"ES", "NQ", "YM", "RTY", "MES", "MNQ", "MYM", "M2K"}
 # natural (ex.: NG 3.25, CL 61.5, ZN 110.25), evitando que tudo colapse em 0/5/60.
 STRIKE_ROUNDING = {"ES": 5, "NQ": 5, "YM": 5, "RTY": 5}
 
-# [CORREÇÃO 7] Piso de tempo até o vencimento. Após 16h NY (ou nos minutos finais
-# de um 0DTE) T tendia a zero e o script abortava com ValueError / gamma infinito.
+# [CORREÇÃO 7] Piso de tempo até o vencimento. No 0DTE (ou após 16h NY), usar T
+# de poucos minutos transformava a gaussiana do Black-Scholes numa agulha de ~5 pts
+# ao redor do spot (zerando as paredes reais do dia) e impedia `implied_vol_from_gamma`
+# de reproduzir o `raw.gamma` do Barchart (que usa convenção mínima de 1 dia = 1/365).
 SECONDS_PER_YEAR = 365.0 * 24.0 * 60.0 * 60.0
-MIN_TIME_TO_EXPIRY_SECONDS = 300.0
+MIN_TIME_TO_EXPIRY_SECONDS = 24.0 * 60.0 * 60.0
 NEW_YORK_CLOSE = datetime_time(16, 0)
 
 # [CORREÇÃO 7] Orçamento de tempo do ciclo: se estourar, para de raspar e faz o
@@ -838,7 +840,10 @@ def resolve_strike_vols(df, spot, T, risk_free, base_iv):
     # Referência para escolher a raiz correta nas asas: o gamma ATM tem raiz
     # única em sigma (monótono), então calibramos primeiro os strikes mais
     # próximos do spot e usamos a mediana como "chute" das demais calibrações.
+    # No 0DTE o feed do Barchart calcula `raw.gamma` com piso de 1 dia (1/365).
+    effective_T = max(T, 1.0 / 365.0)
     reference_sigma = base_iv
+    has_atm_calibration = False
     if spot > 0:
         atm_rows = sorted(
             (
@@ -855,11 +860,16 @@ def resolve_strike_vols(df, spot, T, risk_free, base_iv):
                     sigma = implied_vol_from_gamma(
                         spot, float(row.strike), T, risk_free, gamma_api, base_iv
                     )
+                    if sigma is None and effective_T != T:
+                        sigma = implied_vol_from_gamma(
+                            spot, float(row.strike), effective_T, risk_free, gamma_api, base_iv
+                        )
                     if sigma is not None:
                         atm_sigmas.append(sigma)
         if atm_sigmas:
             atm_sigmas.sort()
             reference_sigma = atm_sigmas[len(atm_sigmas) // 2]
+            has_atm_calibration = True
 
     for row in resolved.itertuples(index=False):
         strike = float(row.strike)
@@ -878,8 +888,19 @@ def resolve_strike_vols(df, spot, T, risk_free, base_iv):
                 calibrated = implied_vol_from_gamma(
                     spot, strike, T, risk_free, gamma_api, reference_sigma
                 )
+                if calibrated is None and effective_T != T:
+                    calibrated = implied_vol_from_gamma(
+                        spot, strike, effective_T, risk_free, gamma_api, reference_sigma
+                    )
                 if calibrated is not None:
                     sigma, real, gamma = calibrated, True, gamma_api
+                else:
+                    # Preserva SEMPRE o gamma real fornecido pelo Barchart no strike
+                    # (nunca o descarta por falta de raiz analítica nas asas) e usa a
+                    # IV ATM calibrada da cadeia quando disponível.
+                    sigma = reference_sigma if has_atm_calibration else base_iv
+                    real = has_atm_calibration
+                    gamma = gamma_api
             if gamma is None:
                 gamma = black_scholes_gamma(spot, strike, T, risk_free, sigma)
             columns[f"iv_{side}"].append(sigma)
@@ -1011,6 +1032,28 @@ def select_walls(df):
         else:
             others = df[df["strike"] != df.loc[cw_index, "strike"]]
             pw_index = others["pgex"].idxmax()
+
+    # Evita inversão estrutural (ex.: Call Wall 7545 abaixo da Put Wall 7550)
+    # quando existem strikes positivos acima da Put Wall ou negativos abaixo da Call Wall.
+    if (
+        not positive.empty
+        and not negative.empty
+        and df.loc[cw_index, "strike"] < df.loc[pw_index, "strike"]
+    ):
+        candidates = []
+        pos_above_pw = positive[positive["strike"] > df.loc[pw_index, "strike"]]
+        if not pos_above_pw.empty:
+            alt_cw = pos_above_pw["ng"].idxmax()
+            score_a = abs(float(df.loc[pw_index, "ng"])) + float(df.loc[alt_cw, "ng"])
+            candidates.append((score_a, alt_cw, pw_index))
+        neg_below_cw = negative[negative["strike"] < df.loc[cw_index, "strike"]]
+        if not neg_below_cw.empty:
+            alt_pw = neg_below_cw["ng"].idxmin()
+            score_b = float(df.loc[cw_index, "ng"]) + abs(float(df.loc[alt_pw, "ng"]))
+            candidates.append((score_b, cw_index, alt_pw))
+        if candidates:
+            _, cw_index, pw_index = max(candidates, key=lambda item: item[0])
+
     return df.loc[cw_index], df.loc[pw_index]
 
 

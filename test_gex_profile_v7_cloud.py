@@ -841,6 +841,22 @@ class GammaCalculationTests(unittest.TestCase):
         self.assertEqual(pw["strike"], 7550.0)
         self.assertNotEqual(cw["strike"], pw["strike"])
 
+    def test_select_walls_prevents_inverted_call_wall_below_put_wall(self):
+        # Cenário real de 0DTE (print ES): 7545 tinha pequeno saldo positivo (+1.2M)
+        # logo abaixo da Put Wall 7550 (-12M), enquanto 7600 tinha +1.0M acima.
+        profile = pd.DataFrame({
+            "strike": [7500.0, 7545.0, 7550.0, 7600.0],
+            "cgex": [50.0, 1500.0, 200.0, 1100.0],
+            "pgex": [800.0, 300.0, 12200.0, 100.0],
+            "ng": [-750.0, 1200.0, -12000.0, 1000.0],
+        })
+
+        cw, pw = select_walls(profile)
+
+        self.assertEqual(pw["strike"], 7550.0)
+        self.assertEqual(cw["strike"], 7600.0)
+        self.assertGreater(cw["strike"], pw["strike"])
+
     def test_thursday_dte_selection_does_not_duplicate_friday_for_1dte_and_2dte(self):
         expirations = [
             {"date": expiration, "url": expiration.isoformat()}
