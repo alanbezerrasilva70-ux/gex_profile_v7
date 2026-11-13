@@ -54,11 +54,12 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         [NinjaScriptProperty] [Display(Name="Opacidade (%)", Order=1, GroupName="Visual")] public int Opacidade { get; set; }
         [NinjaScriptProperty] [Display(Name="Largura Max", Order=2, GroupName="Visual")] public int LarguraMax { get; set; }
+        [NinjaScriptProperty] [Display(Name="Vencimento DTE (ALL, 0DTE, 1DTE, 2DTE, 7DTE)", Order=3, GroupName="Visual")] public string VencimentoDTE { get; set; }
 
         protected override void OnStateChange() {
             if (State == State.SetDefaults) {
                 Name = "NiveisEstruturaPro"; Calculate = Calculate.OnEachTick; IsOverlay = true;
-                Opacidade = 40; LarguraMax = 300;
+                Opacidade = 40; LarguraMax = 300; VencimentoDTE = "ALL";
             } else if (State == State.DataLoaded) LerTudo();
         }
 
@@ -142,12 +143,22 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 var novos = new List<GammaLevel>();
                 var map = new System.Collections.Generic.Dictionary<double,string>();
-                string f1 = Path.Combine(pastaGexData, "NiveisGamma_"+s+".csv");
+                string dte = (VencimentoDTE ?? "ALL").Trim().ToUpperInvariant();
+                string suffix = (dte == "0DTE" || dte == "1DTE" || dte == "2DTE" || dte == "7DTE") ? ("_" + dte) : "";
+                string f1 = Path.Combine(pastaGexData, "NiveisGamma_" + s + suffix + ".csv");
+                string f2 = Path.Combine(pastaGexData, "GammaProfile_" + s + suffix + ".csv");
+                if (!File.Exists(f2) && suffix == "_0DTE") {
+                    f1 = Path.Combine(pastaGexData, "NiveisGamma_" + s + "_1DTE.csv");
+                    f2 = Path.Combine(pastaGexData, "GammaProfile_" + s + "_1DTE.csv");
+                }
+                if (!File.Exists(f2)) {
+                    f1 = Path.Combine(pastaGexData, "NiveisGamma_" + s + ".csv");
+                    f2 = Path.Combine(pastaGexData, "GammaProfile_" + s + ".csv");
+                }
                 if(File.Exists(f1)) {
                     var p = File.ReadAllText(f1).Split(',');
                     if(p.Length>=5) { AddL(map, p[0], "CW"); AddL(map, p[1], "PW"); AddL(map, p[2], "ZG"); }
                 }
-                string f2 = Path.Combine(pastaGexData, "GammaProfile_"+s+".csv");
                 if(File.Exists(f2)) {
                     using(var sr = new StreamReader(f2)) {
                         sr.ReadLine();
@@ -250,22 +261,23 @@ namespace NinjaTrader.NinjaScript.Indicators
         private void Desenhar() {
             DesenharNivelDte("CW0DTE", "0DTE CALL WALL", cw0DTE, Brushes.Yellow, DashStyleHelper.Dash, 3, 18);
             DesenharNivelDte("PW0DTE", "0DTE PUT WALL", pw0DTE, Brushes.DarkOrange, DashStyleHelper.Dash, 3, -18);
+            DesenharNivelDte("ZG0DTE", "0DTE GEX FLIP", zg0DTE, Brushes.Gold, DashStyleHelper.Dot, 2, 24);
             DesenharNivelDte("CW1DTE", "1DTE CALL WALL", cw1DTE, Brushes.DodgerBlue, DashStyleHelper.Dash, 2, 30);
             DesenharNivelDte("PW1DTE", "1DTE PUT WALL", pw1DTE, Brushes.MediumPurple, DashStyleHelper.Dash, 2, -30);
-            DesenharNivelDte("ZG1DTE", "1DTE GEX FLIP ESTIMADO", zg1DTE, Brushes.LightSkyBlue, DashStyleHelper.Dot, 2, 36);
+            DesenharNivelDte("ZG1DTE", "1DTE GEX FLIP", zg1DTE, Brushes.LightSkyBlue, DashStyleHelper.Dot, 2, 36);
             DesenharNivelDte("CW2DTE", "2DTE CALL WALL", cw2DTE, Brushes.Cyan, DashStyleHelper.Dash, 2, 42);
             DesenharNivelDte("PW2DTE", "2DTE PUT WALL", pw2DTE, Brushes.Magenta, DashStyleHelper.Dash, 2, -42);
-            DesenharNivelDte("ZG2DTE", "2DTE GEX FLIP ESTIMADO", zg2DTE, Brushes.Goldenrod, DashStyleHelper.Dot, 2, 48);
+            DesenharNivelDte("ZG2DTE", "2DTE GEX FLIP", zg2DTE, Brushes.Goldenrod, DashStyleHelper.Dot, 2, 48);
             DesenharNivelDte("CW7DTE", "7DTE CALL WALL", cw7DTE, Brushes.LimeGreen, DashStyleHelper.Dash, 2, 54);
             DesenharNivelDte("PW7DTE", "7DTE PUT WALL", pw7DTE, Brushes.Tomato, DashStyleHelper.Dash, 2, -54);
-            DesenharNivelDte("ZG7DTE", "7DTE GEX FLIP ESTIMADO", zg7DTE, Brushes.Silver, DashStyleHelper.Dot, 2, 60);
+            DesenharNivelDte("ZG7DTE", "7DTE GEX FLIP", zg7DTE, Brushes.Silver, DashStyleHelper.Dot, 2, 60);
             if (callWall > 0 && brushCallLine != null) { Draw.HorizontalLine(this, "CW", callWall, brushCallLine, DashStyleHelper.Solid, 5); Draw.Text(this, "TxtCW", false, "CALL WALL | " + cwMoney + " | " + callWall, -10, callWall, 18, brushCallText, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
             else { RemoveDrawObject("CW"); RemoveDrawObject("TxtCW"); }
             if (putWall > 0 && brushPutLine != null) { Draw.HorizontalLine(this, "PW", putWall, brushPutLine, DashStyleHelper.Solid, 5); Draw.Text(this, "TxtPW", false, "PUT WALL | " + pwMoney + " | " + putWall, -10, putWall, -18, brushPutText, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
             else { RemoveDrawObject("PW"); RemoveDrawObject("TxtPW"); }
             if (optionVolumeStrike > 0 && brushVolumeLine != null) { Draw.HorizontalLine(this, "DP", optionVolumeStrike, brushVolumeLine, DashStyleHelper.Solid, 6); Draw.Text(this, "TxtDP", false, "MAX OPTION VOLUME | " + optionVolume + " contracts [" + optionVolumeStrike + "]", -10, optionVolumeStrike, 35, brushVolumeText, fonteBold, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
             else { RemoveDrawObject("DP"); RemoveDrawObject("TxtDP"); }
-            if (zeroGamma > 0) { Draw.HorizontalLine(this, "ZG", zeroGamma, Brushes.White, DashStyleHelper.Dot, 1); Draw.Text(this, "TxtZG", false, "GEX FLIP ESTIMADO [" + zeroGamma + "]", -60, zeroGamma, 10, Brushes.White, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
+            if (zeroGamma > 0) { Draw.HorizontalLine(this, "ZG", zeroGamma, Brushes.White, DashStyleHelper.Dot, 1); Draw.Text(this, "TxtZG", false, "GEX FLIP [" + zeroGamma + "]", -60, zeroGamma, 10, Brushes.White, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
             else { RemoveDrawObject("ZG"); RemoveDrawObject("TxtZG"); }
             if (maxPain > 0) { Draw.HorizontalLine(this, "MP", maxPain, Brushes.Goldenrod, DashStyleHelper.Dash, 2); Draw.Text(this, "TxtMP", false, "MAX PAIN [" + maxPain + "]", -60, maxPain, -10, Brushes.Goldenrod, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
             else { RemoveDrawObject("MP"); RemoveDrawObject("TxtMP"); }
@@ -281,7 +293,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             string flipStatus = !niveisDisponiveis
                 ? "GEX: arquivo de niveis indisponivel"
                 : zeroGamma > 0
-                    ? "GEX FLIP estimado: " + zeroGamma
+                    ? "GEX FLIP (Zero Gamma): " + zeroGamma
                     : "GEX FLIP: sem cruzamento na faixa";
             double ratioNum = 0;
             double.TryParse(dashRatio, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out ratioNum);
@@ -290,7 +302,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + "\nMAX PAIN: " + maxPain + " | BLOCK/MAX VOL: " + optionVolumeStrike + " (" + optionVolume + " ctrs)";
             string alvosResumo = (dashAlvoUp != "0" && dashAlvoDown != "0") ? "\nALVOS VOL: " + dashAlvoDown + " <-> " + dashAlvoUp : "";
             string ivLabel = string.IsNullOrWhiteSpace(dashIvSource) ? "IV BASE" : dashIvSource.ToUpperInvariant();
-            string dados = "\nREGIME: " + dashRegime + "\n------------------" + "\nCALL/PUT VOLUME BALANCE (source/model units): " + dashNetFlow + " (" + dashFlowVal + ")" + "\nNET GEX (estimado): " + dashNetGex + " (" + dashGexVal + ")" + niveisResumo + "\n" + flipStatus + "\nRATIO: " + dashRatio + " " + ratioTag + "\n" + ivLabel + ": " + dashIv + "%" + alvosResumo + fonte + "\nATUALIZADO: " + DateTime.Now.ToString("HH:mm:ss");
+            string dados = "\nREGIME: " + dashRegime + "\n------------------" + "\nCALL/PUT VOLUME BALANCE (source/model units): " + dashNetFlow + " (" + dashFlowVal + ")" + "\nNET GEX: " + dashNetGex + " (" + dashGexVal + ")" + niveisResumo + "\n" + flipStatus + "\nRATIO: " + dashRatio + " " + ratioTag + "\n" + ivLabel + ": " + dashIv + "%" + alvosResumo + fonte + "\nATUALIZADO: " + DateTime.Now.ToString("HH:mm:ss");
             Draw.TextFixed(this, "DashFundo", titulo + dados, TextPosition.TopLeft, corTextoRegime, fonteDash, corFundoDash, Brushes.Black, 100);
         }
 
@@ -350,9 +362,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                         double.TryParse(p[8], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out pw0DTE);
                     }
                 }
-                if (cw0DTE == 0 && pw0DTE == 0) {
-                    LerNiveisDte(s, "0DTE", out cw0DTE, out pw0DTE, out zg0DTE);
-                }
+                double cw0File = 0, pw0File = 0;
+                LerNiveisDte(s, "0DTE", out cw0File, out pw0File, out zg0DTE);
+                if (cw0DTE == 0) cw0DTE = cw0File;
+                if (pw0DTE == 0) pw0DTE = pw0File;
                 LerNiveisDte(s, "1DTE", out cw1DTE, out pw1DTE, out zg1DTE);
                 LerNiveisDte(s, "2DTE", out cw2DTE, out pw2DTE, out zg2DTE);
                 LerNiveisDte(s, "7DTE", out cw7DTE, out pw7DTE, out zg7DTE);
@@ -441,6 +454,9 @@ namespace NinjaTrader.NinjaScript.Indicators
         [NinjaScriptProperty] [Display(Name="Mostrar Linhas", Order=7, GroupName="3. Visual")] 
         public bool ShowLines { get; set; }
 
+        [NinjaScriptProperty] [Display(Name="Vencimento DTE (ALL, 0DTE, 1DTE, 2DTE, 7DTE)", Order=8, GroupName="2. Estratégia")] 
+        public string VencimentoDTE { get; set; }
+
         private SimpleFont ft1, ft2;
         private double currentIV = 0;
         private string currentIVSource = "IV base assumida";
@@ -466,6 +482,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 MultiplicadorATR = 2.0; 
                 StopTicksFixo = 20; 
                 ShowLines = true;
+                VencimentoDTE = "ALL";
             }
             else if (State == State.DataLoaded)
             {
@@ -572,7 +589,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else if(s.Contains("RTY") || s.Contains("M2K"))s="RTY";
                 else if(s.Contains("NG") || s.Contains("QG"))s="NG";
 
-                string f = Path.Combine(pastaGexData, "AlvosVolatilidade_"+s+".csv");
+                string dte = (VencimentoDTE ?? "ALL").Trim().ToUpperInvariant();
+                string suffix = (dte == "0DTE" || dte == "1DTE" || dte == "2DTE" || dte == "7DTE") ? ("_" + dte) : "";
+                string f = Path.Combine(pastaGexData, "AlvosVolatilidade_" + s + suffix + ".csv");
+                if (!File.Exists(f) && suffix == "_0DTE") f = Path.Combine(pastaGexData, "AlvosVolatilidade_" + s + "_1DTE.csv");
+                if (!File.Exists(f)) f = Path.Combine(pastaGexData, "AlvosVolatilidade_" + s + ".csv");
                 if(File.Exists(f)) { 
                     var lines = File.ReadAllText(f).Split(','); 
                     if(lines.Length >= 4) { 
@@ -828,6 +849,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         public double IvManual { get; set; }
 
         [NinjaScriptProperty]
+        [Display(Name="Vencimento DTE (ALL, 0DTE, 1DTE, 2DTE, 7DTE)", Order=2, GroupName="1. Parâmetros Base")]
+        public string VencimentoDTE { get; set; }
+
+        [NinjaScriptProperty]
         [Display(Name="Linha UP (+68%)", Order=1, GroupName="2. Visual: Bandas 1 SD")]
         public Stroke LinhaUp1 { get; set; }
 
@@ -860,6 +885,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Calculate = Calculate.OnEachTick; 
                 IsOverlay = true;
                 IvManual = 0;
+                VencimentoDTE = "ALL";
 
                 LinhaUp1 = new Stroke(Brushes.LimeGreen, DashStyleHelper.Dash, 2);
                 LinhaDn1 = new Stroke(Brushes.Crimson, DashStyleHelper.Dash, 2);
@@ -962,7 +988,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else if(s.Contains("RTY") || s.Contains("M2K")) s="RTY";
                 else if(s.Contains("MNG") || s.Contains("QG") || s.Contains("NG")) s="NG";
 
-                string file = Path.Combine(pastaIvData, "AlvosVolatilidade_" + s + ".csv");
+                string dte = (VencimentoDTE ?? "ALL").Trim().ToUpperInvariant();
+                string suffix = (dte == "0DTE" || dte == "1DTE" || dte == "2DTE" || dte == "7DTE") ? ("_" + dte) : "";
+                string file = Path.Combine(pastaIvData, "AlvosVolatilidade_" + s + suffix + ".csv");
+                if (!File.Exists(file) && suffix == "_0DTE") file = Path.Combine(pastaIvData, "AlvosVolatilidade_" + s + "_1DTE.csv");
+                if (!File.Exists(file)) file = Path.Combine(pastaIvData, "AlvosVolatilidade_" + s + ".csv");
                 if (!File.Exists(file)) {
                     ivVal = 0;
                     ivSource = "IV sem dados";
@@ -1033,6 +1063,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private bool calculouHoje = false;
         private bool sessaoInicializada = false;
         private double precoAberturaSessao = 0;
+        private DateTime ultimaLeituraDropbox = DateTime.MinValue;
         private string pastaGexData = @"C:\Users\alanb\Dropbox\Aplicativos\RoboGexNinjaV1";
         private NinjaTrader.Gui.Tools.SimpleFont fonteHud;
 
@@ -1046,6 +1077,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         [NinjaScriptProperty]
         [Display(Name = "2. Volatilidade Manual (fallback/outras classes)", GroupName = "1. Automação do VIX", Order = 2)]
         public double VixManual { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "3. Vencimento DTE (ALL, 0DTE, 1DTE, 2DTE, 7DTE)", GroupName = "1. Automação do VIX", Order = 3)]
+        public string VencimentoDTE { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 200)]
@@ -1089,6 +1124,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 UsarVixAutomatico = true; 
                 VixManual = 15.0; 
+                VencimentoDTE = "ALL";
                 EspessuraNuvem = 12; 
                 Opacidade = 20; 
 
@@ -1100,7 +1136,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (UsarVixAutomatico)
                 {
                     bool carregouCsv = TentarCarregarIvDoDropbox();
-                    if (IsSp500Instrument())
+                    if (!carregouCsv && IsSp500Instrument())
                     {
                         BuscarVixNaInternet();
                     }
@@ -1163,7 +1199,11 @@ namespace NinjaTrader.NinjaScript.Indicators
             try
             {
                 string sym = GetNormalizedSymbol();
-                string file = Path.Combine(pastaGexData, "AlvosVolatilidade_" + sym + ".csv");
+                string dte = (VencimentoDTE ?? "ALL").Trim().ToUpperInvariant();
+                string suffix = (dte == "0DTE" || dte == "1DTE" || dte == "2DTE" || dte == "7DTE") ? ("_" + dte) : "";
+                string file = Path.Combine(pastaGexData, "AlvosVolatilidade_" + sym + suffix + ".csv");
+                if (!File.Exists(file) && suffix == "_0DTE") file = Path.Combine(pastaGexData, "AlvosVolatilidade_" + sym + "_1DTE.csv");
+                if (!File.Exists(file)) file = Path.Combine(pastaGexData, "AlvosVolatilidade_" + sym + ".csv");
                 if (!File.Exists(file)) return false;
                 using (FileStream fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 using (StreamReader sr = new StreamReader(fs))
@@ -1262,6 +1302,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                 sessaoInicializada = true;
             }
             if (CurrentBar < 1) return;
+
+            if (UsarVixAutomatico && DateTime.Now > ultimaLeituraDropbox.AddSeconds(5))
+            {
+                TentarCarregarIvDoDropbox();
+                ultimaLeituraDropbox = DateTime.Now;
+            }
 
             if ((!calculouHoje || Math.Abs(VixInterno - ultimoVixCalculado) > 1e-6) && IsValidVolatility(VixInterno))
             {

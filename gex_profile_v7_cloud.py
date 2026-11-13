@@ -1033,23 +1033,33 @@ def select_walls(df):
             others = df[df["strike"] != df.loc[cw_index, "strike"]]
             pw_index = others["pgex"].idxmax()
 
-    # Evita inversão estrutural (ex.: Call Wall 7545 abaixo da Put Wall 7550)
-    # quando existem strikes positivos acima da Put Wall ou negativos abaixo da Call Wall.
+    # Evita inversão acidental por strike residual ITM (ex.: 7545 +1.2M logo abaixo
+    # da Put Wall 7550 -12M quando 7600 acima tem +1.0M relevante >= 50% do pico).
+    # Se não houver parede relevante (>= 50%) do lado oposto, preserva as Paredes
+    # Invertidas reais (Crossed Gamma Zone).
     if (
         not positive.empty
         and not negative.empty
         and df.loc[cw_index, "strike"] < df.loc[pw_index, "strike"]
     ):
+        cw_mag = float(df.loc[cw_index, "ng"])
+        pw_mag = abs(float(df.loc[pw_index, "ng"]))
         candidates = []
-        pos_above_pw = positive[positive["strike"] > df.loc[pw_index, "strike"]]
+        pos_above_pw = positive[
+            (positive["strike"] > df.loc[pw_index, "strike"])
+            & (positive["ng"] >= 0.5 * cw_mag)
+        ]
         if not pos_above_pw.empty:
             alt_cw = pos_above_pw["ng"].idxmax()
-            score_a = abs(float(df.loc[pw_index, "ng"])) + float(df.loc[alt_cw, "ng"])
+            score_a = pw_mag + float(df.loc[alt_cw, "ng"])
             candidates.append((score_a, alt_cw, pw_index))
-        neg_below_cw = negative[negative["strike"] < df.loc[cw_index, "strike"]]
+        neg_below_cw = negative[
+            (negative["strike"] < df.loc[cw_index, "strike"])
+            & (negative["ng"].abs() >= 0.5 * pw_mag)
+        ]
         if not neg_below_cw.empty:
             alt_pw = neg_below_cw["ng"].idxmin()
-            score_b = float(df.loc[cw_index, "ng"]) + abs(float(df.loc[alt_pw, "ng"]))
+            score_b = cw_mag + abs(float(df.loc[alt_pw, "ng"]))
             candidates.append((score_b, cw_index, alt_pw))
         if candidates:
             _, cw_index, pw_index = max(candidates, key=lambda item: item[0])

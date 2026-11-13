@@ -1382,6 +1382,21 @@ class GammaCalculationTests(unittest.TestCase):
         self.assertIsNone(result)
         self.assertIsNone(profile)
 
+    def test_select_walls_preserves_dominant_institutional_inverted_walls(self):
+        # Quando a Call Wall invertida (7545) e a Put Wall (7550) sao massivas e
+        # nenhum outro strike atinge 50% da magnitude delas, preserva a inversao real.
+        df = pd.DataFrame(
+            [
+                {"strike": 7500.0, "cgex": 0.0, "pgex": 5_000_000.0, "ng": -5_000_000.0},
+                {"strike": 7545.0, "cgex": 80_000_000.0, "pgex": 0.0, "ng": 80_000_000.0},
+                {"strike": 7550.0, "cgex": 0.0, "pgex": 120_000_000.0, "ng": -120_000_000.0},
+                {"strike": 7600.0, "cgex": 10_000_000.0, "pgex": 0.0, "ng": 10_000_000.0},
+            ]
+        )
+        cw, pw = select_walls(df)
+        self.assertEqual(cw["strike"], 7545.0)
+        self.assertEqual(pw["strike"], 7550.0)
+
 
 if __name__ == "__main__":
     unittest.main()
