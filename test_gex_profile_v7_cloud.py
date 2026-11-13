@@ -10,16 +10,20 @@ from gex_profile_v7_cloud import (
     _expiration_date,
     _futures_weekly_api_config,
     _time_to_expiry,
+    apply_proxy_scaling,
     calculate_max_pain,
+    effective_session_date,
     extract_equity_expiration_options,
     find_gex_flip,
     parse_barchart_option_payload,
     parse_futures_expiration_options,
     parse_option_tables,
+    parse_treasury_price,
     process,
     process_group,
     save,
     select_expiration_for_dte,
+    select_walls,
 )
 
 
@@ -709,11 +713,11 @@ class GammaCalculationTests(unittest.TestCase):
         futures_expirations_mock.assert_not_called()
         self.assertEqual(
             [call.args[3] for call in save_mock.call_args_list],
-            ["_1DTE", "_2DTE", "_7DTE"],
+            ["_0DTE", "_1DTE", "_2DTE", "_7DTE"],
         )
         self.assertEqual(
             [call.args[1]["Source"] for call in save_mock.call_args_list],
-            ["IWM proxy for RTY"] * 3,
+            ["IWM proxy for RTY"] * 4,
         )
 
     def test_save_exports_actual_iv_basis_and_source_without_changing_existing_columns(self):
@@ -804,6 +808,121 @@ class GammaCalculationTests(unittest.TestCase):
         })
 
         self.assertEqual(calculate_max_pain(profile), 100.0)
+
+    def test_select_walls_uses_net_gamma_to_prevent_identical_atm_straddle_walls(self):
+        # Strike central 7600 tem o maior cgex e pgex bruto (straddle ATM), mas
+        # ng quase zero; 7650 é a verdadeira Call Wall líquida e 7550 a Put Wall.
+        profile = pd.DataFrame({
+            "strike": [7550.0, 7600.0, 7650.0],
+            "cgex": [100.0, 1000.0, 600.0],
+            "pgex": [700.0, 1050.0, 50.0],
+            "ng": [-600.0, -50.0, 550.0],
+        })
+
+        cw, pw = select_walls(profile)
+
+        self.assertEqual(cw["strike"], 7650.0)
+        self.assertEqual(pw["strike"], 7550.0)
+        self.assertNotEqual(cw["strike"], pw["strike"])
+
+    def test_thursday_dte_selection_does_not_duplicate_friday_for_1dte_and_2dte(self):
+        expirations = [
+            {"date": expiration, "url": expiration.isoformat()}
+            for expiration in (
+                date(2026, 11, 12),  # quinta
+                date(2026, 11, 13),  # sexta
+                date(2026, 11, 16),  # segunda
+                date(2026, 11, 17),  # terça
+                date(2026, 11, 19),  # quinta seguinte
+            )
+        ]
+        as_of = date(2026, 11, 12)
+        used = set()
+        exp_0dte = select_expiration_for_dte(expirations, as_of, 0, exclude=used)
+        used.add(exp_0dte["date"])
+        exp_1dte = select_expiration_for_dte(expirations, as_of, 1, exclude=used)
+        used.add(exp_1dte["date"])
+        exp_2dte = select_expiration_for_dte(expirations, as_of, 2, exclude=used)
+        used.add(exp_2dte["date"])
+        exp_7dte = select_expiration_for_dte(expirations, as_of, 7, exclude=used)
+
+        self.assertEqual(exp_0dte["date"], date(2026, 11, 12))
+        self.assertEqual(exp_1dte["date"], date(2026, 11, 13))
+        self.assertEqual(exp_2dte["date"], date(2026, 11, 16))
+        self.assertEqual(exp_7dte["date"], date(2026, 11, 19))
+
+    def test_low_price_assets_preserve_natural_strikes_in_macro_aggregation(self):
+        ng_profile = pd.DataFrame({
+            "strike": [3.2, 3.3, 3.4],
+            "ng": [-200.0, 50.0, 300.0],
+            "nf": [-1.0, 0.0, 2.0],
+            "coi": [1.0, 3.0, 5.0],
+            "poi": [4.0, 2.0, 1.0],
+            "cgex": [50.0, 150.0, 350.0],
+            "pgex": [250.0, 100.0, 50.0],
+            "c_vol": [1.0, 1.0, 3.0],
+            "p_vol": [2.0, 1.0, 1.0],
+            "vol": [3.0, 2.0, 4.0],
+            "toi": [5.0, 5.0, 6.0],
+            "spot": [3.3, 3.3, 3.3],
+            "base_strike": [3.2, 3.3, 3.4],
+            "time_to_expiry": [1 / 365] * 3,
+            "iv": [0.4] * 3,
+            "contract_mult": [10000.0] * 3,
+            "strike_mult": [1.0] * 3,
+            "expiration_date": ["2026-11-13"] * 3,
+        })
+
+        with (
+            patch("gex_profile_v7_cloud.datetime") as datetime_mock,
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch("gex_profile_v7_cloud.extract_futures_expiration_options", return_value=[]),
+            patch("gex_profile_v7_cloud.process", return_value=({"CW": 3.4, "PW": 3.2}, ng_profile)),
+            patch("gex_profile_v7_cloud.find_gex_flip", return_value=3.28),
+        ):
+            datetime_mock.now.return_value = datetime(2026, 11, 12, 12, 0)
+            result, agg = process_group(
+                object(),
+                "NG",
+                [{"url": "https://www.barchart.com/futures/quotes/NG*0/options", "strike_mult": 1, "gex_correcao": 1}],
+            )
+
+        self.assertEqual(agg["strike"].tolist(), [3.2, 3.3, 3.4])
+        self.assertEqual(result["CW"], 3.4)
+        self.assertEqual(result["PW"], 3.2)
+
+    def test_rty_dte_slices_scale_iwm_strikes_and_exposures(self):
+        iwm_slice = pd.DataFrame({
+            "strike": [235.0, 240.0, 245.0],
+            "ng": [-500.0, 100.0, 800.0],
+            "nf": [-5.0, 2.0, 10.0],
+            "coi": [10.0, 20.0, 50.0],
+            "poi": [40.0, 15.0, 5.0],
+            "cgex": [100.0, 300.0, 900.0],
+            "pgex": [600.0, 200.0, 100.0],
+            "c_vol": [5.0, 12.0, 20.0],
+            "p_vol": [10.0, 10.0, 10.0],
+            "vol": [15.0, 22.0, 30.0],
+            "toi": [50.0, 35.0, 55.0],
+            "spot": [240.0, 240.0, 240.0],
+            "base_strike": [235.0, 240.0, 245.0],
+            "time_to_expiry": [1 / 365] * 3,
+            "iv": [0.2] * 3,
+            "contract_mult": [50.0] * 3,
+            "strike_mult": [1.0] * 3,
+            "expiration_date": ["2026-11-12"] * 3,
+        })
+        scaled = apply_proxy_scaling(iwm_slice, strike_mult=10, gex_correction=5)
+        self.assertEqual(scaled["strike"].tolist(), [2350.0, 2400.0, 2450.0])
+        self.assertEqual(scaled["ng"].tolist(), [-2500.0, 500.0, 4000.0])
+
+    def test_after_market_close_session_date_advances_to_next_business_day(self):
+        friday_after_close = datetime(2026, 11, 13, 16, 30)
+        self.assertEqual(effective_session_date(friday_after_close), date(2026, 11, 16))
+
+    def test_treasury_fractional_price_parses_half_thirty_seconds(self):
+        self.assertAlmostEqual(parse_treasury_price("117-16"), 117.5)
+        self.assertAlmostEqual(parse_treasury_price("110-085"), 110.0 + 8.5 / 32.0)
 
 
 if __name__ == "__main__":

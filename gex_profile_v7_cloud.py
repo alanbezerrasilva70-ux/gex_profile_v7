@@ -33,7 +33,39 @@ IV_BASE_POR_ATIVO = {
     "YM": 0.12,
     "RTY": 0.20,
     "NG": 0.40,
+    # [CORREÇÃO EXTRA] GC, ZB e ZN caíam no padrão genérico de 14%. Para títulos
+    # (vol. implícita típica de 5-10% a.a.) isso alargava demais a curva gamma e
+    # deslocava o GEX Flip. Valores base mais próximos do histórico de cada ativo:
+    "GC": 0.18,
+    "ZB": 0.09,
+    "ZN": 0.06,
 }
+
+# [CORREÇÃO 5] Arredondamento de strikes no agregado (modo ALL) apenas para
+# índices de pontuação alta, onde proxies (SPY x10, QQQ x40, DIA x100, IWM x10)
+# precisam cair na mesma grade dos futuros. CL, GC, ZB, ZN e NG preservam a grade
+# natural (ex.: NG 3.25, CL 61.5, ZN 110.25), evitando que tudo colapse em 0/5/60.
+STRIKE_ROUNDING = {"ES": 5, "NQ": 5, "YM": 5, "RTY": 5}
+
+# [CORREÇÃO 7] Piso de tempo até o vencimento. Após 16h NY (ou nos minutos finais
+# de um 0DTE) T tendia a zero e o script abortava com ValueError / gamma infinito.
+SECONDS_PER_YEAR = 365.0 * 24.0 * 60.0 * 60.0
+MIN_TIME_TO_EXPIRY_SECONDS = 300.0
+NEW_YORK_CLOSE = datetime_time(16, 0)
+
+# [CORREÇÃO 7] Orçamento de tempo do ciclo: se estourar, para de raspar e faz o
+# upload do que já foi coletado (o job do GitHub Actions tem timeout de 35 min).
+MAX_RUN_SECONDS = 27 * 60
+PAGE_LOAD_TIMEOUT_SECONDS = 45
+
+# Erros não fatais do ciclo (ativo/DTE que falhou). Exibidos no resumo final e
+# como ::warning:: no GitHub Actions, sem abortar o upload para o Dropbox.
+RUN_ERRORS = []
+
+
+def registrar_erro(mensagem):
+    RUN_ERRORS.append(mensagem)
+    print(f" ❌ {mensagem}")
 
 # ==============================================================================
 # MOTOR MATEMÁTICO BLACK-SCHOLES
@@ -313,7 +345,22 @@ def _time_to_expiry(expiration_date, now=None):
     if current_time.tzinfo is None:
         raise ValueError("O horário de referência precisa incluir fuso horário.")
     seconds_remaining = (expiry.astimezone(timezone.utc) - current_time.astimezone(timezone.utc)).total_seconds()
-    return max(seconds_remaining, 0.0) / (365.0 * 24.0 * 60.0 * 60.0)
+    return max(seconds_remaining, 0.0) / SECONDS_PER_YEAR
+
+
+def effective_session_date(now_new_york):
+    """[CORREÇÃO 7] Data de pregão usada para escolher vencimentos.
+
+    Após o fechamento de 16h NY o vencimento do dia já expirou; a seleção DTE
+    passa a considerar o próximo dia útil (o mesmo vale para fins de semana).
+    Assim as execuções do fim da tarde não tentam ler um 0DTE vencido.
+    """
+    session = now_new_york.date()
+    if now_new_york.time() >= NEW_YORK_CLOSE:
+        session += timedelta(days=1)
+    while session.weekday() >= 5:
+        session += timedelta(days=1)
+    return session
 
 
 def parse_futures_expiration_options(option_groups, as_of):
@@ -370,7 +417,32 @@ def parse_futures_expiration_options(option_groups, as_of):
     ]
 
 
-def select_expiration_for_dte(expirations, as_of, dte):
+def _dte_target_date(as_of, dte):
+    """[CORREÇÃO 2] Data-alvo de um DTE.
+
+    Antes: alvo = as_of + dte dias corridos e escolha do vencimento "mais
+    próximo". Numa quinta (12/11) o 2DTE caía no sábado 14/11 e o mais próximo
+    era a sexta 13/11 — a mesma data do 1DTE, gerando _1DTE e _2DTE idênticos.
+
+    Agora: DTEs curtos (< 5) contam pregões (dias úteis); DTEs semanais (>= 5)
+    contam dias corridos (7DTE = mesmo dia da semana seguinte). Alvos que caem
+    em fim de semana são empurrados para a segunda-feira.
+    """
+    if dte >= 5:
+        target = as_of + timedelta(days=dte)
+    else:
+        target = as_of
+        remaining = dte
+        while remaining > 0:
+            target += timedelta(days=1)
+            if target.weekday() < 5:
+                remaining -= 1
+    while target.weekday() >= 5:
+        target += timedelta(days=1)
+    return target
+
+
+def select_expiration_for_dte(expirations, as_of, dte, exclude=()):
     if dte < 0:
         raise ValueError("DTE não pode ser negativo.")
     if dte == 0:
@@ -381,25 +453,40 @@ def select_expiration_for_dte(expirations, as_of, dte):
             f"Não há vencimento Futures disponível para 0DTE em {as_of}."
         )
 
+    # [CORREÇÃO 2] Apenas vencimentos FUTUROS (> as_of) e ainda não usados por
+    # outra fatia DTE (exclude), para que 0DTE/1DTE/2DTE/7DTE nunca repitam a
+    # mesma data quando houver vencimentos distintos disponíveis.
+    excluded = set(exclude)
+    future_expirations = sorted(
+        (expiration for expiration in expirations if expiration["date"] > as_of),
+        key=lambda expiration: expiration["date"],
+    )
     candidates = [
         expiration
-        for expiration in expirations
-        if expiration["date"] >= as_of
+        for expiration in future_expirations
+        if expiration["date"] not in excluded
     ]
+    if not candidates:
+        # Fallback apenas se a corretora/Barchart listar menos vencimentos futuros
+        # do que a quantidade de fatias DTE solicitadas.
+        candidates = future_expirations or sorted(
+            (expiration for expiration in expirations if expiration["date"] >= as_of),
+            key=lambda expiration: expiration["date"],
+        )
     if not candidates:
         raise RuntimeError(
             f"Não há vencimentos Futures disponíveis para selecionar {dte}DTE."
         )
 
-    target_date = as_of + timedelta(days=dte)
-    return min(
-        candidates,
-        key=lambda expiration: (
-            abs((expiration["date"] - target_date).days),
-            expiration["date"] < target_date,
-            expiration["date"],
-        ),
-    )
+    target_date = _dte_target_date(as_of, dte)
+    on_or_after_target = [
+        expiration for expiration in candidates if expiration["date"] >= target_date
+    ]
+    if on_or_after_target:
+        # Primeiro vencimento a partir do alvo (nunca volta para uma data anterior).
+        return on_or_after_target[0]
+    # Nenhum vencimento chega ao alvo: usa o mais longo disponível.
+    return candidates[-1]
 
 
 def total_gex_at_spot(df, candidate_spot, risk_free=0.05):
@@ -478,6 +565,124 @@ def calculate_max_pain(df):
         payouts.append((call_payout + put_payout, settlement))
     return min(payouts, key=lambda payout: payout[0])[1]
 
+
+def select_walls(df):
+    """[CORREÇÃO 1] Call Wall / Put Wall pelo GEX LÍQUIDO (ng = cgex - pgex).
+
+    Antes: cw = cgex.idxmax() e pw = pgex.idxmax(). O strike ATM redondo
+    (7600 no ES, 27600 no NQ, 85 no CL) concentra straddles institucionais com
+    OI alto nos dois lados, então o máximo bruto de calls e o de puts caíam no
+    MESMO strike e os dois cards mostravam o mesmo preço.
+
+    Agora:
+      * Call Wall = strike com maior exposição líquida POSITIVA (ng > 0);
+        fallback para cgex.idxmax() só se não houver strike positivo.
+      * Put Wall  = strike com maior exposição líquida NEGATIVA (ng < 0);
+        fallback para pgex.idxmax() só se não houver strike negativo.
+    Como os conjuntos ng > 0 e ng < 0 são disjuntos, as paredes nunca coincidem
+    quando existem os dois sinais; nos fallbacks o strike repetido é excluído.
+    """
+    if df.empty:
+        raise ValueError("Perfil vazio: impossível calcular Call/Put Wall.")
+    positive = df[df["ng"] > 0]
+    negative = df[df["ng"] < 0]
+    cw_index = positive["ng"].idxmax() if not positive.empty else df["cgex"].idxmax()
+    pw_index = negative["ng"].idxmin() if not negative.empty else df["pgex"].idxmax()
+
+    same_strike = df.loc[cw_index, "strike"] == df.loc[pw_index, "strike"]
+    if same_strike and df["strike"].nunique() > 1:
+        if positive.empty:
+            others = df[df["strike"] != df.loc[pw_index, "strike"]]
+            cw_index = others["cgex"].idxmax()
+        else:
+            others = df[df["strike"] != df.loc[cw_index, "strike"]]
+            pw_index = others["pgex"].idxmax()
+    return df.loc[cw_index], df.loc[pw_index]
+
+
+def apply_proxy_scaling(df, strike_mult, gex_correction):
+    """[CORREÇÃO 6] Converte uma cadeia de proxy (ex.: IWM -> RTY) para a escala do futuro.
+
+    Antes isso só era feito no agregado (ALL); as fatias 0DTE/1DTE/2DTE/7DTE do
+    RTY saíam em strikes do IWM (~240) e exposições sem correção.
+    Agora a mesma função é usada no macro e em todas as fatias DTE:
+      * strike (e spot) multiplicados por strike_mult; base_strike preserva o
+        strike original da proxy para o cálculo Black-Scholes do GEX Flip;
+      * contagens e exposições multiplicadas por gex_correcao — inclusive
+        volumes (c_vol, p_vol, vol, toi), que antes ficavam sem correção enquanto
+        nf (c_vol - p_vol) era corrigido, deixando DPM e FlowVal em escalas
+        diferentes.
+    """
+    scaled = df.copy()
+    scaled["base_strike"] = scaled["strike"]
+    scaled["strike"] = (scaled["strike"] * strike_mult).round(6)
+    scaled["strike_mult"] = strike_mult
+    if "spot" in scaled:
+        scaled["spot"] = scaled["spot"] * strike_mult
+    for column in ("ng", "nf", "coi", "poi", "cgex", "pgex", "c_vol", "p_vol", "vol", "toi"):
+        if column in scaled:
+            scaled[column] = scaled[column] * gex_correction
+    return scaled
+
+
+def compute_levels(df_levels, spot, symbol, flip_df=None):
+    """Calcula todos os níveis (CW, PW, ZG, DP, MP, ratio, regime...) de um perfil.
+
+    Usado pela cadeia individual (process), pelo agregado (process_group) e pelas
+    fatias DTE escaladas de proxies, garantindo a mesma definição em todos os
+    arquivos. flip_df permite calcular o GEX Flip sobre as linhas não agregadas
+    (cada uma com seu T, IV, multiplicador e strike original).
+    """
+    max_pain = calculate_max_pain(df_levels)
+    cw, pw = select_walls(df_levels)
+    dp = df_levels.loc[df_levels["vol"].idxmax()]
+    zero_gamma = find_gex_flip(
+        flip_df if flip_df is not None else df_levels, spot, steps=601
+    )
+
+    tot_gex = df_levels["ng"].sum()
+    tot_flow = df_levels["nf"].sum()
+    if tot_gex > 0:
+        regime = "LONG GAMMA (Estavel/Suporte)"
+        gex_signal = "POSITIVE"
+    elif tot_gex < 0:
+        regime = "SHORT GAMMA (Volatil/Squeeze)"
+        gex_signal = "NEGATIVE"
+    else:
+        regime = "NEUTRAL GAMMA"
+        gex_signal = "NEUTRAL"
+    flow_signal = (
+        "CALLS > PUTS" if tot_flow > 0
+        else "PUTS > CALLS" if tot_flow < 0
+        else "CALLS = PUTS"
+    )
+    positive_gex = df_levels["ng"][df_levels["ng"] > 0].sum()
+    negative_gex = abs(df_levels["ng"][df_levels["ng"] < 0].sum())
+    ratio = negative_gex / positive_gex if positive_gex > 0 else 0
+
+    iv_base = IV_BASE_POR_ATIVO.get(symbol, 0.14)
+    return {
+        # CWM/PWM agora exibem o GEX líquido da parede (coerente com a nova definição).
+        "CW": cw["strike"], "CWM": format_money(cw["ng"]),
+        "PW": pw["strike"], "PWM": format_money(pw["ng"]),
+        "ZG": zero_gamma,
+        # PG/NG = picos de gamma positivo/negativo líquido (mesmos strikes das paredes).
+        "PG": cw["strike"],
+        "NG": pw["strike"],
+        "DP": dp["strike"], "DPM": f"{dp['vol']:.0f}",
+        "MP": max_pain,
+        "Rat": f"{ratio:.2f}",
+        "FlowSig": flow_signal,
+        "GexSig": gex_signal,
+        "FlowVal": f"{tot_flow:.0f}",
+        "GexVal": format_money(tot_gex),
+        "AlvoUp": f"{spot*1.005:.2f}",
+        "AlvoDown": f"{spot*0.995:.2f}",
+        "Regime": regime,
+        "IV": iv_base * 100,
+        "IVSource": "IV base assumida",
+    }
+
 # ==============================================================================
 # INICIALIZAÇÃO DO NAVEGADOR
 # ==============================================================================
@@ -495,11 +700,24 @@ def iniciar_driver():
     
     try:
         driver = webdriver.Chrome(options=options)
+        # [CORREÇÃO 7] Sem timeout, um carregamento travado do Barchart prendia o
+        # job até o GitHub Actions cancelar tudo antes do upload para o Dropbox.
+        driver.set_page_load_timeout(PAGE_LOAD_TIMEOUT_SECONDS)
+        driver.set_script_timeout(PAGE_LOAD_TIMEOUT_SECONDS)
         print("✅ Driver Cloud iniciado com sucesso!")
         return driver
     except Exception as e:
         print(f"❌ ERRO ao iniciar driver: {e}")
         return None 
+
+
+def driver_ativo(driver):
+    """Verifica se a sessão do Selenium ainda responde (para recriá-la após crash)."""
+    try:
+        driver.execute_script("return 1;")
+        return True
+    except Exception:
+        return False
 
 # ==============================================================================
 # FUNÇÕES DE LIMPEZA E FORMATAÇÃO
@@ -516,6 +734,28 @@ def format_money(val):
 # ==============================================================================
 # LEITURA DE PREÇO COM RESILIÊNCIA (ANTI-BLOQUEIO)
 # ==============================================================================
+def parse_treasury_price(text):
+    """[CORREÇÃO EXTRA] Converte cotações fracionárias de ZB/ZN em decimal.
+
+    ZB: "117-16"  -> 117 + 16/32       = 117.5
+    ZN: "110-085" -> 110 + 8.5/32      = 110.265625 (3º dígito = fração de 1/32)
+    Antes "110-085" virava 110 + 85/32 = 112.66 (preço errado em ~2.4 pontos).
+    """
+    txt = str(text).strip().replace(",", "")
+    match = re.fullmatch(r"(\d+)['\-](\d{2,3})", txt)
+    if not match:
+        return float(txt)
+    whole, fraction = match.groups()
+    if len(fraction) == 2:
+        thirty_seconds = int(fraction)
+    else:
+        quarter_map = {"0": 0.0, "2": 0.25, "5": 0.5, "7": 0.75}
+        thirty_seconds = int(fraction[:2]) + quarter_map.get(
+            fraction[2], int(fraction[2]) / 10.0
+        )
+    return int(whole) + thirty_seconds / 32.0
+
+
 def get_price(driver, symbol):
     from selenium.webdriver.common.by import By
     selectors = ["span.last-change", "div.price-change", ".quote-price", ".symbol-last-price", ".last-price"]
@@ -527,11 +767,10 @@ def get_price(driver, symbol):
                 txt = el.text.split()[0].strip()
                 if txt and txt != "---": 
                     # Lógica especial para Frações de T-Bonds e T-Notes
-                    if symbol in ["ZB","ZN"] and "-" in txt:
+                    if symbol in ["ZB","ZN"] and ("-" in txt or "'" in txt):
                         try: 
-                            p = txt.split('-')
-                            return float(p[0]) + (float(p[1])/32.0)
-                        except: 
+                            return parse_treasury_price(txt)
+                        except Exception: 
                             pass
                     else:
                         try: 
@@ -730,8 +969,16 @@ def process(driver, symbol, url):
         margin = spot * 0.15
         expiration_date = _expiration_date(driver, url)
         T_years = _time_to_expiry(expiration_date)
-        if T_years <= 0:
-            raise ValueError(f"O vencimento {expiration_date} já expirou no horário de Nova York.")
+        # [CORREÇÃO 7] Antes: `if T_years <= 0: raise ValueError(...)`, o que
+        # abortava as execuções após 16h NY. Agora aplicamos um piso mínimo de
+        # 300 s (também evita gamma "infinito" nos minutos finais de um 0DTE).
+        min_T_years = MIN_TIME_TO_EXPIRY_SECONDS / SECONDS_PER_YEAR
+        if T_years < min_T_years:
+            print(
+                f" ⚠️ Vencimento {expiration_date} encerrado/prestes a encerrar em NY; "
+                f"usando piso de {MIN_TIME_TO_EXPIRY_SECONDS:.0f}s para T."
+            )
+            T_years = min_T_years
         risk_free = 0.05       
         
         # Hipótese do modelo: não é uma IV observada por contrato.
@@ -745,6 +992,8 @@ def process(driver, symbol, url):
             else (1.0,)
         )
         df = parse_option_tables(tables, spot, margin, strike_scales)
+        # Remove ruído de ponto flutuante (ex.: 33 * 0.1 = 3.3000000000000003 no NG).
+        df["strike"] = df["strike"].round(6)
         df["expiration_date"] = expiration_date.isoformat()
         df["nf"] = df["c_vol"] - df["p_vol"]
         df["vol"] = df["c_vol"] + df["p_vol"]
@@ -761,55 +1010,12 @@ def process(driver, symbol, url):
         df["cgex"] = df["coi"] * gamma_by_strike * mult * spot
         df["pgex"] = df["poi"] * gamma_by_strike * mult * spot
         df["ng"] = df["cgex"] - df["pgex"]
-        
-        max_pain = calculate_max_pain(df)
 
-        # Antes, as paredes eram o maximo/minimo do GEX liquido.
-        # Agora, Call e Put Wall sao maximos separados das exposicoes de calls e puts.
-        cw = df.loc[df["cgex"].idxmax()]
-        pw = df.loc[df["pgex"].idxmax()]
-        zero_gamma = find_gex_flip(df, spot, steps=601)
-
-        dp = df.loc[df['vol'].idxmax()]
-        
-        tot_gex = df['ng'].sum()
-        tot_flow = df['nf'].sum()
-        
-        if tot_gex > 0:
-            regime = "LONG GAMMA (Estavel/Suporte)"
-            gex_signal = "POSITIVE"
-        elif tot_gex < 0:
-            regime = "SHORT GAMMA (Volatil/Squeeze)"
-            gex_signal = "NEGATIVE"
-        else:
-            regime = "NEUTRAL GAMMA"
-            gex_signal = "NEUTRAL"
-
-        flow_signal = (
-            "CALLS > PUTS" if tot_flow > 0
-            else "PUTS > CALLS" if tot_flow < 0
-            else "CALLS = PUTS"
-        )
-            
-        res = {
-            "CW": cw['strike'], "CWM": format_money(cw['cgex']),
-            "PW": pw['strike'], "PWM": format_money(-pw['pgex']),
-            "ZG": zero_gamma, 
-            "PG": cw['strike'], 
-            "NG": pw['strike'], 
-            "DP": dp['strike'], "DPM": f"{dp['vol']:.0f}",
-            "MP": max_pain, 
-            "Rat": f"{(abs(df['ng'][df['ng']<0].sum()) / df['ng'][df['ng']>0].sum() if df['ng'][df['ng']>0].sum() > 0 else 0):.2f}",
-            "FlowSig": flow_signal,
-            "GexSig": gex_signal,
-            "FlowVal": f"{tot_flow:.0f}",
-            "GexVal": format_money(tot_gex), 
-            "AlvoUp": f"{spot*1.005:.2f}",
-            "AlvoDown": f"{spot*0.995:.2f}",
-            "Regime": regime,
-            "IV": iv_avg * 100,
-            "IVSource": "IV base assumida",
-        }
+        # [CORREÇÃO 1] Paredes, flip, max pain, regime etc. calculados por uma
+        # única função (compute_levels -> select_walls usa o GEX líquido).
+        res = compute_levels(df, spot, symbol)
+        res["Expiration"] = expiration_date.isoformat()
+        zero_gamma = res["ZG"]
         
         if zero_gamma is None:
             print(" ⚠️ Nenhum cruzamento de GEX encontrado na faixa analisada.")
@@ -822,20 +1028,44 @@ def process(driver, symbol, url):
         return None, None
 
 # ==============================================================================
-# SALVAR ARQUIVOS COM SUPORTE AO SUFIXO (_1DTE, _7DTE)
+# SALVAR ARQUIVOS COM SUPORTE AO SUFIXO (_0DTE, _1DTE, _2DTE, _7DTE)
 # ==============================================================================
+def _csv_field(value):
+    """Evita que vírgulas/quebras de linha em textos livres desloquem as colunas
+    lidas por índice no NinjaTrader e no dashboard."""
+    return str(value if value is not None else "").replace(",", ";").replace("\n", " ").strip()
+
+
+def _level(value):
+    """Strike de nível sem ruído de ponto flutuante (mantém o formato 7600.0)."""
+    if value is None:
+        return ""
+    try:
+        return round(float(value), 6)
+    except (TypeError, ValueError):
+        return value
+
+
 def save(sym, res, df, suffix=""):
     if not os.path.exists(PASTA_DADOS): 
         os.makedirs(PASTA_DADOS)
     if res:
         file_niveis = os.path.join(PASTA_DADOS, f"NiveisGamma_{sym}{suffix}.csv")
-        with open(file_niveis, "w") as f:
+        with open(file_niveis, "w", encoding="utf-8", newline="") as f:
             zero_gamma = f"{res['ZG']:.2f}" if res["ZG"] is not None else ""
-            f.write(f"{res['CW']},{res['PW']},{zero_gamma},{res['PG']},{res['NG']},{res['CWM']},{res['PWM']},{res.get('CW_0DTE') or 0},{res.get('PW_0DTE') or 0},{res.get('Source', '')}")
+            # Coluna 11 (índice 10) NOVA: data do vencimento da fatia, para o
+            # dashboard comprovar que 0DTE/1DTE/2DTE/7DTE são datas distintas.
+            # Leitores antigos (NinjaTrader) ignoram colunas extras.
+            f.write(
+                f"{_level(res['CW'])},{_level(res['PW'])},{zero_gamma},"
+                f"{_level(res['PG'])},{_level(res['NG'])},{res['CWM']},{res['PWM']},"
+                f"{_level(res.get('CW_0DTE')) or 0},{_level(res.get('PW_0DTE')) or 0},"
+                f"{_csv_field(res.get('Source', ''))},{_csv_field(res.get('Expiration', ''))}"
+            )
         
         file_alvos = os.path.join(PASTA_DADOS, f"AlvosVolatilidade_{sym}{suffix}.csv")
-        with open(file_alvos, "w") as f:
-            f.write(f"{res['MP']},{res['DP']},{res['Rat']},{res.get('IV', 15.5)},{res['FlowSig']},{res['GexSig']},{res['DPM']},{res['FlowVal']},{res['GexVal']},{res['AlvoUp']},{res['AlvoDown']},{res['Regime']},{res.get('IVSource', 'IV base assumida')},{res.get('Source', '')}")
+        with open(file_alvos, "w", encoding="utf-8", newline="") as f:
+            f.write(f"{_level(res['MP'])},{_level(res['DP'])},{res['Rat']},{res.get('IV', 15.5)},{res['FlowSig']},{res['GexSig']},{res['DPM']},{res['FlowVal']},{res['GexVal']},{res['AlvoUp']},{res['AlvoDown']},{_csv_field(res['Regime'])},{_csv_field(res.get('IVSource', 'IV base assumida'))},{_csv_field(res.get('Source', ''))}")
             
     if df is not None:
         file_profile = os.path.join(PASTA_DADOS, f"GammaProfile_{sym}{suffix}.csv")
@@ -854,19 +1084,29 @@ def upload_to_dropbox():
     if not app_secret or not refresh_token:
         raise RuntimeError("Credenciais DBX_SECRET/DBX_REFRESH do Dropbox não encontradas.")
 
+    if not os.path.isdir(PASTA_DADOS):
+        print("⚠️ Nenhum arquivo gerado para enviar ao Dropbox.")
+        return
+
     print("☁️ Conectando ao Dropbox...")
-    try:
-        dbx = dropbox.Dropbox(app_key=app_key, app_secret=app_secret, oauth2_refresh_token=refresh_token)
-        files = os.listdir(PASTA_DADOS)
-        for f in files:
-            filepath = os.path.join(PASTA_DADOS, f)
-            if os.path.isfile(filepath):
-                with open(filepath, 'rb') as file_data:
-                    dbx.files_upload(file_data.read(), f"/{f}", mode=dropbox.files.WriteMode.overwrite)
-                    print(f"✅ Sincronizado: {f}")
-    except Exception as e:
-        print(f"❌ Erro no Dropbox: {e}")
-        raise
+    dbx = dropbox.Dropbox(app_key=app_key, app_secret=app_secret, oauth2_refresh_token=refresh_token)
+    # [CORREÇÃO 7] Upload arquivo a arquivo: uma falha isolada não impede o envio
+    # dos demais. Só falha no final, depois de tentar todos.
+    falhas = []
+    for f in sorted(os.listdir(PASTA_DADOS)):
+        filepath = os.path.join(PASTA_DADOS, f)
+        if not os.path.isfile(filepath):
+            continue
+        try:
+            with open(filepath, 'rb') as file_data:
+                dbx.files_upload(file_data.read(), f"/{f}", mode=dropbox.files.WriteMode.overwrite)
+            print(f"✅ Sincronizado: {f}")
+        except Exception as e:
+            falhas.append(f)
+            print(f"❌ Erro no Dropbox ao enviar {f}: {e}")
+    if falhas:
+        raise RuntimeError(f"Falha ao sincronizar {len(falhas)} arquivo(s) no Dropbox: {', '.join(falhas)}")
+
 
 # ==============================================================================
 # MASTER PROCESSOR (AGREGAÇÃO + TIME TRAVEL)
@@ -877,25 +1117,31 @@ def process_group(driver, symbol, asset_list):
     
     df_master = pd.DataFrame()
     spot_master = 0
+    rounding_step = STRIKE_ROUNDING.get(symbol)
     
     # --- PASSO 1: RASPAR TODOS OS VENCIMENTOS (MACRO) ---
     for asset in asset_list:
-        res, df = process(driver, symbol, asset["url"]) 
+        try:
+            res, df = process(driver, symbol, asset["url"])
+        except Exception as e:
+            registrar_erro(f"Erro ao extrair {symbol} ({asset['url']}): {e}")
+            continue
         if res is None or df is None or df.empty:
-            raise RuntimeError(f"Falha ao extrair a cadeia de opções de {symbol}: {asset['url']}")
+            registrar_erro(f"Falha ao extrair a cadeia de opções de {symbol}: {asset['url']}")
+            continue
         strike_mult = asset["strike_mult"]
         gex_correction = asset["gex_correcao"]
-        df['base_strike'] = df['strike']
-        df['strike'] = df['strike'] * strike_mult
-        df['strike'] = (df['strike'] / 5).round() * 5
-        df["strike_mult"] = strike_mult
-        for col in ['ng', 'nf', 'coi', 'poi', 'cgex', 'pgex']:
-            df[col] = df[col] * gex_correction
+        # [CORREÇÃO 5 e 6] Escala de proxy centralizada e arredondamento de 5 pts
+        # restrito aos índices de pontuação alta (ES, NQ, YM, RTY). CL, GC, ZB,
+        # ZN e NG preservam sua grade natural de strikes.
+        df = apply_proxy_scaling(df, strike_mult, gex_correction)
+        if rounding_step:
+            df["strike"] = (df["strike"] / rounding_step).round() * rounding_step
 
         df_master = pd.concat([df_master, df], ignore_index=True)
 
         if spot_master == 0:
-            spot_master = float(df["spot"].iloc[0]) * strike_mult
+            spot_master = float(df["spot"].iloc[0])
 
     if df_master.empty: 
         return None, None
@@ -910,54 +1156,47 @@ def process_group(driver, symbol, asset_list):
     )
     
     try:
-        # Mantem a mesma definicao de paredes separadas no agregado multi-ativo.
-        cw = df_agg.loc[df_agg["cgex"].idxmax()]
-        pw = df_agg.loc[df_agg["pgex"].idxmax()]
-        dp = df_agg.loc[df_agg["vol"].idxmax()]
-    except: 
+        # [CORREÇÃO 1] Paredes pelo GEX líquido positivo/negativo (select_walls).
+        res_agg = compute_levels(df_agg, spot_master, symbol, flip_df=df_master)
+    except Exception as e:
+        registrar_erro(f"Erro ao consolidar níveis macro de {symbol}: {e}")
         return None, None
-        
-    tot_gex = df_agg['ng'].sum()
-    zero_gamma = find_gex_flip(df_master, spot_master, steps=601)
-    max_pain = calculate_max_pain(df_agg)
-    if tot_gex > 0:
-        regime = "LONG GAMMA (Estavel/Suporte)"
-        gex_signal = "POSITIVE"
-    elif tot_gex < 0:
-        regime = "SHORT GAMMA (Volatil/Squeeze)"
-        gex_signal = "NEGATIVE"
-    else:
-        regime = "NEUTRAL GAMMA"
-        gex_signal = "NEUTRAL"
-    total_flow = df_agg["nf"].sum()
-    flow_signal = (
-        "CALLS > PUTS" if total_flow > 0
-        else "PUTS > CALLS" if total_flow < 0
-        else "CALLS = PUTS"
-    )
     
-    # --- PASSO 2: TIME TRAVEL (1DTE, 7DTE) ---
+    # --- PASSO 2: TIME TRAVEL (0DTE, 1DTE, 2DTE, 7DTE) ---
     print(" 🕵️ Iniciando Time Travel para fatias DTE...")
-    base_url = asset_list[0]["url"]
+    base_asset = asset_list[0]
+    base_url = base_asset["url"]
+    dte_strike_mult = base_asset.get("strike_mult", 1)
+    dte_gex_correction = base_asset.get("gex_correcao", 1)
     
-    today_new_york = datetime.now(ZoneInfo("America/New_York")).date()
-    if urlparse(base_url).path.startswith("/etfs-funds/"):
-        expirations = extract_equity_expiration_options(
-            driver, base_url, today_new_york
-        )
-    else:
-        expirations = extract_futures_expiration_options(
-            driver, base_url, today_new_york
-        )
+    now_new_york = datetime.now(ZoneInfo("America/New_York"))
+    today_new_york = effective_session_date(now_new_york)
+    expirations = []
+    try:
+        if urlparse(base_url).path.startswith("/etfs-funds/"):
+            expirations = extract_equity_expiration_options(
+                driver, base_url, today_new_york
+            )
+        else:
+            expirations = extract_futures_expiration_options(
+                driver, base_url, today_new_york
+            )
+    except Exception as e:
+        registrar_erro(f"Falha ao listar vencimentos DTE de {symbol}: {e}")
+
     source_label = next(
         (asset["source_label"] for asset in asset_list if asset.get("source_label")),
         "",
     )
     cw_0dte = None
     pw_0dte = None
+    used_expirations = set()
     
     def process_dte(dte, label, suffix=None):
-        expiration = select_expiration_for_dte(expirations, today_new_york, dte)
+        expiration = select_expiration_for_dte(
+            expirations, today_new_york, dte, exclude=used_expirations
+        )
+        used_expirations.add(expiration["date"])
         expiration_text = expiration["date"].isoformat()
         print(f"    ⏳ Lendo {label} ({expiration_text})...")
         result, profile = process(driver, symbol, expiration["url"])
@@ -971,45 +1210,63 @@ def process_group(driver, symbol, asset_list):
                 f"O Barchart carregou {actual_expiration} para {label} de {symbol}; "
                 f"era esperado {expiration_text}. Nenhum nível DTE será salvo."
             )
+        # [CORREÇÃO 6] Quando a fatia DTE vem de um proxy (ex.: RTY via IWM com
+        # strike_mult=10 e gex_correcao=5), aplica a conversão de escala tanto
+        # no DataFrame de profile quanto nos níveis (CW, PW, ZG, DP, MP, Alvos).
+        if dte_strike_mult != 1 or dte_gex_correction != 1:
+            required_cols = {"strike", "ng", "cgex", "pgex", "vol", "coi", "poi"}
+            if required_cols.issubset(profile.columns):
+                profile = apply_proxy_scaling(
+                    profile, dte_strike_mult, dte_gex_correction
+                )
+                if rounding_step:
+                    profile["strike"] = (
+                        (profile["strike"] / rounding_step).round() * rounding_step
+                    )
+                dte_spot = (
+                    float(profile["spot"].iloc[0])
+                    if "spot" in profile.columns
+                    else spot_master
+                )
+                result = compute_levels(profile, dte_spot, symbol)
+            else:
+                for key in ("CW", "PW", "ZG", "PG", "NG", "DP", "MP"):
+                    if result.get(key) is not None and result[key] < 1000:
+                        result[key] = result[key] * dte_strike_mult
+        result["Expiration"] = actual_expiration
         result["Source"] = source_label
         if suffix:
             save(symbol, result, profile, suffix)
         return result, profile
 
-    if any(expiration["date"] == today_new_york for expiration in expirations):
-        res_0dte, _ = process_dte(0, "0DTE")
-        cw_0dte = res_0dte["CW"]
-        pw_0dte = res_0dte["PW"]
-    else:
-        print(
-            f" ⚠️ {symbol} não tem vencimento Futures em {today_new_york}; "
-            "0DTE será omitido. O macro e as outras fatias DTE continuarão."
-        )
-    process_dte(1, "1DTE", "_1DTE")
-    process_dte(2, "2DTE", "_2DTE")
-    process_dte(7, "7DTE", "_7DTE")
+    if expirations:
+        if any(expiration["date"] == today_new_york for expiration in expirations):
+            try:
+                # [CORREÇÃO 3] Salva também os arquivos dedicados _0DTE.csv
+                res_0dte, _ = process_dte(0, "0DTE", "_0DTE")
+                cw_0dte = res_0dte["CW"]
+                pw_0dte = res_0dte["PW"]
+            except Exception as e:
+                registrar_erro(f"Falha no 0DTE de {symbol}: {e}")
+        else:
+            print(
+                f" ⚠️ {symbol} não tem vencimento Futures em {today_new_york}; "
+                "0DTE será omitido. O macro e as outras fatias DTE continuarão."
+            )
+        for dte_days, dte_label, dte_suffix in (
+            (1, "1DTE", "_1DTE"),
+            (2, "2DTE", "_2DTE"),
+            (7, "7DTE", "_7DTE"),
+        ):
+            try:
+                process_dte(dte_days, dte_label, dte_suffix)
+            except Exception as e:
+                registrar_erro(f"Falha no {dte_label} de {symbol}: {e}")
 
-    # Monta o pacote final Macro
-    res_agg = {
-        "CW": cw['strike'], "CWM": format_money(cw['cgex']),
-        "PW": pw['strike'], "PWM": format_money(-pw['pgex']),
-        "ZG": zero_gamma, "PG": cw['strike'], "NG": pw['strike'],
-        "DP": dp["strike"], "DPM": f"{dp['vol']:.0f}",
-        "MP": max_pain,
-        "Rat": f"{(abs(df_agg['ng'][df_agg['ng']<0].sum()) / df_agg['ng'][df_agg['ng']>0].sum() if df_agg['ng'][df_agg['ng']>0].sum() > 0 else 0):.2f}",
-        "FlowSig": flow_signal,
-        "GexSig": gex_signal,
-        "FlowVal": f"{total_flow:.0f}",
-        "GexVal": format_money(tot_gex),
-        "AlvoUp": f"{spot_master*1.005:.2f}",
-        "AlvoDown": f"{spot_master*0.995:.2f}",
-        "Regime": regime,
-        "IV": IV_BASE_POR_ATIVO.get(symbol, 0.14) * 100,
-        "IVSource": "IV base assumida",
-        "Source": source_label,
-        "CW_0DTE": cw_0dte,
-        "PW_0DTE": pw_0dte
-    }
+    res_agg["Source"] = source_label
+    res_agg["CW_0DTE"] = cw_0dte
+    res_agg["PW_0DTE"] = pw_0dte
+    zero_gamma = res_agg["ZG"]
         
     if zero_gamma is None:
         print(f" 🌟 MURALHAS FINAIS -> CW:{res_agg['CW']} | PW:{res_agg['PW']} | GEX Flip: sem cruzamento")
@@ -1022,6 +1279,7 @@ def process_group(driver, symbol, asset_list):
 # ==============================================================================
 if __name__ == "__main__":
     print("--- INICIANDO QUANT ENGINE V9 (HEATMAP & TIME TRAVEL) ---")
+    inicio_ciclo = time.monotonic()
     
     # Dicionário de URLs Oficiais
     ATIVOS_AGREGADOS = {
@@ -1063,18 +1321,52 @@ if __name__ == "__main__":
         ]
     }
 
+    sucessos = []
     d = iniciar_driver()
     if d:
         try:
             for s, urls in ATIVOS_AGREGADOS.items():
-                r, f = process_group(d, s, urls)
-                if r is None or f is None:
-                    raise RuntimeError(f"Não foi possível gerar os dados completos de {s}.")
-                save(s, r, f)
+                decorrido = time.monotonic() - inicio_ciclo
+                if decorrido > MAX_RUN_SECONDS:
+                    registrar_erro(
+                        f"Orçamento de tempo ({MAX_RUN_SECONDS // 60} min) atingido antes de {s}; "
+                        "prosseguindo para o upload no Dropbox com os ativos já coletados."
+                    )
+                    break
+                if not driver_ativo(d):
+                    print(" 🔄 Reiniciando sessão do navegador...")
+                    try:
+                        d.quit()
+                    except Exception:
+                        pass
+                    d = iniciar_driver()
+                    if not d:
+                        registrar_erro(f"Não foi possível reiniciar o navegador em {s}.")
+                        break
+                try:
+                    r, f = process_group(d, s, urls)
+                    if r is None or f is None:
+                        registrar_erro(f"Não foi possível gerar os dados completos de {s}.")
+                        continue
+                    save(s, r, f)
+                    sucessos.append(s)
+                except Exception as e:
+                    registrar_erro(f"Exceção inesperada ao processar {s}: {e}")
         finally:
-            d.quit()
+            try:
+                if d:
+                    d.quit()
+            except Exception:
+                pass
     else:
         raise RuntimeError("Não foi possível iniciar o navegador para coletar as opções.")
-        
+
+    if not sucessos:
+        raise RuntimeError("Nenhum ativo pôde ser coletado com sucesso neste ciclo.")
+
     upload_to_dropbox()
-    print("✅ Ciclo de Engenharia Finalizado com Sucesso!")
+    if RUN_ERRORS:
+        print(f"⚠️ Ciclo concluído com {len(RUN_ERRORS)} alerta(s) parcial(is):")
+        for err in RUN_ERRORS:
+            print(f"::warning::{err}")
+    print(f"✅ Ciclo de Engenharia Finalizado com Sucesso! Ativos sincronizados: {', '.join(sucessos)}")

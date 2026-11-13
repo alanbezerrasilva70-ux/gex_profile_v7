@@ -10,7 +10,9 @@ on:
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    # [CORREÇÃO 7] Aumentado de 18 para 35 minutos para não cancelar o job antes
+    # do upload para o Dropbox quando o Barchart demora nos 9 ativos + fatias DTE.
+    timeout-minutes: 35
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
