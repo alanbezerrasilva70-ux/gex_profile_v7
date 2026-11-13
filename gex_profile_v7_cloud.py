@@ -41,6 +41,31 @@ IV_BASE_POR_ATIVO = {
     "ZN": 0.06,
 }
 
+# [MELHORIA 2] Campos extras pedidos à API interna do Barchart. Verificado ao vivo:
+#  * Futuros (ES/YM/CL): a API aceita delta, gamma, theta e vega e devolve o GAMMA
+#    por contrato em `raw` (precisão total, mesma unidade do Black-Scholes por
+#    ponto). `volatility` é aceito mas NÃO é devolvido para opções de futuros.
+#  * ETFs/ações (IWM/SPY/QQQ/DIA/$SPX): a página já pede `volatility` (IV por
+#    contrato); `raw.volatility` vem em decimal (0.2541).
+GREEK_FIELDS = ("volatility", "delta", "gamma", "theta", "vega")
+IV_SOURCE_REAL = "IV real por strike (Barchart)"
+IV_SOURCE_BASE = "IV base assumida"
+IV_MIN = 0.02   # 2%: abaixo disso a IV do feed é tratada como ruído
+IV_MAX = 4.00   # 400%
+# Cobertura mínima (em % do Open Interest) de strikes com IV/gamma reais para
+# declarar a fonte como "IV real"; abaixo disso mantém "IV base assumida".
+MIN_REAL_IV_OI_COVERAGE = 0.5
+# gamma * spot (adimensional) abaixo disso é ruído numérico do feed (ex.: CL 50P
+# com gamma 1.8e-46): não vira "IV real", usa a IV base (contribuição ~0 igual).
+MIN_RELEVANT_GAMMA_X_SPOT = 1e-6
+
+# [MELHORIA 1] Horizonte máximo (dias corridos) para escolher vencimentos DTE.
+MAX_DTE_LOOKAHEAD_DAYS = 21
+# Quantos vencimentos "Monthly Options" por grupo têm a data resolvida pela página.
+MONTHLY_RESOLVE_LIMIT = 2
+# Raízes de futuros de índices: o vencimento "Monthly" é a 3ª sexta-feira do mês.
+INDEX_FUTURES_ROOTS = {"ES", "NQ", "YM", "RTY", "MES", "MNQ", "MYM", "M2K"}
+
 # [CORREÇÃO 5] Arredondamento de strikes no agregado (modo ALL) apenas para
 # índices de pontuação alta, onde proxies (SPY x10, QQQ x40, DIA x100, IWM x10)
 # precisam cair na mesma grade dos futuros. CL, GC, ZB, ZN e NG preservam a grade
@@ -108,12 +133,80 @@ def _parse_contract_count(value):
     return count
 
 
+def _contract_value(contract, key):
+    """Valor de um campo do contrato, preferindo `raw` (numérico, precisão total).
+
+    Com `raw=1` o Barchart devolve o texto formatado ("0.0003", "25.41%") e o
+    número cru em `raw` (0.00031889392231348, 0.2541). O cru evita perder
+    dígitos: o gamma formatado de um strike OTM do ES vira "0.0000".
+    """
+    raw = contract.get("raw")
+    if isinstance(raw, dict) and raw.get(key) is not None:
+        return raw[key]
+    return contract.get(key)
+
+
+def _is_missing_text(text):
+    return text in {"", "-", "--", "N/A", "NA", "NAN", "NONE", "NULL"}
+
+
+def _parse_iv(value):
+    """IV do feed -> decimal (0.2541) ou NaN se ausente/absurda.
+
+    Aceita "25.41%", 25.41, 0.2541. Sem "%" valores > 3 são lidos como
+    percentual (IV decimal acima de 300% não é plausível nestes ativos).
+    """
+    if value is None:
+        return math.nan
+    text = str(value).strip().replace(",", "").upper()
+    if _is_missing_text(text):
+        return math.nan
+    is_percent = text.endswith("%")
+    if is_percent:
+        text = text[:-1]
+    try:
+        iv = float(text)
+    except ValueError:
+        return math.nan
+    if not math.isfinite(iv):
+        return math.nan
+    if is_percent or iv > 3.0:
+        iv /= 100.0
+    return iv if IV_MIN <= iv <= IV_MAX else math.nan
+
+
+def _parse_gamma(value):
+    """Gamma do feed (>0 e finito) ou NaN. Zero/negativo = sem dado útil."""
+    if value is None:
+        return math.nan
+    text = str(value).strip().replace(",", "").upper()
+    if _is_missing_text(text):
+        return math.nan
+    try:
+        gamma = float(text)
+    except ValueError:
+        return math.nan
+    return gamma if math.isfinite(gamma) and gamma > 0 else math.nan
+
+
+def _parse_feed_date(value):
+    """'2026-11-13' ou '11/13/26' -> 'YYYY-MM-DD' (ou None)."""
+    text = str(value or "").strip()
+    for date_format in ("%Y-%m-%d", "%m/%d/%y", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(text, date_format).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
 def parse_barchart_option_payload(payload):
     option_data = payload.get("data") if isinstance(payload, dict) else None
     if not isinstance(option_data, dict):
         raise ValueError("A resposta da API de opções do Barchart não contém dados agrupados.")
 
     rows = []
+    expirations = set()
     for strike_label, contracts in option_data.items():
         if not isinstance(contracts, list):
             continue
@@ -138,12 +231,22 @@ def parse_barchart_option_payload(payload):
             or (put or {}).get("strikePrice")
             or strike_label
         )
+        for contract in (call, put):
+            if contract is not None:
+                expiration = _parse_feed_date(_contract_value(contract, "expirationDate"))
+                if expiration:
+                    expirations.add(expiration)
         rows.append([
             (call or {}).get("volume", "N/A"),
             (call or {}).get("openInterest", "N/A"),
             strike,
             (put or {}).get("volume", "N/A"),
             (put or {}).get("openInterest", "N/A"),
+            # [MELHORIA 2] IV e gamma reais por contrato (None quando ausentes).
+            _contract_value(call, "volatility") if call else None,
+            _contract_value(put, "volatility") if put else None,
+            _contract_value(call, "gamma") if call else None,
+            _contract_value(put, "gamma") if put else None,
         ])
 
     if not rows:
@@ -155,8 +258,15 @@ def parse_barchart_option_payload(payload):
             "Strike",
             "Put Volume",
             "Put Open Interest",
+            "Call IV",
+            "Put IV",
+            "Call Gamma",
+            "Put Gamma",
         ],
         "rows": rows,
+        # Datas de vencimento presentes no payload (ETFs/ações trazem
+        # raw.expirationDate); usadas para validar a cadeia carregada.
+        "expirations": sorted(expirations),
     }
 
 
@@ -181,6 +291,23 @@ def _futures_weekly_api_config(url):
         "orderDir": "asc",
         "raw": 1,
     }
+
+
+def _requested_expiration_token(url):
+    """Token de vencimento pedido na URL (ex.: '2026-11-17-w'), ou None.
+
+    Só vale para ETFs/ações: nessas páginas a API interna ignora `?expiration=`
+    na query da página e só troca a cadeia com `expirationDate=<token>` na
+    própria chamada de API (verificado ao vivo no IWM).
+    """
+    parsed = urlparse(url)
+    if "/futures/" in parsed.path:
+        return None
+    query = parse_qs(parsed.query)
+    values = query.get("expirationDate") or query.get("expiration") or []
+    if values and re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:-[A-Za-z])?", values[0]):
+        return values[0]
+    return None
 
 
 def parse_option_tables(tables, spot, margin, strike_scales=(1.0,)):
@@ -211,6 +338,22 @@ def parse_option_tables(tables, spot, margin, strike_scales=(1.0,)):
             if not call_volume or not put_volume or not call_oi or not put_oi:
                 continue
             indices = (call_volume[-1], call_oi[-1], strike_index, put_volume[0], put_oi[0])
+            # [MELHORIA 2] Colunas opcionais de IV/gamma reais por lado (Call/Put).
+            extra_indices = {
+                key: headers.index(header) if header in headers else None
+                for key, header in (
+                    ("iv_api_call", "calliv"),
+                    ("iv_api_put", "putiv"),
+                    ("gamma_api_call", "callgamma"),
+                    ("gamma_api_put", "putgamma"),
+                )
+            }
+
+            def _extra(cells, key, parser):
+                index = extra_indices[key]
+                if index is None or index >= len(cells):
+                    return math.nan
+                return parser(cells[index])
 
             for cells in table.get("rows", []):
                 if len(cells) <= max(indices):
@@ -230,12 +373,24 @@ def parse_option_tables(tables, spot, margin, strike_scales=(1.0,)):
                     continue
                 if c_vol == 0 and c_oi == 0 and p_vol == 0 and p_oi == 0:
                     continue
+                # Quando o strike do feed está em escala diferente do spot (NG
+                # semanal, strike x10), o gamma do feed (proporcional a 1/S)
+                # precisa ser reescalado na mesma proporção do strike.
+                gamma_call = _extra(cells, "gamma_api_call", _parse_gamma)
+                gamma_put = _extra(cells, "gamma_api_put", _parse_gamma)
+                if strike_scale != 1.0:
+                    gamma_call = gamma_call / strike_scale
+                    gamma_put = gamma_put / strike_scale
                 parsed_table.append({
                     "strike": strike,
                     "c_vol": c_vol,
                     "p_vol": p_vol,
                     "coi": c_oi,
                     "poi": p_oi,
+                    "iv_api_call": _extra(cells, "iv_api_call", _parse_iv),
+                    "iv_api_put": _extra(cells, "iv_api_put", _parse_iv),
+                    "gamma_api_call": gamma_call,
+                    "gamma_api_put": gamma_put,
                 })
             if len(parsed_table) > len(best_rows):
                 best_rows = parsed_table
@@ -246,10 +401,16 @@ def parse_option_tables(tables, spot, margin, strike_scales=(1.0,)):
                     f" ⚠️ Escala de strike do Barchart normalizada por "
                     f"{strike_scale:g} para corresponder ao spot."
                 )
+            # Contagens somam; IV/gamma por strike usam a média (nunca soma).
+            aggregation = {
+                "c_vol": "sum", "p_vol": "sum", "coi": "sum", "poi": "sum",
+                "iv_api_call": "mean", "iv_api_put": "mean",
+                "gamma_api_call": "mean", "gamma_api_put": "mean",
+            }
             return (
                 pd.DataFrame(best_rows)
                 .groupby("strike", as_index=False)
-                .sum()
+                .agg(aggregation)
                 .sort_values("strike")
             )
 
@@ -363,6 +524,46 @@ def effective_session_date(now_new_york):
     return session
 
 
+def _third_friday(year, month):
+    first = date(year, month, 1)
+    return first + timedelta(days=(4 - first.weekday()) % 7 + 14)
+
+
+def _last_business_day(year, month):
+    last = (
+        date(year + (month == 12), month % 12 + 1, 1) - timedelta(days=1)
+    )
+    while last.weekday() >= 5:
+        last -= timedelta(days=1)
+    return last
+
+
+def _futures_route_root(route):
+    """Raiz do contrato na rota ('/futures/quotes/ESZ26/options/..' -> 'ES')."""
+    match = re.search(
+        r"/futures/quotes/([A-Z0-9]+?)[FGHJKMNQUVXZ]\d{2}(?:/|$)",
+        str(route),
+    )
+    return match.group(1) if match else None
+
+
+def _futures_option_kind(group_name):
+    """Classifica um tipo do dropdown: 'weekly', 'eom', 'monthly' ou None.
+
+    Ignora tipos exóticos (Calendar Spreads, Average Price, European-Style):
+    são produtos distintos, com Open Interest próprio, que não compõem o GEX
+    do contrato padrão.
+    """
+    name = str(group_name or "").strip()
+    if re.match(r"\w+\s+Weekly Options", name, flags=re.IGNORECASE):
+        return "weekly"
+    if re.match(r"EOM\b", name, flags=re.IGNORECASE):
+        return "eom"
+    if re.match(r"(Monthly|Standard)\b", name, flags=re.IGNORECASE):
+        return "monthly"
+    return None
+
+
 def parse_futures_expiration_options(option_groups, as_of):
     weekday_numbers = {
         "monday": 0,
@@ -372,6 +573,50 @@ def parse_futures_expiration_options(option_groups, as_of):
         "friday": 4,
     }
     expiration_routes = {}
+
+    # [MELHORIA 1] Vencimentos mensais/padrão e EOM entram PRIMEIRO: numa data
+    # em que o Barchart lista mais de um produto, o mensal (maior OI) vence o
+    # semanal em `setdefault`.
+    for group in option_groups or []:
+        kind = _futures_option_kind(group.get("weekday"))
+        if kind not in ("monthly", "eom"):
+            continue
+        for option in group.get("options", []):
+            route = option.get("value")
+            label_match = re.fullmatch(
+                r"([A-Za-z]{3})\s+(\d{4})",
+                str(option.get("label", "")).strip(),
+            )
+            if not label_match or not route:
+                continue
+            try:
+                month_start = datetime.strptime(
+                    f"{label_match.group(1)} {label_match.group(2)}", "%b %Y"
+                ).date()
+            except ValueError:
+                continue
+
+            expiration = None
+            resolved = option.get("expiration")
+            if resolved:
+                try:
+                    expiration = date.fromisoformat(str(resolved))
+                except ValueError:
+                    expiration = None
+            if expiration is None:
+                if kind == "eom":
+                    # CME: opções EOM vencem no último dia útil do mês.
+                    expiration = _last_business_day(month_start.year, month_start.month)
+                elif _futures_route_root(route) in INDEX_FUTURES_ROOTS:
+                    # Índices: o vencimento "Monthly" é a 3ª sexta-feira.
+                    expiration = _third_friday(month_start.year, month_start.month)
+                else:
+                    # Commodities/juros: a data não segue regra do mês do rótulo
+                    # (CL "Dec 2026" vence em nov). Sem data resolvida, ignora.
+                    continue
+            if expiration >= as_of:
+                expiration_routes.setdefault(expiration, route)
+
     for group in option_groups or []:
         weekday_match = re.match(
             r"(\w+)\s+Weekly Options",
@@ -442,7 +687,9 @@ def _dte_target_date(as_of, dte):
     return target
 
 
-def select_expiration_for_dte(expirations, as_of, dte, exclude=()):
+def select_expiration_for_dte(
+    expirations, as_of, dte, exclude=(), max_days=MAX_DTE_LOOKAHEAD_DAYS
+):
     if dte < 0:
         raise ValueError("DTE não pode ser negativo.")
     if dte == 0:
@@ -453,64 +700,231 @@ def select_expiration_for_dte(expirations, as_of, dte, exclude=()):
             f"Não há vencimento Futures disponível para 0DTE em {as_of}."
         )
 
-    # [CORREÇÃO 2] Apenas vencimentos FUTUROS (> as_of) e ainda não usados por
-    # outra fatia DTE (exclude), para que 0DTE/1DTE/2DTE/7DTE nunca repitam a
-    # mesma data quando houver vencimentos distintos disponíveis.
-    excluded = set(exclude)
-    future_expirations = sorted(
-        (expiration for expiration in expirations if expiration["date"] > as_of),
+    # [CORREÇÃO 2] Apenas vencimentos FUTUROS (> as_of); [MELHORIA 1] e no máximo
+    # `max_days` dias corridos à frente: sem isso, ativos que só listam
+    # contratos distantes (ex.: YM só com sextas) saltavam para meses sem liquidez.
+    horizon = as_of + timedelta(days=max_days) if max_days else None
+    future = sorted(
+        (
+            expiration
+            for expiration in expirations
+            if expiration["date"] > as_of
+            and (horizon is None or expiration["date"] <= horizon)
+        ),
         key=lambda expiration: expiration["date"],
     )
-    candidates = [
-        expiration
-        for expiration in future_expirations
-        if expiration["date"] not in excluded
-    ]
-    if not candidates:
-        # Fallback apenas se a corretora/Barchart listar menos vencimentos futuros
-        # do que a quantidade de fatias DTE solicitadas.
-        candidates = future_expirations or sorted(
-            (expiration for expiration in expirations if expiration["date"] >= as_of),
-            key=lambda expiration: expiration["date"],
-        )
-    if not candidates:
+    if not future:
         raise RuntimeError(
-            f"Não há vencimentos Futures disponíveis para selecionar {dte}DTE."
+            f"Não há vencimentos Futures em até {max_days} dias para selecionar {dte}DTE."
         )
 
+    def first_from(candidates, from_date):
+        return next(
+            (item for item in candidates if item["date"] >= from_date), None
+        )
+
+    # Datas já usadas por outras fatias DTE são evitadas (sem repetir datas
+    # quando há vencimentos distintos disponíveis).
+    excluded = set(exclude)
+    fresh = [item for item in future if item["date"] not in excluded]
     target_date = _dte_target_date(as_of, dte)
-    on_or_after_target = [
-        expiration for expiration in candidates if expiration["date"] >= target_date
-    ]
-    if on_or_after_target:
-        # Primeiro vencimento a partir do alvo (nunca volta para uma data anterior).
-        return on_or_after_target[0]
-    # Nenhum vencimento chega ao alvo: usa o mais longo disponível.
-    return candidates[-1]
+    pick = first_from(fresh, target_date)
+
+    if dte < 5:
+        # DTE curto: se o primeiro vencimento livre já passa do alvo do 7DTE, não
+        # existe contrato intermediário. Em vez de buscar um contrato distante e
+        # sem liquidez, cai para o vencimento do 7DTE.
+        seven_day_target = _dte_target_date(as_of, 7)
+        if pick is None or pick["date"] > seven_day_target:
+            return first_from(future, seven_day_target) or future[-1]
+        return pick
+
+    # DTE semanal (7DTE): primeiro vencimento livre a partir do alvo; se não houver,
+    # aceita um já usado; por fim o mais longo dentro do horizonte.
+    return pick or first_from(future, target_date) or future[-1]
+
+
+def _row_iv(row, side):
+    """IV de um lado (call/put) da linha: IV por strike se existir, senão `iv`."""
+    value = getattr(row, f"iv_{side}", None)
+    if value is None or not math.isfinite(value) or value <= 0:
+        value = row.iv
+    return value
 
 
 def total_gex_at_spot(df, candidate_spot, risk_free=0.05):
     total = 0.0
     for row in df.itertuples(index=False):
+        if row.coi == 0 and row.poi == 0:
+            continue
         strike_mult = getattr(row, "strike_mult", 1.0)
         source_spot = candidate_spot / strike_mult
         source_strike = getattr(row, "base_strike", None)
         if source_strike is None:
             source_strike = row.strike / strike_mult
-        gamma = black_scholes_gamma(
-            source_spot,
-            source_strike,
-            row.time_to_expiry,
-            risk_free,
-            row.iv,
+        # [MELHORIA 2] Calls e puts do mesmo strike usam a PRÓPRIA IV (skew real).
+        # Sem iv_call/iv_put (cadeias antigas/testes) ambos caem em `row.iv`.
+        gamma_call = black_scholes_gamma(
+            source_spot, source_strike, row.time_to_expiry, risk_free,
+            _row_iv(row, "call"),
+        )
+        gamma_put = black_scholes_gamma(
+            source_spot, source_strike, row.time_to_expiry, risk_free,
+            _row_iv(row, "put"),
         )
         total += (
-            (row.coi - row.poi)
-            * gamma
+            (row.coi * gamma_call - row.poi * gamma_put)
             * row.contract_mult
             * source_spot
         )
     return total
+
+
+def implied_vol_from_gamma(spot, strike, T, risk_free, gamma, guess):
+    """IV efetiva que reproduz o gamma do Barchart no modelo Black-Scholes.
+
+    O gamma do feed é medido no spot atual. Para o GEX Flip precisamos do gamma
+    em OUTROS spots, então calibramos o sigma que, no nosso modelo (nosso T e
+    r), devolve exatamente o gamma do feed no spot de hoje e o extrapolamos.
+    Gamma não é monótono em sigma (strikes OTM sobem e depois caem), então
+    varremos uma grade geométrica, isolamos as raízes e escolhemos a mais
+    próxima de `guess` (IV base). Sem raiz (gamma ~ 0 nas asas) devolve None.
+    """
+    if not (
+        math.isfinite(gamma) and gamma > 0 and spot > 0 and strike > 0 and T > 0
+    ):
+        return None
+    points = 60
+    previous = None
+    roots = []
+    for index in range(points):
+        sigma = IV_MIN * (IV_MAX / IV_MIN) ** (index / (points - 1))
+        diff = black_scholes_gamma(spot, strike, T, risk_free, sigma) - gamma
+        if previous is not None and previous[1] * diff <= 0:
+            low, high, low_diff = previous[0], sigma, previous[1]
+            for _ in range(60):
+                middle = (low + high) / 2
+                middle_diff = black_scholes_gamma(spot, strike, T, risk_free, middle) - gamma
+                if low_diff * middle_diff <= 0:
+                    high = middle
+                else:
+                    low, low_diff = middle, middle_diff
+            roots.append((low + high) / 2)
+        previous = (sigma, diff)
+    if not roots:
+        return None
+    return min(roots, key=lambda root: abs(math.log(root / guess)))
+
+
+def resolve_strike_vols(df, spot, T, risk_free, base_iv):
+    """[MELHORIA 2] Define IV e gamma efetivos por strike e lado (Call/Put).
+
+    Ordem de preferência para cada lado do strike:
+      1. IV real do feed (`iv_api_*`, ETFs/ações) -> gamma = gamma do feed se
+         existir, senão Black-Scholes com essa IV;
+      2. gamma real do feed (`gamma_api_*`, futuros) -> gamma usado como está e
+         IV efetiva calibrada a partir dele (para o GEX Flip em outros spots);
+      3. fallback: IV_BASE_POR_ATIVO (`base_iv`).
+    Retorna o DataFrame com iv_call/iv_put, iv_real_call/iv_real_put (bool) e
+    gamma_call/gamma_put (gamma por contrato no spot atual).
+    """
+    resolved = df.copy()
+    columns = {
+        "iv_call": [], "iv_put": [],
+        "iv_real_call": [], "iv_real_put": [],
+        "gamma_call": [], "gamma_put": [],
+    }
+
+    # Referência para escolher a raiz correta nas asas: o gamma ATM tem raiz
+    # única em sigma (monótono), então calibramos primeiro os strikes mais
+    # próximos do spot e usamos a mediana como "chute" das demais calibrações.
+    reference_sigma = base_iv
+    if spot > 0:
+        atm_rows = sorted(
+            (
+                row for row in resolved.itertuples(index=False)
+                if float(row.strike) > 0
+            ),
+            key=lambda row: abs(math.log(float(row.strike) / spot)),
+        )[:6]
+        atm_sigmas = []
+        for row in atm_rows:
+            for side, open_interest in (("call", row.coi), ("put", row.poi)):
+                gamma_api = getattr(row, f"gamma_api_{side}", math.nan)
+                if math.isfinite(gamma_api) and open_interest > 0:
+                    sigma = implied_vol_from_gamma(
+                        spot, float(row.strike), T, risk_free, gamma_api, base_iv
+                    )
+                    if sigma is not None:
+                        atm_sigmas.append(sigma)
+        if atm_sigmas:
+            atm_sigmas.sort()
+            reference_sigma = atm_sigmas[len(atm_sigmas) // 2]
+
+    for row in resolved.itertuples(index=False):
+        strike = float(row.strike)
+        for side, open_interest in (("call", row.coi), ("put", row.poi)):
+            iv_api = getattr(row, f"iv_api_{side}", math.nan)
+            gamma_api = getattr(row, f"gamma_api_{side}", math.nan)
+            sigma, real, gamma = base_iv, False, None
+            if math.isfinite(iv_api):
+                sigma, real = iv_api, True
+                gamma = gamma_api if math.isfinite(gamma_api) else None
+            elif (
+                math.isfinite(gamma_api)
+                and open_interest > 0
+                and gamma_api * spot >= MIN_RELEVANT_GAMMA_X_SPOT
+            ):
+                calibrated = implied_vol_from_gamma(
+                    spot, strike, T, risk_free, gamma_api, reference_sigma
+                )
+                if calibrated is not None:
+                    sigma, real, gamma = calibrated, True, gamma_api
+            if gamma is None:
+                gamma = black_scholes_gamma(spot, strike, T, risk_free, sigma)
+            columns[f"iv_{side}"].append(sigma)
+            columns[f"iv_real_{side}"].append(real)
+            columns[f"gamma_{side}"].append(gamma)
+    for name, values in columns.items():
+        resolved[name] = values
+    return resolved
+
+
+def summarize_iv(df, spot, symbol):
+    """(IV em %, fonte) para o CSV de alvos.
+
+    Com cobertura suficiente de IV/gamma reais (>= 50% do Open Interest), usa a
+    IV real MÉDIA DOS STRIKES MAIS PRÓXIMOS DO SPOT (ATM) — a IV das asas é
+    inflada pelo skew e distorceria o movimento esperado do MoneyRiskPro —;
+    caso contrário mantém a IV base assumida do ativo.
+    """
+    base = (IV_BASE_POR_ATIVO.get(symbol, 0.14) * 100, IV_SOURCE_BASE)
+    required = {"iv_call", "iv_put", "iv_real_call", "iv_real_put", "coi", "poi", "strike"}
+    if df is None or df.empty or not required.issubset(df.columns):
+        return base
+    total_oi = float(df["coi"].sum() + df["poi"].sum())
+    if total_oi <= 0:
+        return base
+    real_oi = float(
+        (df["coi"] * df["iv_real_call"]).sum() + (df["poi"] * df["iv_real_put"]).sum()
+    )
+    if real_oi / total_oi < MIN_REAL_IV_OI_COVERAGE:
+        return base
+
+    near = df.assign(_distance=(df["strike"] - spot).abs()).nsmallest(6, "_distance")
+    values = []
+    for row in near.itertuples(index=False):
+        if row.iv_real_call and row.coi > 0:
+            values.append(row.iv_call)
+        if row.iv_real_put and row.poi > 0:
+            values.append(row.iv_put)
+    if not values:
+        mask_call = df["iv_real_call"] & (df["coi"] > 0)
+        mask_put = df["iv_real_put"] & (df["poi"] > 0)
+        values = list(df.loc[mask_call, "iv_call"]) + list(df.loc[mask_put, "iv_put"])
+    if not values:
+        return base
+    return sum(values) / len(values) * 100, IV_SOURCE_REAL
 
 
 def find_gex_flip(df, current_spot, steps=601):
@@ -660,7 +1074,11 @@ def compute_levels(df_levels, spot, symbol, flip_df=None):
     negative_gex = abs(df_levels["ng"][df_levels["ng"] < 0].sum())
     ratio = negative_gex / positive_gex if positive_gex > 0 else 0
 
-    iv_base = IV_BASE_POR_ATIVO.get(symbol, 0.14)
+    # [MELHORIA 2] IV ATM real por strike (Barchart) quando houver cobertura;
+    # senão IV_BASE_POR_ATIVO. A fonte vai para o painel do NinjaTrader.
+    iv_percent, iv_source = summarize_iv(
+        flip_df if flip_df is not None else df_levels, spot, symbol
+    )
     return {
         # CWM/PWM agora exibem o GEX líquido da parede (coerente com a nova definição).
         "CW": cw["strike"], "CWM": format_money(cw["ng"]),
@@ -679,8 +1097,8 @@ def compute_levels(df_levels, spot, symbol, flip_df=None):
         "AlvoUp": f"{spot*1.005:.2f}",
         "AlvoDown": f"{spot*0.995:.2f}",
         "Regime": regime,
-        "IV": iv_base * 100,
-        "IVSource": "IV base assumida",
+        "IV": iv_percent,
+        "IVSource": iv_source,
     }
 
 # ==============================================================================
@@ -812,54 +1230,100 @@ def extract_expiration_dates(driver, url=None):
         return []
 
 
+def _page_expiration_date(driver, attempts=3, wait_seconds=2.5):
+    """Data de vencimento exibida pela página aberta ("N Days to expiration on
+    12/18/26"), ou None. Lê o texto renderizado (o HTML cru do Barchart não
+    traz essa frase, só a página já executada pelo navegador)."""
+    for attempt in range(attempts):
+        text = driver.execute_script("return document.body.innerText;") or ""
+        match = re.search(
+            r"\bto expiration on\s+(\d{1,2}/\d{1,2}/\d{2,4})",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match:
+            iso = _parse_feed_date(match.group(1))
+            if iso:
+                return date.fromisoformat(iso)
+        if attempt < attempts - 1:
+            time.sleep(wait_seconds)
+    return None
+
+
 def extract_futures_expiration_options(driver, url, as_of):
     driver.get(url)
     time.sleep(5)
+    # [MELHORIA 1] Além dos "Weekly Options", lê "Monthly Options" (padrão) e
+    # "EOM Options" do dropdown de tipos (cada um com seu #...dropdown-month).
     option_groups = driver.execute_async_script("""
         const done = arguments[arguments.length - 1];
         (async () => {
             const types = Array.from(
                 document.querySelectorAll('#bc-options-toolbar__dropdown-type option')
-            ).filter(option => /Weekly Options/i.test(option.textContent || ''));
+            ).filter(option => /Weekly Options|^\\s*Monthly Options|^\\s*EOM Options|^\\s*Standard/i.test(option.textContent || ''));
             if (!types.length) {
-                throw new Error('A página não listou opções semanais de Futures.');
+                throw new Error('A página não listou opções semanais/mensais de Futures.');
             }
             const groups = await Promise.all(types.map(async option => {
-                const route = new URL(option.value, location.origin);
-                route.searchParams.set('futuresOptionsView', 'split');
-                const response = await fetch(route.href, {credentials: 'same-origin'});
-                if (!response.ok) {
-                    throw new Error(
-                        'Falha ao carregar o calendário de vencimentos: HTTP ' +
-                        response.status
+                const group = {weekday: option.textContent.trim(), options: []};
+                try {
+                    const route = new URL(option.value, location.origin);
+                    route.searchParams.set('futuresOptionsView', 'split');
+                    const response = await fetch(route.href, {credentials: 'same-origin'});
+                    if (!response.ok) {
+                        group.error = 'HTTP ' + response.status;
+                        return group;
+                    }
+                    const html = await response.text();
+                    const page = new DOMParser().parseFromString(html, 'text/html');
+                    const monthSelect = page.querySelector(
+                        '#bc-options-toolbar__dropdown-month'
                     );
-                }
-                const html = await response.text();
-                const page = new DOMParser().parseFromString(html, 'text/html');
-                const monthSelect = page.querySelector(
-                    '#bc-options-toolbar__dropdown-month'
-                );
-                if (!monthSelect) {
-                    throw new Error(
-                        'Calendário de vencimentos semanais não encontrado.'
-                    );
-                }
-                return {
-                    weekday: option.textContent.trim(),
-                    options: Array.from(monthSelect.options).map(expiration => ({
+                    if (!monthSelect) {
+                        group.error = 'calendário não encontrado';
+                        return group;
+                    }
+                    group.options = Array.from(monthSelect.options).map(expiration => ({
                         label: expiration.textContent.trim(),
                         value: expiration.value
-                    }))
-                };
+                    }));
+                } catch (error) {
+                    group.error = String(error);
+                }
+                return group;
             }));
+            if (!groups.some(group => group.options.length)) {
+                throw new Error(
+                    'Falha ao carregar o calendário de vencimentos: ' +
+                    groups.map(group => group.weekday + ': ' + (group.error || 'vazio')).join('; ')
+                );
+            }
             done(groups);
         })().catch(error => done({scrapeError: error.message}));
     """)
     if isinstance(option_groups, dict) and option_groups.get("scrapeError"):
         raise RuntimeError(
-            "Falha ao obter vencimentos semanais do Barchart: "
+            "Falha ao obter vencimentos de opções do Barchart: "
             f"{option_groups['scrapeError']}"
         )
+
+    # [MELHORIA 1] "Monthly Options" só traz o rótulo "Dec 2026"; a data real
+    # (ex.: CL "Dec 2026" vence em 17/nov) vem da própria página do contrato.
+    # Resolve só os primeiros vencimentos de cada grupo para limitar a navegação.
+    for group in option_groups:
+        if _futures_option_kind(group.get("weekday")) != "monthly":
+            continue
+        for option in group.get("options", [])[:MONTHLY_RESOLVE_LIMIT]:
+            try:
+                driver.get(urljoin(url, option["value"]))
+                time.sleep(4)
+                resolved = _page_expiration_date(driver)
+            except Exception as exc:
+                print(f" ⚠️ Não foi possível resolver o vencimento de {option.get('label')}: {exc}")
+                resolved = None
+            if resolved:
+                option["expiration"] = resolved.isoformat()
+
     return [
         {"date": expiration["date"], "url": urljoin(url, expiration["url"])}
         for expiration in parse_futures_expiration_options(option_groups, as_of)
@@ -925,8 +1389,17 @@ def process(driver, symbol, url):
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
         time.sleep(1)
         fallback_api = _futures_weekly_api_config(url)
+        # [MELHORIA 2] Em futuros pedimos também IV e gregas por contrato.
+        extra_fields = (
+            list(GREEK_FIELDS) if "/futures/" in urlparse(url).path else []
+        )
+        # [MELHORIA 3] ETFs/ações: a API só troca de cadeia com
+        # `expirationDate=<token>` na chamada (a query da página é ignorada).
+        expiration_token = _requested_expiration_token(url)
         payload = driver.execute_async_script("""
             const fallbackApi = arguments[0];
+            const extraFields = arguments[1] || [];
+            const expirationToken = arguments[2];
             const done = arguments[arguments.length - 1];
             (async () => {
                 const container = document.querySelector(
@@ -945,29 +1418,65 @@ def process(driver, symbol, url):
                 if (!api || !api.method) {
                     throw new Error('Configuração da API de opções do Barchart ausente.');
                 }
+                api = Object.assign({}, api);
+                if (expirationToken && Object.prototype.hasOwnProperty.call(api, 'expirationDate')) {
+                    api.expirationDate = expirationToken;
+                }
+                const originalFields = api.fields;
+                if (extraFields.length) {
+                    const current = String(api.fields || '').split(',').filter(Boolean);
+                    extraFields.forEach(field => {
+                        if (!current.includes(field)) current.push(field);
+                    });
+                    api.fields = current.join(',');
+                }
                 const endpoint = api.method.startsWith('/')
                     ? '/proxies/core-api/v1' + api.method
                     : '/proxies/core-api/v1/' + api.method + '/get';
-                const params = new URLSearchParams();
-                Object.entries(api).forEach(([key, value]) => {
-                    if (key !== 'method' && value !== undefined && value !== null) {
-                        params.append(key, String(value));
-                    }
-                });
-                const response = await fetch(endpoint + '?' + params.toString(), {
-                    credentials: 'same-origin'
-                });
+                const requestUrl = () => {
+                    const params = new URLSearchParams();
+                    Object.entries(api).forEach(([key, value]) => {
+                        if (key !== 'method' && value !== undefined && value !== null) {
+                            params.append(key, String(value));
+                        }
+                    });
+                    return endpoint + '?' + params.toString();
+                };
+                let response = await fetch(requestUrl(), {credentials: 'same-origin'});
+                if (!response.ok && extraFields.length) {
+                    // Algum campo extra foi recusado: refaz a chamada só com os originais.
+                    api.fields = originalFields;
+                    response = await fetch(requestUrl(), {credentials: 'same-origin'});
+                }
                 if (!response.ok) {
                     throw new Error('API do Barchart respondeu HTTP ' + response.status);
                 }
-                done(await response.json());
+                const json = await response.json();
+                json._requestedFields = api.fields;
+                done(json);
             })().catch(error => done({ scrapeError: error.message }));
-        """, fallback_api)
+        """, fallback_api, extra_fields, expiration_token)
         if isinstance(payload, dict) and payload.get("scrapeError"):
             raise RuntimeError(f"Falha ao consultar API de opções do Barchart: {payload['scrapeError']}")
-        tables = [parse_barchart_option_payload(payload)]
+        table = parse_barchart_option_payload(payload)
+        tables = [table]
         margin = spot * 0.15
-        expiration_date = _expiration_date(driver, url)
+        # [MELHORIA 3] Data do vencimento: a pedida na URL (e validada contra o
+        # payload); sem pedido, a data única do payload; senão a da página.
+        payload_expirations = table.get("expirations") or []
+        requested_token = _requested_expiration_token(url)
+        if requested_token:
+            requested_date = requested_token[:10]
+            if payload_expirations and requested_date not in payload_expirations:
+                raise RuntimeError(
+                    f"O Barchart devolveu {payload_expirations} em vez do vencimento "
+                    f"pedido {requested_date}; cadeia descartada."
+                )
+            expiration_date = _expiration_date(driver, url)
+        elif len(payload_expirations) == 1:
+            expiration_date = date.fromisoformat(payload_expirations[0])
+        else:
+            expiration_date = _expiration_date(driver, url)
         T_years = _time_to_expiry(expiration_date)
         # [CORREÇÃO 7] Antes: `if T_years <= 0: raise ValueError(...)`, o que
         # abortava as execuções após 16h NY. Agora aplicamos um piso mínimo de
@@ -981,9 +1490,8 @@ def process(driver, symbol, url):
             T_years = min_T_years
         risk_free = 0.05       
         
-        # Hipótese do modelo: não é uma IV observada por contrato.
+        # [MELHORIA 2] IV base = apenas FALLBACK (strike sem IV/gamma válidos).
         iv_avg = IV_BASE_POR_ATIVO.get(symbol, 0.14)
-        print(f" IV base assumida para {symbol}: {iv_avg:.0%} (não individual por contrato)")
         
         mult = MULTIPLIADORES.get(symbol, 100)
         strike_scales = (
@@ -999,16 +1507,16 @@ def process(driver, symbol, url):
         df["vol"] = df["c_vol"] + df["p_vol"]
         df["toi"] = df["coi"] + df["poi"]
         df["time_to_expiry"] = T_years
-        df["iv"] = iv_avg
         df["contract_mult"] = mult
         df["strike_mult"] = 1.0
         df["spot"] = spot
         df["base_strike"] = df["strike"]
-        gamma_by_strike = df["strike"].map(
-            lambda strike: black_scholes_gamma(spot, strike, T_years, risk_free, iv_avg)
-        )
-        df["cgex"] = df["coi"] * gamma_by_strike * mult * spot
-        df["pgex"] = df["poi"] * gamma_by_strike * mult * spot
+        # [MELHORIA 2] IV/gamma reais por strike e lado (Volatility Skew).
+        df = resolve_strike_vols(df, spot, T_years, risk_free, iv_avg)
+        # `iv` (média Call/Put do strike) mantém compatibilidade com leitores antigos.
+        df["iv"] = (df["iv_call"] + df["iv_put"]) / 2
+        df["cgex"] = df["coi"] * df["gamma_call"] * mult * spot
+        df["pgex"] = df["poi"] * df["gamma_put"] * mult * spot
         df["ng"] = df["cgex"] - df["pgex"]
 
         # [CORREÇÃO 1] Paredes, flip, max pain, regime etc. calculados por uma
@@ -1016,6 +1524,10 @@ def process(driver, symbol, url):
         res = compute_levels(df, spot, symbol)
         res["Expiration"] = expiration_date.isoformat()
         zero_gamma = res["ZG"]
+        if res["IVSource"] == IV_SOURCE_REAL:
+            print(f" IV real por strike (Barchart) ATM de {symbol}: {res['IV']:.1f}%")
+        else:
+            print(f" IV base assumida para {symbol}: {iv_avg:.0%} (sem IV/gamma reais suficientes)")
         
         if zero_gamma is None:
             print(" ⚠️ Nenhum cruzamento de GEX encontrado na faixa analisada.")

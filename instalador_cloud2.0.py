@@ -137,8 +137,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else if(s.Contains("ZB"))s="ZB"; 
                 else if(s.Contains("ZN"))s="ZN";
                 else if(s.Contains("YM"))s="YM";
-                else if(s.Contains("RTY"))s="RTY";
-                else if(s.Contains("NG"))s="NG";
+                else if(s.Contains("RTY") || s.Contains("M2K"))s="RTY";
+                else if(s.Contains("NG") || s.Contains("QG"))s="NG";
 
                 var novos = new List<GammaLevel>();
                 var map = new System.Collections.Generic.Dictionary<double,string>();
@@ -211,7 +211,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private double cw7DTE=0, pw7DTE=0, zg7DTE=0;
         private bool niveisDisponiveis=false;
         private string cwMoney="$0", pwMoney="$0", optionVolume="0";
-        private string dashRatio="0.00", dashNetFlow="Wait", dashNetGex="Wait", dashIv="0";
+        private string dashRatio="0.00", dashNetFlow="Wait", dashNetGex="Wait", dashIv="0", dashIvSource="IV BASE";
         private string dashFlowVal="$0", dashGexVal="$0", dashRegime="Processando...";
         private string dashAlvoUp="0", dashAlvoDown="0";
         private string dashSource="";
@@ -289,7 +289,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             string niveisResumo = "\nPOS GEX (CW): " + callWall + " (" + cwMoney + ") | NEG GEX (PW): " + putWall + " (" + pwMoney + ")"
                 + "\nMAX PAIN: " + maxPain + " | BLOCK/MAX VOL: " + optionVolumeStrike + " (" + optionVolume + " ctrs)";
             string alvosResumo = (dashAlvoUp != "0" && dashAlvoDown != "0") ? "\nALVOS VOL: " + dashAlvoDown + " <-> " + dashAlvoUp : "";
-            string dados = "\nREGIME: " + dashRegime + "\n------------------" + "\nCALL/PUT VOLUME BALANCE (source/model units): " + dashNetFlow + " (" + dashFlowVal + ")" + "\nNET GEX (estimado): " + dashNetGex + " (" + dashGexVal + ")" + niveisResumo + "\n" + flipStatus + "\nRATIO: " + dashRatio + " " + ratioTag + "\nIV BASE: " + dashIv + "%" + alvosResumo + fonte + "\nATUALIZADO: " + DateTime.Now.ToString("HH:mm:ss");
+            string ivLabel = string.IsNullOrWhiteSpace(dashIvSource) ? "IV BASE" : dashIvSource.ToUpperInvariant();
+            string dados = "\nREGIME: " + dashRegime + "\n------------------" + "\nCALL/PUT VOLUME BALANCE (source/model units): " + dashNetFlow + " (" + dashFlowVal + ")" + "\nNET GEX (estimado): " + dashNetGex + " (" + dashGexVal + ")" + niveisResumo + "\n" + flipStatus + "\nRATIO: " + dashRatio + " " + ratioTag + "\n" + ivLabel + ": " + dashIv + "%" + alvosResumo + fonte + "\nATUALIZADO: " + DateTime.Now.ToString("HH:mm:ss");
             Draw.TextFixed(this, "DashFundo", titulo + dados, TextPosition.TopLeft, corTextoRegime, fonteDash, corFundoDash, Brushes.Black, 100);
         }
 
@@ -315,7 +316,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 cw7DTE=0; pw7DTE=0; zg7DTE=0;
                 cwMoney="$0"; pwMoney="$0"; optionVolume="0";
                 dashRatio="0.00"; dashNetFlow="Wait"; dashNetGex="Wait";
-                dashIv="0"; dashFlowVal="0"; dashGexVal="0";
+                dashIv="0"; dashIvSource="IV BASE"; dashFlowVal="0"; dashGexVal="0";
                 dashAlvoUp="0"; dashAlvoDown="0";
                 dashRegime="Processando...";
                 if (Instrument == null) return; string s = Instrument.MasterInstrument.Name;
@@ -326,8 +327,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else if(s.Contains("ZB"))s="ZB"; 
                 else if(s.Contains("ZN"))s="ZN";
                 else if(s.Contains("YM"))s="YM";
-                else if(s.Contains("RTY"))s="RTY";
-                else if(s.Contains("NG"))s="NG";
+                else if(s.Contains("RTY") || s.Contains("M2K"))s="RTY";
+                else if(s.Contains("NG") || s.Contains("QG"))s="NG";
 
                 string f1 = Path.Combine(pastaGexData, "NiveisGamma_" + s + ".csv");
                 if (File.Exists(f1)) {
@@ -368,6 +369,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                     }
                     if (p.Length >= 12) {
                         dashRegime = p[11];
+                    }
+                    if (p.Length >= 13 && !string.IsNullOrWhiteSpace(p[12])) {
+                        dashIvSource = p[12].Trim();
                     }
                 }
             } catch (Exception ex) { niveisDisponiveis=false; Print("NiveisGammaPro: falha ao ler CSV GEX: " + ex.Message); }
@@ -565,8 +569,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else if(s.Contains("ZB"))s="ZB"; 
                 else if(s.Contains("ZN"))s="ZN";
                 else if(s.Contains("YM"))s="YM";
-                else if(s.Contains("RTY"))s="RTY";
-                else if(s.Contains("NG"))s="NG";
+                else if(s.Contains("RTY") || s.Contains("M2K"))s="RTY";
+                else if(s.Contains("NG") || s.Contains("QG"))s="NG";
 
                 string f = Path.Combine(pastaGexData, "AlvosVolatilidade_"+s+".csv");
                 if(File.Exists(f)) { 
@@ -789,6 +793,8 @@ namespace NinjaTrader.NinjaScript.Indicators
 # ==============================================================================
 # ESCREVENDO TUDO NO DISCO
 # ==============================================================================
+pasta_script = os.path.dirname(os.path.abspath(__file__))
+
 arquivos_para_instalar = {
     "NiveisEstruturaPro.cs": CODE_ESTRUTURA,
     "NiveisGammaPro.cs": CODE_GAMMA,
@@ -796,6 +802,13 @@ arquivos_para_instalar = {
     "DailyOHLCPro.cs": CODE_OHLC,
     "GlobexRangePro.cs": CODE_GLOBEX
 }
+
+# Inclui automaticamente os indicadores externos auditados se estiverem na mesma pasta
+for arquivo_extra in ("VolatilidadeImplicitaPro.cs", "FluentliExpectedMove.cs"):
+    caminho_extra = os.path.join(pasta_script, arquivo_extra)
+    if os.path.exists(caminho_extra):
+        with open(caminho_extra, "r", encoding="utf-8") as f_extra:
+            arquivos_para_instalar[arquivo_extra] = f_extra.read()
 
 print("\n--- INICIANDO GRAVAÇÃO ---")
 try:
@@ -814,12 +827,14 @@ try:
 
     messagebox.showinfo("Instalação MESTRE Concluída", 
                         "✅ SUCESSO TOTAL!\n\n"
-                        "Foram instalados 5 Indicadores:\n"
+                        f"Foram instalados {len(arquivos_para_instalar)} Indicadores:\n"
                         "1. NiveisEstruturaPro (Gamma Histograma)\n"
                         "2. NiveisGammaPro (Linhas e Dashboard)\n"
                         "3. MoneyRiskPro (Versão V76 - ATR Inteligente)\n"
                         "4. DailyOHLCPro (Faixa Vertical RTH)\n"
-                        "5. GlobexRangePro (Apenas Linhas)\n\n"
+                        "5. GlobexRangePro (Apenas Linhas)\n"
+                        "6. VolatilidadeImplicitaPro (Bandas 1, 2 e 3 SD da IV)\n"
+                        "7. FluentliExpectedMove (Nuvens de Expected Move)\n\n"
                         "👉 AGORA: Abra o NinjaTrader e aperte F5 (ou reinicie).")
 
 except Exception as e:

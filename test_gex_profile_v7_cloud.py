@@ -1,3 +1,4 @@
+import math
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -7,23 +8,38 @@ from unittest.mock import patch
 import pandas as pd
 
 from gex_profile_v7_cloud import (
+    GREEK_FIELDS,
+    IV_BASE_POR_ATIVO,
+    IV_SOURCE_BASE,
+    IV_SOURCE_REAL,
     _expiration_date,
     _futures_weekly_api_config,
+    _last_business_day,
+    _page_expiration_date,
+    _parse_gamma,
+    _parse_iv,
+    _requested_expiration_token,
+    _third_friday,
     _time_to_expiry,
     apply_proxy_scaling,
+    black_scholes_gamma,
     calculate_max_pain,
     effective_session_date,
     extract_equity_expiration_options,
     find_gex_flip,
+    implied_vol_from_gamma,
     parse_barchart_option_payload,
     parse_futures_expiration_options,
     parse_option_tables,
     parse_treasury_price,
     process,
     process_group,
+    resolve_strike_vols,
     save,
     select_expiration_for_dte,
     select_walls,
+    summarize_iv,
+    total_gex_at_spot,
 )
 
 
@@ -923,6 +939,432 @@ class GammaCalculationTests(unittest.TestCase):
     def test_treasury_fractional_price_parses_half_thirty_seconds(self):
         self.assertAlmostEqual(parse_treasury_price("117-16"), 117.5)
         self.assertAlmostEqual(parse_treasury_price("110-085"), 110.0 + 8.5 / 32.0)
+
+    # ------------------------------------------------------------------
+    # [MELHORIA 1] OPEX mensal / EOM e horizonte de 21 dias
+    # ------------------------------------------------------------------
+    def test_monthly_and_eom_expirations_join_the_weekly_calendar(self):
+        groups = [
+            {
+                "weekday": "Monthly Options",
+                "options": [{
+                    "label": "Dec 2026",
+                    "value": "/futures/quotes/ESZ26/options/dec-26",
+                    "expiration": "2026-12-18",
+                }],
+            },
+            {
+                "weekday": "EOM Options",
+                "options": [{
+                    "label": "Nov 2026",
+                    "value": "/futures/quotes/ESZ26/options/T8X26",
+                }],
+            },
+            {
+                "weekday": "Friday Weekly Options",
+                "options": [{
+                    "label": "Week 3: Nov 2026",
+                    "value": "/futures/quotes/ESZ26/options/MW3X26",
+                }],
+            },
+            # Produto exótico: nunca entra no calendário.
+            {
+                "weekday": "Calendar Spreads",
+                "options": [{
+                    "label": "Dec 2026",
+                    "value": "/futures/quotes/CLZ26/options/JWAZ26",
+                }],
+            },
+        ]
+
+        routes = parse_futures_expiration_options(groups, as_of=date(2026, 11, 13))
+
+        self.assertEqual(
+            [route["date"] for route in routes],
+            [date(2026, 11, 20), date(2026, 11, 30), date(2026, 12, 18)],
+        )
+        self.assertTrue(routes[1]["url"].endswith("/T8X26"))
+
+    def test_index_monthly_without_resolved_date_falls_back_to_third_friday(self):
+        groups = [
+            {
+                "weekday": "Monthly Options",
+                "options": [{
+                    "label": "Nov 2026",
+                    "value": "/futures/quotes/YMZ26/options/nov-26",
+                }],
+            },
+            {
+                "weekday": "Friday Weekly Options",
+                "options": [{
+                    "label": "Week 3: Nov 2026",
+                    "value": "/futures/quotes/YMZ26/options/BY8X26",
+                }],
+            },
+        ]
+
+        routes = parse_futures_expiration_options(groups, as_of=date(2026, 11, 13))
+
+        # Mesma data (3ª sexta = 20/11): vale a rota do vencimento mensal.
+        self.assertEqual([route["date"] for route in routes], [date(2026, 11, 20)])
+        self.assertTrue(routes[0]["url"].endswith("/nov-26"))
+
+    def test_commodity_monthly_needs_resolved_date_because_label_month_differs(self):
+        unresolved = [{
+            "weekday": "Monthly Options",
+            "options": [{"label": "Dec 2026", "value": "/futures/quotes/CLZ26/options/dec-26"}],
+        }]
+        resolved = [{
+            "weekday": "Monthly Options",
+            "options": [{
+                "label": "Dec 2026",
+                "value": "/futures/quotes/CLZ26/options/dec-26",
+                "expiration": "2026-11-17",
+            }],
+        }]
+
+        self.assertEqual(parse_futures_expiration_options(unresolved, date(2026, 11, 13)), [])
+        self.assertEqual(
+            [route["date"] for route in parse_futures_expiration_options(resolved, date(2026, 11, 13))],
+            [date(2026, 11, 17)],
+        )
+
+    def test_third_friday_and_last_business_day_helpers(self):
+        self.assertEqual(_third_friday(2026, 11), date(2026, 11, 20))
+        self.assertEqual(_third_friday(2026, 12), date(2026, 12, 18))
+        self.assertEqual(_last_business_day(2026, 11), date(2026, 11, 30))
+        self.assertEqual(_last_business_day(2026, 12), date(2026, 12, 31))
+        self.assertEqual(_last_business_day(2027, 1), date(2027, 1, 29))  # 31/jan = domingo
+
+    def test_page_expiration_date_reads_rendered_text(self):
+        class FakeDriver:
+            def execute_script(self, _script):
+                return "35 Days to expiration on 12/18/26"
+
+        class EmptyDriver:
+            def execute_script(self, _script):
+                return "sem data"
+
+        self.assertEqual(_page_expiration_date(FakeDriver()), date(2026, 12, 18))
+        with patch("gex_profile_v7_cloud.time.sleep"):
+            self.assertIsNone(_page_expiration_date(EmptyDriver()))
+
+    def test_dte_selection_never_leaves_the_21_day_window(self):
+        far_only = [{"date": date(2026, 12, 18), "url": "quarterly"}]  # 35 dias
+
+        with self.assertRaisesRegex(RuntimeError, "21 dias"):
+            select_expiration_for_dte(far_only, as_of=date(2026, 11, 13), dte=7)
+
+    def test_missing_intermediate_expiration_falls_back_to_the_7dte_contract(self):
+        # YM só lista sextas (+ EOM): não existe contrato entre 1DTE e 7DTE.
+        expirations = [
+            {"date": date(2026, 11, 20), "url": "fri-20"},
+            {"date": date(2026, 11, 27), "url": "fri-27"},
+            {"date": date(2026, 11, 30), "url": "eom"},
+            {"date": date(2026, 12, 18), "url": "quarterly"},
+        ]
+        as_of = date(2026, 11, 13)
+
+        one_day = select_expiration_for_dte(expirations, as_of, 1)
+        two_day = select_expiration_for_dte(
+            expirations, as_of, 2, exclude={one_day["date"]}
+        )
+        seven_day = select_expiration_for_dte(
+            expirations, as_of, 7, exclude={one_day["date"]}
+        )
+
+        self.assertEqual(one_day["date"], date(2026, 11, 20))
+        # 2DTE não pula para 27/11 (ou EOM): usa o vencimento do 7DTE.
+        self.assertEqual(two_day["date"], date(2026, 11, 20))
+        self.assertEqual(seven_day["date"], date(2026, 11, 27))
+
+    # ------------------------------------------------------------------
+    # [MELHORIA 2] IV real e gamma por strike
+    # ------------------------------------------------------------------
+    def test_iv_and_gamma_parsers_accept_feed_formats_and_reject_noise(self):
+        self.assertAlmostEqual(_parse_iv("25.41%"), 0.2541)
+        self.assertAlmostEqual(_parse_iv(0.2541), 0.2541)
+        self.assertAlmostEqual(_parse_iv(25.41), 0.2541)
+        for bad in (None, "N/A", "", "0.00%", 0, "abc", 9999):
+            self.assertTrue(math.isnan(_parse_iv(bad)), bad)
+        self.assertAlmostEqual(_parse_gamma("0.0010"), 0.001)
+        for bad in (None, "N/A", 0, "0.0000", -1, "x"):
+            self.assertTrue(math.isnan(_parse_gamma(bad)), bad)
+
+    def test_payload_prefers_raw_greeks_and_reports_expiration(self):
+        payload = {
+            "data": {
+                "7,000.00": [
+                    {
+                        "optionType": "Call",
+                        "volume": "10",
+                        "openInterest": "20",
+                        "strikePrice": "7,000.00",
+                        "gamma": "0.0003",
+                        "raw": {"gamma": 0.00031889392231348, "expirationDate": "2026-11-20"},
+                    },
+                    {
+                        "optionType": "Put",
+                        "volume": "5",
+                        "openInterest": "30",
+                        "strikePrice": "7,000.00",
+                        "volatility": "26.51%",
+                        "raw": {"volatility": 0.2651},
+                    },
+                ],
+            }
+        }
+
+        table = parse_barchart_option_payload(payload)
+        profile = parse_option_tables([table], spot=7000, margin=500)
+
+        self.assertEqual(table["expirations"], ["2026-11-20"])
+        self.assertEqual(profile.iloc[0]["gamma_api_call"], 0.00031889392231348)
+        self.assertAlmostEqual(profile.iloc[0]["iv_api_put"], 0.2651)
+        self.assertTrue(math.isnan(profile.iloc[0]["iv_api_call"]))
+        self.assertTrue(math.isnan(profile.iloc[0]["gamma_api_put"]))
+
+    def test_implied_vol_from_gamma_recovers_the_generating_sigma(self):
+        spot, T, rate = 7600.0, 10 / 365, 0.05
+        # `guess` = IV de referência (ATM): em asas OTM o gamma tem duas raízes
+        # em sigma e vence a mais próxima do chute.
+        for strike, sigma, guess in (
+            (7600.0, 0.22, 0.14),
+            (7500.0, 0.22, 0.14),
+            (7800.0, 0.31, 0.28),
+        ):
+            gamma = black_scholes_gamma(spot, strike, T, rate, sigma)
+            recovered = implied_vol_from_gamma(spot, strike, T, rate, gamma, guess=guess)
+            self.assertAlmostEqual(recovered, sigma, places=6, msg=str(strike))
+        # Sem gamma válido (<= 0) ou impossível de reproduzir (gamma = 1.0 por
+        # ponto é inatingível em qualquer sigma): sem raiz, o chamador usa a IV base.
+        self.assertIsNone(implied_vol_from_gamma(spot, 7600.0, T, rate, 0.0, 0.14))
+        self.assertIsNone(implied_vol_from_gamma(spot, 7600.0, T, rate, 1.0, 0.14))
+
+    def test_resolve_strike_vols_ignores_numerically_negligible_gamma(self):
+        spot, T, rate, base = 88.0, 5 / 365, 0.05, 0.40
+        frame = pd.DataFrame({
+            "strike": [80.0],
+            "coi": [100.0],
+            "poi": [100.0],
+            "iv_api_call": [math.nan],
+            "iv_api_put": [math.nan],
+            "gamma_api_call": [1.8e-46],  # CL 50P ao vivo: delta 0, gamma 1.8e-46
+            "gamma_api_put": [1.8e-46],
+        })
+
+        resolved = resolve_strike_vols(frame, spot, T, rate, base)
+
+        self.assertFalse(resolved.loc[0, "iv_real_call"])
+        self.assertEqual(resolved.loc[0, "iv_call"], base)
+
+    def test_resolve_strike_vols_uses_atm_iv_to_pick_the_right_wing_root(self):
+        spot, T, rate = 7600.0, 10 / 365, 0.05
+        strikes = [7400.0, 7500.0, 7600.0, 7700.0, 7800.0]
+        true_sigma = {7400.0: 0.34, 7500.0: 0.27, 7600.0: 0.22, 7700.0: 0.24, 7800.0: 0.31}
+        gammas = [black_scholes_gamma(spot, k, T, rate, true_sigma[k]) for k in strikes]
+        frame = pd.DataFrame({
+            "strike": strikes,
+            "coi": [50.0] * 5,
+            "poi": [50.0] * 5,
+            "iv_api_call": [math.nan] * 5,
+            "iv_api_put": [math.nan] * 5,
+            "gamma_api_call": gammas,
+            "gamma_api_put": gammas,
+        })
+
+        resolved = resolve_strike_vols(frame, spot, T, rate, base_iv=0.14)
+
+        for strike, sigma in zip(resolved["strike"], resolved["iv_call"]):
+            self.assertAlmostEqual(sigma, true_sigma[strike], places=5, msg=str(strike))
+        self.assertTrue(resolved["iv_real_put"].all())
+
+    def test_resolve_strike_vols_prefers_feed_iv_then_feed_gamma_then_base(self):
+        spot, T, rate, base = 7600.0, 10 / 365, 0.05, 0.14
+        gamma_put = black_scholes_gamma(spot, 7600.0, T, rate, 0.2)
+        frame = pd.DataFrame({
+            "strike": [7550.0, 7600.0],
+            "coi": [10.0, 10.0],
+            "poi": [10.0, 10.0],
+            "iv_api_call": [0.30, math.nan],
+            "iv_api_put": [math.nan, math.nan],
+            "gamma_api_call": [math.nan, math.nan],
+            "gamma_api_put": [math.nan, gamma_put],
+        })
+
+        resolved = resolve_strike_vols(frame, spot, T, rate, base)
+
+        self.assertAlmostEqual(resolved.loc[0, "iv_call"], 0.30)
+        self.assertTrue(resolved.loc[0, "iv_real_call"])
+        self.assertAlmostEqual(
+            resolved.loc[0, "gamma_call"], black_scholes_gamma(spot, 7550.0, T, rate, 0.30)
+        )
+        self.assertEqual(resolved.loc[0, "iv_put"], base)
+        self.assertFalse(resolved.loc[0, "iv_real_put"])
+        self.assertAlmostEqual(resolved.loc[1, "iv_put"], 0.2, places=6)
+        self.assertTrue(resolved.loc[1, "iv_real_put"])
+        self.assertEqual(resolved.loc[1, "gamma_put"], gamma_put)
+        self.assertEqual(resolved.loc[1, "iv_call"], base)
+
+    def test_total_gex_uses_each_sides_own_iv(self):
+        frame = pd.DataFrame([{
+            "strike": 100.0,
+            "base_strike": 100.0,
+            "coi": 10.0,
+            "poi": 10.0,
+            "time_to_expiry": 5 / 365,
+            "iv": 0.2,
+            "iv_call": 0.10,
+            "iv_put": 0.40,
+            "contract_mult": 50.0,
+            "strike_mult": 1.0,
+        }])
+        expected = (
+            10 * black_scholes_gamma(100.0, 100.0, 5 / 365, 0.05, 0.10)
+            - 10 * black_scholes_gamma(100.0, 100.0, 5 / 365, 0.05, 0.40)
+        ) * 50.0 * 100.0
+
+        self.assertAlmostEqual(total_gex_at_spot(frame, 100.0), expected)
+        # Com o mesmo `iv` nos dois lados o strike zera (comportamento antigo).
+        legacy = frame.drop(columns=["iv_call", "iv_put"])
+        self.assertAlmostEqual(total_gex_at_spot(legacy, 100.0), 0.0)
+
+    def test_summarize_iv_uses_atm_real_iv_only_with_enough_oi_coverage(self):
+        frame = pd.DataFrame({
+            "strike": [95.0, 100.0, 105.0],
+            "coi": [100.0, 100.0, 100.0],
+            "poi": [100.0, 100.0, 100.0],
+            "iv_call": [0.30, 0.20, 0.25],
+            "iv_put": [0.30, 0.20, 0.25],
+            "iv_real_call": [True, True, True],
+            "iv_real_put": [True, True, True],
+        })
+        sparse = frame.assign(iv_real_call=False, iv_real_put=[True, False, False])
+
+        iv_real, source_real = summarize_iv(frame, spot=100.0, symbol="ES")
+        iv_base, source_base = summarize_iv(sparse, spot=100.0, symbol="ES")
+
+        self.assertEqual(source_real, IV_SOURCE_REAL)
+        self.assertAlmostEqual(iv_real, 25.0)  # média dos 6 contratos reais mais próximos
+        self.assertEqual(source_base, IV_SOURCE_BASE)
+        self.assertAlmostEqual(iv_base, IV_BASE_POR_ATIVO["ES"] * 100)
+
+    def test_process_uses_real_iv_per_strike_and_requests_greeks_for_futures(self):
+        calls = []
+        payload = {
+            "data": {
+                strike_label: [
+                    {
+                        "optionType": "Call", "volume": "5", "openInterest": "100",
+                        "strikePrice": strike_label, "raw": {"volatility": call_iv},
+                    },
+                    {
+                        "optionType": "Put", "volume": "5", "openInterest": "100",
+                        "strikePrice": strike_label, "raw": {"volatility": put_iv},
+                    },
+                ]
+                for strike_label, call_iv, put_iv in (
+                    ("280.00", 0.20, 0.19),
+                    ("285.00", 0.15, 0.15),
+                    ("290.00", 0.16, 0.17),
+                )
+            }
+        }
+
+        class FakeDriver:
+            def get(self, _url):
+                pass
+
+            def execute_script(self, _script):
+                pass
+
+            def execute_async_script(self, _script, *args):
+                calls.append(args)
+                return payload
+
+        with (
+            patch("gex_profile_v7_cloud.get_price", return_value=285.0),
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch("gex_profile_v7_cloud._time_to_expiry", return_value=5 / 365),
+        ):
+            result, profile = process(
+                FakeDriver(), "RTY",
+                "https://www.barchart.com/etfs-funds/quotes/IWM/options"
+                "?view=split&expiration=2026-11-17-w",
+            )
+            process(
+                FakeDriver(), "ES",
+                "https://www.barchart.com/futures/quotes/ES*0/options"
+                "?expirationDate=2026-11-20",
+            )
+
+        self.assertEqual(result["IVSource"], IV_SOURCE_REAL)
+        self.assertAlmostEqual(result["IV"], 17.0)
+        self.assertEqual(profile["iv_call"].round(4).tolist(), [0.20, 0.15, 0.16])
+        self.assertTrue(profile["iv_real_put"].all())
+        # ETF: sem campos extras; e o vencimento pedido vai para a API ([MELHORIA 3]).
+        self.assertEqual(calls[0][1], [])
+        self.assertEqual(calls[0][2], "2026-11-17-w")
+        # Futuros: IV e gregas pedidas à API, sem token de expiração.
+        self.assertEqual(calls[1][1], list(GREEK_FIELDS))
+        self.assertIsNone(calls[1][2])
+
+    # ------------------------------------------------------------------
+    # [MELHORIA 3] expiração exata na API de ETF (RTY/IWM)
+    # ------------------------------------------------------------------
+    def test_requested_expiration_token_only_applies_to_equity_pages(self):
+        etf = "https://www.barchart.com/etfs-funds/quotes/IWM/options?view=split&expiration=2026-11-17-w"
+        etf_date = "https://www.barchart.com/etfs-funds/quotes/IWM/options?expirationDate=2026-11-20-m"
+        futures = "https://www.barchart.com/futures/quotes/ES*0/options?expirationDate=2026-11-20"
+        base = "https://www.barchart.com/etfs-funds/quotes/IWM/options?view=split"
+
+        self.assertEqual(_requested_expiration_token(etf), "2026-11-17-w")
+        self.assertEqual(_requested_expiration_token(etf_date), "2026-11-20-m")
+        self.assertIsNone(_requested_expiration_token(futures))
+        self.assertIsNone(_requested_expiration_token(base))
+
+    def test_process_rejects_chain_whose_payload_expiration_differs_from_request(self):
+        payload = {
+            "data": {
+                "285.00": [
+                    {
+                        "optionType": "Call", "volume": "5", "openInterest": "100",
+                        "strikePrice": "285.00",
+                        "raw": {"volatility": 0.15, "expirationDate": "2026-11-13"},
+                    },
+                    {
+                        "optionType": "Put", "volume": "5", "openInterest": "100",
+                        "strikePrice": "285.00",
+                        "raw": {"volatility": 0.15, "expirationDate": "2026-11-13"},
+                    },
+                ]
+            }
+        }
+
+        class FakeDriver:
+            def get(self, _url):
+                pass
+
+            def execute_script(self, _script):
+                pass
+
+            def execute_async_script(self, _script, *_args):
+                return payload
+
+        with (
+            patch("gex_profile_v7_cloud.get_price", return_value=285.0),
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch("gex_profile_v7_cloud._time_to_expiry", return_value=5 / 365),
+        ):
+            # A API ignorou o pedido de 17/11 e devolveu a cadeia mais próxima (13/11).
+            result, profile = process(
+                FakeDriver(), "RTY",
+                "https://www.barchart.com/etfs-funds/quotes/IWM/options"
+                "?view=split&expiration=2026-11-17-w",
+            )
+
+        self.assertIsNone(result)
+        self.assertIsNone(profile)
 
 
 if __name__ == "__main__":
