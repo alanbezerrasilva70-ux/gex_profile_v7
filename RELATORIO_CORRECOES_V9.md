@@ -6,7 +6,15 @@ Este documento segue o padrão oficial definido em [regras.md](file:///C:/Users/
 
 ## 1. Registro Cronológico de Modificações por Data e Horário
 
-### A. Modificações de HOJE — `13/11/2026`
+### A. Modificações de HOJE — `14/11/2026`
+
+| Data e Horário | Repositório / Arquivo | Commit / Status | O Que Foi Alterado |
+|---|---|---|---|
+| **`14/11/2026 10:45`** | `VWAPInstitucionalPro.cs`, `DeltaCumulativePro.cs`, `FluentliQuantBot_V1.cs`, `vwap.py`, `DeltaCumulativePro.py` e `instalador_cloud2.0.py` | Atualizados às `10:45` | **1.** Corrigido o erro `CS1955: Non-invocable member 'VWAPInstitucionalPro' cannot be used like a method` na linha 46 de `FluentliQuantBot_V1.cs`: o arquivo `VWAPInstitucionalPro.cs` gerado pelo `vwap.py` antigo não continha o bloco `#region NinjaScript generated code` que expõe o método `Strategy.VWAPInstitucionalPro(...)` (tanto sem parâmetros quanto com a sobrecarga `(4, true, true, 3.0)` chamada pela estratégia).<br>**2.** Atualizado `VWAPInstitucionalPro.cs` (em `Documents\NinjaTrader 8\bin\Custom\Indicators\`, em `vwap.py` e dentro do `instalador_cloud2.0.py`) com as propriedades `NumBandas`, `MostrarBandas`, `ResetDiario`, `DesvioMaximo` e o bloco `#region NinjaScript generated code` completo.<br>**3.** Embutidos `VWAPInstitucionalPro.cs` e `DeltaCumulativePro.cs` v2.0 diretamente no `instalador_cloud2.0.py` (que agora instala os **9 indicadores** de uma vez) e atualizado `LerIVDoEngine()` em `FluentliQuantBot_V1.cs` para ler automaticamente a pasta `Dropbox\RoboGexNinjaV1` (`AlvosVolatilidade_{s}.csv` e `NiveisGamma_{s}.csv`). |
+
+---
+
+### B. Modificações de `13/11/2026`
 
 | Data e Horário | Repositório / Arquivo | Commit / Status | O Que Foi Alterado |
 |---|---|---|---|

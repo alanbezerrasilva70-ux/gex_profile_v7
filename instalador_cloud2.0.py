@@ -47,7 +47,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public class GammaLevel { public double Strike; public double NetGamma; public string Label; }
         private List<GammaLevel> niveisGamma = new List<GammaLevel>();
         private DateTime ultimaLeitura = DateTime.MinValue;
-        private string pastaGexData = @"C:\Users\alanb\Dropbox\Aplicativos\RoboGexNinjaV1";
+        private string pastaGexData = @"C:\Users\alanb\Dropbox\Dropbox\Aplicativos\RoboGexNinjaV1";
         
         private SharpDX.Direct2D1.Brush dxBrushCall, dxBrushPut, dxBrushText, dxBrushHighlight, dxBrushCallHeavy, dxBrushPutHeavy;
         private SharpDX.DirectWrite.TextFormat dxTextFormat, dxTextFormatBold;
@@ -1348,6 +1348,466 @@ namespace NinjaTrader.NinjaScript.Indicators
 '''
 
 # ==============================================================================
+# 8. VWAP INSTITUCIONAL PRO (COM NINJASCRIPT GENERATED WRAPPER)
+# ==============================================================================
+CODE_VWAP = r"""using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Media;
+using System.Xml.Serialization;
+using NinjaTrader.Cbi;
+using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.Gui.Tools;
+using NinjaTrader.Data;
+using NinjaTrader.NinjaScript;
+using NinjaTrader.NinjaScript.DrawingTools;
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+    public class VWAPInstitucionalPro : Indicator
+    {
+        private double sumPV = 0;
+        private double sumVol = 0;
+        private double sumP2V = 0;
+        private double lastBarVolume = 0;
+        private int sessionStartBar = -1;
+        private int lastProcessedBar = -1;
+
+        [NinjaScriptProperty]
+        [Display(Name = "Numero de Bandas", Order = 1, GroupName = "Configuracao")]
+        public int NumBandas { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Mostrar Bandas", Order = 2, GroupName = "Configuracao")]
+        public bool MostrarBandas { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Reset Diario", Order = 3, GroupName = "Configuracao")]
+        public bool ResetDiario { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Multiplicador Desvio Max", Order = 4, GroupName = "Configuracao")]
+        public double DesvioMaximo { get; set; }
+
+        protected override void OnStateChange()
+        {
+            if (State == State.SetDefaults)
+            {
+                Description = "VWAP Institucional com 4 Desvios Padrão";
+                Name = "VWAPInstitucionalPro";
+                Calculate = Calculate.OnEachTick;
+                IsOverlay = true;
+                DrawOnPricePanel = true;
+                ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
+
+                NumBandas = 4;
+                MostrarBandas = true;
+                ResetDiario = true;
+                DesvioMaximo = 3.0;
+
+                AddPlot(new Stroke(Brushes.Yellow, DashStyleHelper.Solid, 3), PlotStyle.Line, "VWAP");
+                AddPlot(new Stroke(Brushes.DodgerBlue, DashStyleHelper.Dot, 1), PlotStyle.Line, "Top SD1");
+                AddPlot(new Stroke(Brushes.DodgerBlue, DashStyleHelper.Dot, 1), PlotStyle.Line, "Bot SD1");
+                AddPlot(new Stroke(Brushes.Cyan, DashStyleHelper.Dash, 2), PlotStyle.Line, "Top SD2");
+                AddPlot(new Stroke(Brushes.Cyan, DashStyleHelper.Dash, 2), PlotStyle.Line, "Bot SD2");
+                AddPlot(new Stroke(Brushes.Orange, DashStyleHelper.Solid, 2), PlotStyle.Line, "Top SD3");
+                AddPlot(new Stroke(Brushes.Orange, DashStyleHelper.Solid, 2), PlotStyle.Line, "Bot SD3");
+                AddPlot(new Stroke(Brushes.Red, DashStyleHelper.Solid, 3), PlotStyle.Line, "Top SD4");
+                AddPlot(new Stroke(Brushes.Red, DashStyleHelper.Solid, 3), PlotStyle.Line, "Bot SD4");
+            }
+        }
+
+        protected override void OnBarUpdate()
+        {
+            if (CurrentBar < 0) return;
+
+            if (sessionStartBar < 0 ||
+                (ResetDiario && Bars.IsFirstBarOfSession && sessionStartBar != CurrentBar))
+            {
+                if (sessionStartBar >= 0)
+                {
+                    sumPV = 0;
+                    sumVol = 0;
+                    sumP2V = 0;
+                }
+                sessionStartBar = CurrentBar;
+            }
+
+            if (CurrentBar != lastProcessedBar)
+            {
+                lastBarVolume = 0;
+                lastProcessedBar = CurrentBar;
+            }
+
+            double typicalPrice = (High[0] + Low[0] + Close[0]) / 3.0;
+            double barVolume = Volume[0];
+            double volumeDelta = Math.Max(0, barVolume - lastBarVolume);
+            lastBarVolume = Math.Max(lastBarVolume, barVolume);
+
+            sumPV += typicalPrice * volumeDelta;
+            sumVol += volumeDelta;
+            sumP2V += (typicalPrice * typicalPrice) * volumeDelta;
+
+            if (sumVol == 0) return;
+
+            double vwapValue = sumPV / sumVol;
+            double variance = (sumP2V / sumVol) - (vwapValue * vwapValue);
+            if (variance < 0) variance = 0;
+            double stdDevValue = Math.Sqrt(variance);
+
+            Values[0][0] = vwapValue;
+
+            if (MostrarBandas)
+            {
+                if (NumBandas >= 1) Values[1][0] = vwapValue + (1.0 * stdDevValue);
+                if (NumBandas >= 2) Values[3][0] = vwapValue + (2.0 * stdDevValue);
+                if (NumBandas >= 3) Values[5][0] = vwapValue + (3.0 * stdDevValue);
+                if (NumBandas >= 4) Values[7][0] = vwapValue + (4.0 * stdDevValue);
+
+                if (NumBandas >= 1) Values[2][0] = vwapValue - (1.0 * stdDevValue);
+                if (NumBandas >= 2) Values[4][0] = vwapValue - (2.0 * stdDevValue);
+                if (NumBandas >= 3) Values[6][0] = vwapValue - (3.0 * stdDevValue);
+                if (NumBandas >= 4) Values[8][0] = vwapValue - (4.0 * stdDevValue);
+            }
+        }
+    }
+}
+
+#region NinjaScript generated code. Neither change nor remove.
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+    public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
+    {
+        private VWAPInstitucionalPro[] cacheVWAPInstitucionalPro;
+
+        public VWAPInstitucionalPro VWAPInstitucionalPro()
+        {
+            return VWAPInstitucionalPro(Input, 4, true, true, 3.0);
+        }
+
+        public VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input)
+        {
+            return VWAPInstitucionalPro(input, 4, true, true, 3.0);
+        }
+
+        public VWAPInstitucionalPro VWAPInstitucionalPro(int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return VWAPInstitucionalPro(Input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+
+        public VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input, int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            if (cacheVWAPInstitucionalPro != null)
+                for (int idx = 0; idx < cacheVWAPInstitucionalPro.Length; idx++)
+                    if (cacheVWAPInstitucionalPro[idx] != null && cacheVWAPInstitucionalPro[idx].NumBandas == numBandas && cacheVWAPInstitucionalPro[idx].MostrarBandas == mostrarBandas && cacheVWAPInstitucionalPro[idx].ResetDiario == resetDiario && cacheVWAPInstitucionalPro[idx].DesvioMaximo == desvioMaximo && cacheVWAPInstitucionalPro[idx].EqualsInput(input))
+                        return cacheVWAPInstitucionalPro[idx];
+            return CacheIndicator<VWAPInstitucionalPro>(new VWAPInstitucionalPro() { NumBandas = numBandas, MostrarBandas = mostrarBandas, ResetDiario = resetDiario, DesvioMaximo = desvioMaximo }, input, ref cacheVWAPInstitucionalPro);
+        }
+    }
+}
+
+namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
+{
+    public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
+    {
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro()
+        {
+            return indicator.VWAPInstitucionalPro(Input, 4, true, true, 3.0);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input)
+        {
+            return indicator.VWAPInstitucionalPro(input, 4, true, true, 3.0);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return indicator.VWAPInstitucionalPro(Input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input, int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return indicator.VWAPInstitucionalPro(input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+    }
+}
+
+namespace NinjaTrader.NinjaScript.Strategies
+{
+    public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
+    {
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro()
+        {
+            return indicator.VWAPInstitucionalPro(Input, 4, true, true, 3.0);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input)
+        {
+            return indicator.VWAPInstitucionalPro(input, 4, true, true, 3.0);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return indicator.VWAPInstitucionalPro(Input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input, int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return indicator.VWAPInstitucionalPro(input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+    }
+}
+
+#endregion
+"""
+
+# ==============================================================================
+# 9. DELTA CUMULATIVE PRO v2.0 (COM NINJASCRIPT GENERATED WRAPPER)
+# ==============================================================================
+CODE_DELTA = r"""using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Windows;
+using System.Windows.Media;
+using System.Xml.Serialization;
+using NinjaTrader.Cbi;
+using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.Gui.Tools;
+using NinjaTrader.Data;
+using NinjaTrader.NinjaScript;
+using NinjaTrader.NinjaScript.DrawingTools;
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+    public class DeltaCumulativePro : Indicator
+    {
+        private double sessionDelta = 0;
+        private double barDelta = 0;
+        
+        [NinjaScriptProperty]
+        [Display(Name = "Tipo de Visualização", 
+                 Description = "Line = Linha continuada | Histogram = Histograma flutuante", 
+                 Order = 1, 
+                 GroupName = "Configuração")]
+        public string TipoVisualizacao { get; set; }
+        
+        [NinjaScriptProperty]
+        [Display(Name = "Escala Delta", 
+                 Description = "Multiplicador para visibilidade (1, 10, 100, 1000)", 
+                 Order = 2, 
+                 GroupName = "Configuração")]
+        public int EscalaDelta { get; set; }
+        
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "Cor Delta Positivo", Order = 3, GroupName = "Cores")]
+        public Brush CorPositivo { get; set; }
+        
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "Cor Delta Negativo", Order = 4, GroupName = "Cores")]
+        public Brush CorNegativo { get; set; }
+        
+        [Browsable(false)]
+        public string CorPositivoSerialize 
+        { 
+            get { return Serialize.BrushToString(CorPositivo); } 
+            set { CorPositivo = Serialize.StringToBrush(value); } 
+        }
+        
+        [Browsable(false)]
+        public string CorNegativoSerialize 
+        { 
+            get { return Serialize.BrushToString(CorNegativo); } 
+            set { CorNegativo = Serialize.StringToBrush(value); } 
+        }
+        
+        protected override void OnStateChange()
+        {
+            if (State == State.SetDefaults)
+            {
+                Description = "🔴🟢 DELTA CUMULATIVE PRO v2.0 - Fluxo de Agressão (Compatível com Footprint)";
+                Name = "DeltaCumulativePro";
+                Calculate = Calculate.OnEachTick;
+                IsOverlay = false;
+                DrawOnPricePanel = false;
+                
+                TipoVisualizacao = "Line";
+                EscalaDelta = 100;
+                CorPositivo = Brushes.DodgerBlue;
+                CorNegativo = Brushes.Red;
+                
+                AddPlot(new Stroke(Brushes.Gray, DashStyleHelper.Solid, 2), PlotStyle.Line, "SessionDelta");
+                AddLine(Brushes.DarkGray, 0, "ZeroLine");
+            }
+            else if (State == State.Configure)
+            {
+                AddDataSeries(BarsPeriodType.Tick, 1);
+            }
+        }
+        
+        protected override void OnBarUpdate()
+        {
+            if (CurrentBars[0] < 0 || CurrentBars[1] < 0) return;
+            if (BarsInProgress != 0) return;
+
+            if (Bars.IsFirstBarOfSession)
+            {
+                sessionDelta = 0;
+                barDelta = 0;
+            }
+            
+            Values[0][0] = sessionDelta / (EscalaDelta != 0 ? EscalaDelta : 1);
+            
+            if (sessionDelta >= 0)
+                PlotBrushes[0][0] = CorPositivo;
+            else
+                PlotBrushes[0][0] = CorNegativo;
+        }
+        
+        protected override void OnMarketData(MarketDataEventArgs e)
+        {
+            if (e.MarketDataType != MarketDataType.Last) 
+                return;
+            
+            double price = e.Price;
+            long volume = e.Volume;
+            bool isBuy = false;
+            
+            if (price >= e.Ask)
+                isBuy = true;
+            else if (price <= e.Bid)
+                isBuy = false;
+            else
+            {
+                if (BarsInProgress == 0 && CurrentBar > 0)
+                    isBuy = (price >= Close[0]);
+                else
+                    return;
+            }
+            
+            if (isBuy)
+                sessionDelta += volume;
+            else
+                sessionDelta -= volume;
+            
+            barDelta = isBuy ? volume : -volume;
+        }
+        
+        public string GetDeltaInterpretacao()
+        {
+            if (sessionDelta > 10000) return "🔵 COMPRA EXTREMA";
+            if (sessionDelta > 5000) return "🔵 COMPRA FORTE";
+            if (sessionDelta > 1000) return "🔵 COMPRA";
+            if (sessionDelta > 0) return "🔵 Toque de COMPRA";
+            if (sessionDelta < -10000) return "🔴 VENDA EXTREMA";
+            if (sessionDelta < -5000) return "🔴 VENDA FORTE";
+            if (sessionDelta < -1000) return "🔴 VENDA";
+            if (sessionDelta < 0) return "🔴 Toque de VENDA";
+            return "⚪ NEUTRO";
+        }
+    }
+}
+
+#region NinjaScript generated code. Neither change nor remove.
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+    public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
+    {
+        private DeltaCumulativePro[] cacheDeltaCumulativePro;
+
+        public DeltaCumulativePro DeltaCumulativePro()
+        {
+            return DeltaCumulativePro(Input, "Line", 100, Brushes.DodgerBlue, Brushes.Red);
+        }
+
+        public DeltaCumulativePro DeltaCumulativePro(ISeries<double> input)
+        {
+            return DeltaCumulativePro(input, "Line", 100, Brushes.DodgerBlue, Brushes.Red);
+        }
+
+        public DeltaCumulativePro DeltaCumulativePro(string tipoVisualizacao, int escalaDelta, Brush corPositivo, Brush corNegativo)
+        {
+            return DeltaCumulativePro(Input, tipoVisualizacao, escalaDelta, corPositivo, corNegativo);
+        }
+
+        public DeltaCumulativePro DeltaCumulativePro(ISeries<double> input, string tipoVisualizacao, int escalaDelta, Brush corPositivo, Brush corNegativo)
+        {
+            if (cacheDeltaCumulativePro != null)
+                for (int idx = 0; idx < cacheDeltaCumulativePro.Length; idx++)
+                    if (cacheDeltaCumulativePro[idx] != null && cacheDeltaCumulativePro[idx].TipoVisualizacao == tipoVisualizacao && cacheDeltaCumulativePro[idx].EscalaDelta == escalaDelta && cacheDeltaCumulativePro[idx].CorPositivo == corPositivo && cacheDeltaCumulativePro[idx].CorNegativo == corNegativo && cacheDeltaCumulativePro[idx].EqualsInput(input))
+                        return cacheDeltaCumulativePro[idx];
+            return CacheIndicator<DeltaCumulativePro>(new DeltaCumulativePro(){ TipoVisualizacao = tipoVisualizacao, EscalaDelta = escalaDelta, CorPositivo = corPositivo, CorNegativo = corNegativo }, input, ref cacheDeltaCumulativePro);
+        }
+    }
+}
+
+namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
+{
+    public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
+    {
+        public Indicators.DeltaCumulativePro DeltaCumulativePro()
+        {
+            return indicator.DeltaCumulativePro(Input, "Line", 100, Brushes.DodgerBlue, Brushes.Red);
+        }
+
+        public Indicators.DeltaCumulativePro DeltaCumulativePro(ISeries<double> input)
+        {
+            return indicator.DeltaCumulativePro(input, "Line", 100, Brushes.DodgerBlue, Brushes.Red);
+        }
+
+        public Indicators.DeltaCumulativePro DeltaCumulativePro(string tipoVisualizacao, int escalaDelta, Brush corPositivo, Brush corNegativo)
+        {
+            return indicator.DeltaCumulativePro(Input, tipoVisualizacao, escalaDelta, corPositivo, corNegativo);
+        }
+
+        public Indicators.DeltaCumulativePro DeltaCumulativePro(ISeries<double> input, string tipoVisualizacao, int escalaDelta, Brush corPositivo, Brush corNegativo)
+        {
+            return indicator.DeltaCumulativePro(input, tipoVisualizacao, escalaDelta, corPositivo, corNegativo);
+        }
+    }
+}
+
+namespace NinjaTrader.NinjaScript.Strategies
+{
+    public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
+    {
+        public Indicators.DeltaCumulativePro DeltaCumulativePro()
+        {
+            return indicator.DeltaCumulativePro(Input, "Line", 100, Brushes.DodgerBlue, Brushes.Red);
+        }
+
+        public Indicators.DeltaCumulativePro DeltaCumulativePro(ISeries<double> input)
+        {
+            return indicator.DeltaCumulativePro(input, "Line", 100, Brushes.DodgerBlue, Brushes.Red);
+        }
+
+        public Indicators.DeltaCumulativePro DeltaCumulativePro(string tipoVisualizacao, int escalaDelta, Brush corPositivo, Brush corNegativo)
+        {
+            return indicator.DeltaCumulativePro(Input, tipoVisualizacao, escalaDelta, corPositivo, corNegativo);
+        }
+
+        public Indicators.DeltaCumulativePro DeltaCumulativePro(ISeries<double> input, string tipoVisualizacao, int escalaDelta, Brush corPositivo, Brush corNegativo)
+        {
+            return indicator.DeltaCumulativePro(input, tipoVisualizacao, escalaDelta, corPositivo, corNegativo);
+        }
+    }
+}
+
+#endregion
+"""
+
+# ==============================================================================
 # ESCREVENDO TUDO NO DISCO
 # ==============================================================================
 arquivos_para_instalar = {
@@ -1357,7 +1817,9 @@ arquivos_para_instalar = {
     "DailyOHLCPro.cs": CODE_OHLC,
     "GlobexRangePro.cs": CODE_GLOBEX,
     "VolatilidadeImplicitaPro.cs": CODE_VOLATILIDADE,
-    "FluentliExpectedMove.cs": CODE_EXPECTED_MOVE
+    "FluentliExpectedMove.cs": CODE_EXPECTED_MOVE,
+    "VWAPInstitucionalPro.cs": CODE_VWAP,
+    "DeltaCumulativePro.cs": CODE_DELTA
 }
 
 print("\n--- INICIANDO GRAVAÇÃO ---")
@@ -1384,7 +1846,9 @@ try:
                         "4. DailyOHLCPro (Faixa Vertical RTH)\n"
                         "5. GlobexRangePro (Apenas Linhas)\n"
                         "6. VolatilidadeImplicitaPro (Bandas 1, 2 e 3 SD da IV)\n"
-                        "7. FluentliExpectedMove (Nuvens de Expected Move)\n\n"
+                        "7. FluentliExpectedMove (Nuvens de Expected Move)\n"
+                        "8. VWAPInstitucionalPro (VWAP + 4 Desvios SD)\n"
+                        "9. DeltaCumulativePro (Fluxo de Agressão v2.0)\n\n"
                         "👉 AGORA: Abra o NinjaTrader e aperte F5 (ou reinicie).")
 
 except Exception as e:
