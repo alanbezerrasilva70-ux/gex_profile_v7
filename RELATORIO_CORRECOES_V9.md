@@ -114,3 +114,13 @@ git push origin main
   - `C:\Users\alanb\source\gex-dashboard\gex-dashboard\public\ebooks\plano_carreira_stem_eua\PLANO_MESTRE_RECOMECO_37_ANOS_STEM_EUA_E_MESAS_PROP.md`
   - `C:\Users\alanb\source\gex-dashboard\gex-dashboard\public\ebooks\plano_carreira_stem_eua\imagens\roadmap_stem_eua_e_mesas_prop.svg`
 - **Registrado na Biblioteca (`app/biblioteca/page.tsx`):** Adicionado como primeiro módulo em destaque (`Plano Mestre: STEM EUA & Prop ($60k)`, totalizando `17 módulos / 34 ebooks`).
+
+
+---
+
+## 12. Auditoria do `instalador_cloud2.0.py`, Formatação Decimal da IV no `NiveisGammaPro` e Documentação de `PW/CW` Sem DTE vs. Com DTE vs. Barras Sem Sigla (14/11/2026 16:55)
+- **Auditoria do `instalador_cloud2.0.py`:** Todos os 9 indicadores verificados. Adicionado arredondamento limpo (`ToString("F1")`) no campo `dashIv` do `NiveisGammaPro` (linhas 378-383) para exibir `15.2%` em vez de `15.200833333333334%` no painel `🛡️ QUANT ENGINE V8`.
+- **Atualização nos Ebooks (`niveisgammapro/teoria.md`, `niveisestruturapro/teoria.md`, `manualtaticomestre/MANUAL_TATICO_MESTRE_3_FASES_E_CONFLUENCIAS.md` e `manualtaticomestre/pratica.md`):** Documentada a diferença entre:
+  1. `PUT WALL | -$22.34M | 7630` e `CALL WALL | $9.88M | 7690` **sem DTE** (Muralhas Macro Principais `ALL` em linha sólida grossa de 5px).
+  2. Siglas amarelas curtas `PW -$22,3M` e `CW $9,9M` na ponta da barra do `NiveisEstruturaPro` vs. barras secundárias sem sigla (ex.: `$5,1M` em branco no `7640`, que representam sub-paredes/alvos intermediários).
+  3. Linhas tracejadas **com DTE** (`0DTE`, `1DTE`, `2DTE`, `7DTE`) e o comportamento de inversão de polaridade quando uma `Call Wall` fica abaixo do preço ou abaixo de uma `Put Wall`.
