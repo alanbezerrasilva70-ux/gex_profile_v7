@@ -76,3 +76,23 @@ git add instalador_cloud2.0.py RELATORIO_CORRECOES_V9.md regras.md
 git commit -m "docs(quant-v9): embed 7 NT8 indicators in installer and add timestamped audit log & rules"
 git push origin main
 ```
+
+
+---
+
+## 9. Expansão Completa da Academia Quant (Opções Iniciante/Intermediário/Avançado, Estatística V9, Arquitetura DevOps e Engenharia C# nos 9 Indicadores) (14/11/2026 15:18)
+
+### 9.1. Trilha Completa de Opções Aplicadas aos 9 Futuros (`public/ebooks/opcoes_*`)
+- **`public/ebooks/opcoes_iniciante/`**: Criados `teoria.md`, `pratica.md`, `DICIONARIO_OPCOES_INICIANTE.md` e `imagens/opcoes_iniciante_seguro_e_paredes.svg` (Metáforas para leigos, 4 Pontas Call/Put Comprada e Vendida, Paradoxo da `Call Wall` como Resistência e `Put Wall` como Suporte via *Dynamic Delta-Hedging*, e Comparativo Completo de Liquidez e Personalidade dos 9 Ativos: `ES`, `NQ`, `GC`, `CL`, `ZN`, `ZB`, `RTY`, `YM`, `NG`).
+- **`public/ebooks/opcoes_intermediario/`**: Criados `teoria.md`, `pratica.md`, `DICIONARIO_OPCOES_INTERMEDIARIO.md` e `imagens/opcoes_intermediario_gregas_estrategias.svg` (As 5 Gregas de 1ª Ordem `Delta`, `Gamma`, `Theta`, `Vega`, `Rho`, `IV vs. HV`, `Volatility Skew` de Índices vs. Commodities e Estratégias Institucionais `Straddle`, `Strangle`, `Collar JHEQX`, `Iron Condor` e `Butterfly`).
+- **`public/ebooks/opcoes_avancado/`**: Criados `teoria.md`, `pratica.md`, `DICIONARIO_OPCOES_AVANCADO.md` e `imagens/opcoes_avancado_dealer_hedging_vanna_charm.svg` (Nomenclaturas oficiais institucionais `Dynamic Delta-Hedging`, `Cross-Asset Gamma Hedging`, `Dispersion Trading`, Gregas de 2ª e 3ª Ordem `Vanna`, `Charm / Delta Bleed`, `Vomma / Volga`, `Speed`, `Color`, `Zomma` e Matriz de Correlação Intermercados dos 9 Futuros + `VIX` + `Yields`).
+
+### 9.2. Pasta `public/ebooks/estatistica/` (Do Básico ao Avançado em `gex_profile_v7_cloud.py` e `instalador_cloud2.0.py`)
+- Criados `teoria.md`, `pratica.md` e `imagens/estatistica_motor_v9_pipeline.svg` explicando para leigos e avançados:
+  - Curva Normal de Gauss (`68,2% / 95,4% / 99,7%`) e a Regra da Raiz de 252 (`\sqrt{252} \approx 16`).
+  - Metodologia de Scraping em 2 Etapas (Sessão Autenticada `XSRF-TOKEN` + API JSON interna `/proxies/core-api/v1/quotes/get` da Barchart), `parse_treasury_price` (32 avos de `ZN`/`ZB`), Calendário de Dias Úteis `_dte_target_date` e Fallback `IWM x 10` para `RTY`.
+  - Matemática de Black-Scholes (`bs_gamma`), Inversão de IV por Busca Binária de 60 iterações (`implied_vol_from_gamma`), Piso `0DTE` (`MIN_TIME_TO_EXPIRY_SECONDS = 86400.0`), Interpolação Linear (`find_gex_flip`), Filtro Anti-Inversão 50% (`select_walls`) e `calculate_max_pain`.
+
+### 9.3. Pasta `public/ebooks/arquitetura_devops/` + Engenharia de Código Individual nos 9 Indicadores
+- Criados `teoria.md`, `pratica.md` e `imagens/arquitetura_cloud_github_dropbox_vercel_nt8.svg` detalhando a ponte `GitHub Actions Cron` -> `gex_profile_v7_cloud.py` -> `Dropbox OAuth2 Refresh Token` -> `Vercel Next.js /api/gamma-data (Cache RAM 10s)` + `NinjaTrader 8 (FileShare.ReadWrite + Cache 5s)`.
+- Adicionada a seção **"Engenharia de Código e Matemática (Do Básico ao Avançado — `instalador_cloud2.0.py`)"** em cada uma das 9 pastas de indicadores (`niveisgammapro`, `niveisestruturapro`, `moneyriskpro`, `volatilidadeimplicitapro`, `fluentliexpectedmove`, `vwapinstitucionalpro`, `deltacumulativepro`, `dailyohlcpro`, `globexrangepro`) e registrados os **16 módulos / 32 ebooks** em `app/biblioteca/page.tsx`.
