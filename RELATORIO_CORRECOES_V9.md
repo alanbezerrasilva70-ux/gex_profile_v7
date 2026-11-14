@@ -102,3 +102,15 @@ git push origin main
 
 ## 10. Comentários Didáticos Linha a Linha em Todos os Blocos de Código C#, Python e TypeScript nos Ebooks (14/11/2026 15:44)
 - **Escopo:** Adicionados comentários explicativos linha por linha (`// ...` e `# ...`) detalhando a função exata de cada instrução e coluna (`cols[0]` a `cols[11]`, `FileShare.ReadWrite`, `StreamReader`, cálculos de variância $O(1)$, Black-Scholes, interpolação de `GEX Flip`, `parse_treasury_price` e OAuth2) em todos os blocos de código de `niveisgammapro/teoria.md`, `niveisestruturapro/teoria.md`, `moneyriskpro/teoria.md`, `volatilidadeimplicitapro/teoria.md`, `fluentliexpectedmove/teoria.md`, `vwapinstitucionalpro/teoria.md`, `deltacumulativepro/teoria.md`, `dailyohlcpro/teoria.md`, `globexrangepro/teoria.md`, `estatistica/teoria.md`, `estatistica/pratica.md` e `arquitetura_devops/teoria.md`.
+
+
+---
+
+## 11. Criação do Plano Mestre de Vida, Carreira STEM nos EUA e Blindagem em Mesas Proprietárias (14/11/2026 16:11)
+- **Arquivos criados:**
+  - `C:\Users\alanb\source\gex_profile_v7\gex_profile_v7\PLANO_MESTRE_RECOMECO_37_ANOS_STEM_EUA_E_MESAS_PROP.md`
+  - `C:\Users\alanb\source\gex-dashboard\gex-dashboard\public\ebooks\plano_carreira_stem_eua\teoria.md`
+  - `C:\Users\alanb\source\gex-dashboard\gex-dashboard\public\ebooks\plano_carreira_stem_eua\pratica.md`
+  - `C:\Users\alanb\source\gex-dashboard\gex-dashboard\public\ebooks\plano_carreira_stem_eua\PLANO_MESTRE_RECOMECO_37_ANOS_STEM_EUA_E_MESAS_PROP.md`
+  - `C:\Users\alanb\source\gex-dashboard\gex-dashboard\public\ebooks\plano_carreira_stem_eua\imagens\roadmap_stem_eua_e_mesas_prop.svg`
+- **Registrado na Biblioteca (`app/biblioteca/page.tsx`):** Adicionado como primeiro módulo em destaque (`Plano Mestre: STEM EUA & Prop ($60k)`, totalizando `17 módulos / 34 ebooks`).

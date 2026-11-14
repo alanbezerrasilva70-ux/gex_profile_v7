@@ -44,8 +44,10 @@ clone do dashboard e o que ficou apenas na copia de trabalho em Downloads.
   tambem permite `workflow_dispatch`.
 - O commit `f1ffe96` foi enviado para `main` no repositorio do bot:
   `alanbezerrasilva70-ux/gex_profile_v7`, e o run #254 usou esse SHA.
-- A normalizacao NG descrita acima e um follow-up ao #254. E necessario
-  confirmar um novo run desse follow-up e o upload correspondente ao Dropbox.
+- O follow-up de normalizacao NG foi enviado no commit `28175b7`.
+- O run #255 executou o SHA `28175b7` e terminou com sucesso. Os logs confirmam
+  o fim do ciclo e sincronizacao de arquivos NG e RTY (incluindo os DTE) para
+  o Dropbox. Link: https://github.com/alanbezerrasilva70-ux/gex_profile_v7/actions/runs/43037909736
 
 ## 2. Dashboard, clone correto e Vercel
 
