@@ -214,7 +214,7 @@ namespace NinjaTrader.NinjaScript.Indicators
     public class NiveisGammaPro : Indicator
     {
         private DateTime ultimaLeitura = DateTime.MinValue;
-        private string pastaGexData = @"C:\Users\alanb\Dropbox\Aplicativos\RoboGexNinjaV1"; 
+        private string pastaGexData = @"C:\Users\alanb\Dropbox\Dropbox\Aplicativos\RoboGexNinjaV1"; 
         private double callWall=0, putWall=0, zeroGamma=0, posGex=0, negGex=0, maxPain=0, optionVolumeStrike=0;
         private double cw0DTE=0, pw0DTE=0, zg0DTE=0;
         private double cw1DTE=0, pw1DTE=0, zg1DTE=0;
@@ -462,7 +462,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private string currentIVSource = "IV base assumida";
         private string currentRegime = "Neutro";
         private double dailyExpectedMove = 0;
-        private string pastaGexData = @"C:\Users\alanb\Dropbox\Aplicativos\RoboGexNinjaV1";
+        private string pastaGexData = @"C:\Users\alanb\Dropbox\Dropbox\Aplicativos\RoboGexNinjaV1";
         private DateTime ultimaLeitura = DateTime.MinValue;
         private ATR indicadorATR; 
 
@@ -834,7 +834,7 @@ namespace NinjaTrader.NinjaScript.Indicators
     public class VolatilidadeImplicitaPro : Indicator
     {
         private DateTime ultimaLeitura = DateTime.MinValue;
-        private string pastaIvData = @"C:\Users\alanb\Dropbox\Aplicativos\RoboGexNinjaV1"; 
+        private string pastaIvData = @"C:\Users\alanb\Dropbox\Dropbox\Aplicativos\RoboGexNinjaV1"; 
         
         private double ivVal = 0;
         private string ivSource = "IV sem dados";
@@ -1064,7 +1064,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private bool sessaoInicializada = false;
         private double precoAberturaSessao = 0;
         private DateTime ultimaLeituraDropbox = DateTime.MinValue;
-        private string pastaGexData = @"C:\Users\alanb\Dropbox\Aplicativos\RoboGexNinjaV1";
+        private string pastaGexData = @"C:\Users\alanb\Dropbox\Dropbox\Aplicativos\RoboGexNinjaV1";
         private NinjaTrader.Gui.Tools.SimpleFont fonteHud;
 
         private string painelStatus = "Conectando API Yahoo...";
