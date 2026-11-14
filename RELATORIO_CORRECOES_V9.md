@@ -96,3 +96,9 @@ git push origin main
 ### 9.3. Pasta `public/ebooks/arquitetura_devops/` + Engenharia de Código Individual nos 9 Indicadores
 - Criados `teoria.md`, `pratica.md` e `imagens/arquitetura_cloud_github_dropbox_vercel_nt8.svg` detalhando a ponte `GitHub Actions Cron` -> `gex_profile_v7_cloud.py` -> `Dropbox OAuth2 Refresh Token` -> `Vercel Next.js /api/gamma-data (Cache RAM 10s)` + `NinjaTrader 8 (FileShare.ReadWrite + Cache 5s)`.
 - Adicionada a seção **"Engenharia de Código e Matemática (Do Básico ao Avançado — `instalador_cloud2.0.py`)"** em cada uma das 9 pastas de indicadores (`niveisgammapro`, `niveisestruturapro`, `moneyriskpro`, `volatilidadeimplicitapro`, `fluentliexpectedmove`, `vwapinstitucionalpro`, `deltacumulativepro`, `dailyohlcpro`, `globexrangepro`) e registrados os **16 módulos / 32 ebooks** em `app/biblioteca/page.tsx`.
+
+
+---
+
+## 10. Comentários Didáticos Linha a Linha em Todos os Blocos de Código C#, Python e TypeScript nos Ebooks (14/11/2026 15:44)
+- **Escopo:** Adicionados comentários explicativos linha por linha (`// ...` e `# ...`) detalhando a função exata de cada instrução e coluna (`cols[0]` a `cols[11]`, `FileShare.ReadWrite`, `StreamReader`, cálculos de variância $O(1)$, Black-Scholes, interpolação de `GEX Flip`, `parse_treasury_price` e OAuth2) em todos os blocos de código de `niveisgammapro/teoria.md`, `niveisestruturapro/teoria.md`, `moneyriskpro/teoria.md`, `volatilidadeimplicitapro/teoria.md`, `fluentliexpectedmove/teoria.md`, `vwapinstitucionalpro/teoria.md`, `deltacumulativepro/teoria.md`, `dailyohlcpro/teoria.md`, `globexrangepro/teoria.md`, `estatistica/teoria.md`, `estatistica/pratica.md` e `arquitetura_devops/teoria.md`.
