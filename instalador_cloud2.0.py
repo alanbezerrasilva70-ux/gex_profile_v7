@@ -380,7 +380,15 @@ namespace NinjaTrader.NinjaScript.Indicators
                         string formattedIv = double.TryParse(rawIv, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out ivTemp)
                             ? ivTemp.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)
                             : rawIv;
-                        dashRatio = p[2]; dashIv = formattedIv; dashNetFlow = p[4]; dashNetGex = p[5]; optionVolume = p[6]; dashFlowVal = p[7]; dashGexVal = p[8]; 
+                        var ptBr = new System.Globalization.CultureInfo("pt-BR");
+                        double volTemp = 0, flowTemp = 0;
+                        string formattedOptVol = double.TryParse(p[6].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out volTemp)
+                            ? Math.Round(volTemp).ToString("N0", ptBr)
+                            : p[6].Trim();
+                        string formattedFlowVal = double.TryParse(p[7].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out flowTemp)
+                            ? Math.Round(flowTemp).ToString("N0", ptBr)
+                            : p[7].Trim();
+                        dashRatio = p[2]; dashIv = formattedIv; dashNetFlow = p[4]; dashNetGex = p[5]; optionVolume = formattedOptVol; dashFlowVal = formattedFlowVal; dashGexVal = p[8]; 
                     }
                     if (p.Length >= 11) {
                         dashAlvoUp = p[9].Trim(); dashAlvoDown = p[10].Trim();

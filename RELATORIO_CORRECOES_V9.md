@@ -124,3 +124,14 @@ git push origin main
   1. `PUT WALL | -$22.34M | 7630` e `CALL WALL | $9.88M | 7690` **sem DTE** (Muralhas Macro Principais `ALL` em linha sólida grossa de 5px).
   2. Siglas amarelas curtas `PW -$22,3M` e `CW $9,9M` na ponta da barra do `NiveisEstruturaPro` vs. barras secundárias sem sigla (ex.: `$5,1M` em branco no `7640`, que representam sub-paredes/alvos intermediários).
   3. Linhas tracejadas **com DTE** (`0DTE`, `1DTE`, `2DTE`, `7DTE`) e o comportamento de inversão de polaridade quando uma `Call Wall` fica abaixo do preço ou abaixo de uma `Put Wall`.
+
+
+---
+
+## 13. Etiquetas Anti-Colisão (`renderReferenceBadge`), Formatação de Contratos sem `.00` (`pt-BR`) e Barra Inferior de Esticar/Juntar no Dashboard Web + HUD do `NiveisGammaPro` (15/11/2026 19:06)
+- **Etiquetas Anti-Colisão em `app/page.tsx` (`renderReferenceBadge`):** Substituídos os rótulos internos do Recharts (`insideTopLeft`/`insideBottomRight`) por pílulas institucionais SVG com fundo escuro sólido (`#090d16`) e borda colorida posicionadas em faixas verticais independentes acima da área de plotagem (`margin.top = 72`: `GEX Flip` no andar 0, `Call Wall` no andar 1 apontando para o lado oposto da Put Wall, e `Put Wall` no andar 2), eliminando 100% a sobreposição de texto em cima das linhas verticais ou das curvas/barras.
+- **Formatação Visual de Contratos Inteiros (`15.810 contratos` em vez de `15810.00`):**
+  - Mantido o formato numérico bruto padrão (`InvariantCulture` com ponto decimal e sem separador de milhar) dentro dos CSVs gerados pelo `gex_profile_v7_cloud.py` para garantir zero risco de erro de leitura ou cálculo no Python, C# e TypeScript.
+  - Em `app/page.tsx` (Tooltip do Heatmap), removido o `.toFixed(2)` que adicionava `.00` artificial na contagem inteira de contratos de `Open Interest` e `Volume`, aplicando `Math.round(Math.abs(Number(value))).toLocaleString('pt-BR') + ' contratos'` (ex.: `15.810 contratos`, `3.240 contratos`, `191.436 contratos`).
+  - Em `instalador_cloud2.0.py` (`NiveisGammaPro`), aplicada formatação visual `ToString("N0", new CultureInfo("pt-BR"))` apenas nas strings de exibição `optionVolume` (`326.488 ctrs`) e `dashFlowVal` (`24.990`) após o parse seguro via `InvariantCulture`.
+- **Barra Inferior de Zoom Horizontal ("Esticar e Juntar Gráfico") em `app/page.tsx`:** Adicionada barra interativa no rodapé do card gráfico com botões `Esticar (+)` e `Juntar (-)`, controle deslizante contínuo (`range slider`) e atalhos rápidos (`Super Esticado ±1.5%`, `Ideal ±3.5%`, `Médio ±7%`, `Amplo ±15%` e `Tudo 100%`), iniciando por padrão em `±3.5%` para que as barras e curvas fiquem bem espaçadas e legíveis.
