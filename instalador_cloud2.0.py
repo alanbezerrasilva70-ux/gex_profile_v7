@@ -44,22 +44,32 @@ namespace NinjaTrader.NinjaScript.Indicators
 {
     public class NiveisEstruturaPro : Indicator
     {
-        public class GammaLevel { public double Strike; public double NetGamma; public string Label; }
+        public class GammaLevel {
+            public double Strike;
+            public double NetGamma;
+            public double CallOI;
+            public double PutOI;
+            public double CallVol;
+            public double PutVol;
+            public string Label;
+            public bool IsNewMoney;
+        }
         private List<GammaLevel> niveisGamma = new List<GammaLevel>();
         private DateTime ultimaLeitura = DateTime.MinValue;
         private string pastaGexData = @"C:\Users\alanb\Dropbox\Dropbox\Aplicativos\RoboGexNinjaV1";
         
-        private SharpDX.Direct2D1.Brush dxBrushCall, dxBrushPut, dxBrushText, dxBrushHighlight, dxBrushCallHeavy, dxBrushPutHeavy;
+        private SharpDX.Direct2D1.Brush dxBrushCall, dxBrushPut, dxBrushText, dxBrushHighlight, dxBrushCallHeavy, dxBrushPutHeavy, dxBrushLabelBg, dxBrushNewMoney;
         private SharpDX.DirectWrite.TextFormat dxTextFormat, dxTextFormatBold;
 
         [NinjaScriptProperty] [Display(Name="Opacidade (%)", Order=1, GroupName="Visual")] public int Opacidade { get; set; }
         [NinjaScriptProperty] [Display(Name="Largura Max", Order=2, GroupName="Visual")] public int LarguraMax { get; set; }
         [NinjaScriptProperty] [Display(Name="Vencimento DTE (ALL, 0DTE, 1DTE, 2DTE, 7DTE)", Order=3, GroupName="Visual")] public string VencimentoDTE { get; set; }
+        [NinjaScriptProperty] [Display(Name="Modo Histograma (GAMMA, VOLUME, NEW_MONEY)", Order=4, GroupName="Visual")] public string ModoHistograma { get; set; }
 
         protected override void OnStateChange() {
             if (State == State.SetDefaults) {
                 Name = "NiveisEstruturaPro"; Calculate = Calculate.OnEachTick; IsOverlay = true;
-                Opacidade = 40; LarguraMax = 300; VencimentoDTE = "ALL";
+                Opacidade = 45; LarguraMax = 300; VencimentoDTE = "ALL"; ModoHistograma = "GAMMA";
             } else if (State == State.DataLoaded) LerTudo();
         }
 
@@ -67,19 +77,35 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (DateTime.Now > ultimaLeitura.AddSeconds(5)) { LerTudo(); ultimaLeitura = DateTime.Now; ForceRefresh(); }
         }
 
+        private double ObterValorMetrica(GammaLevel n, string modo) {
+            if (modo == "VOLUME") return n.CallVol - n.PutVol;
+            if (modo == "NEW_MONEY") {
+                double newCall = Math.Max(0, n.CallVol - n.CallOI);
+                double newPut = Math.Max(0, n.PutVol - n.PutOI);
+                return newCall - newPut;
+            }
+            return n.NetGamma;
+        }
+
         protected override void OnRender(ChartControl chartControl, ChartScale chartScale) {
             if (niveisGamma.Count == 0 || chartControl == null) return;
-            if (dxBrushCall == null) dxBrushCall = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0f, 1f, 0f, Opacidade/100f));
-            if (dxBrushPut == null) dxBrushPut = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1f, 0f, 0f, Opacidade/100f));
-            if (dxBrushCallHeavy == null) dxBrushCallHeavy = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0f, 0.8f, 0f, 1f));
-            if (dxBrushPutHeavy == null) dxBrushPutHeavy = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.7f, 0f, 0f, 1f));
-            if (dxBrushText == null) dxBrushText = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1f, 1f, 1f, 1f));
-            if (dxBrushHighlight == null) dxBrushHighlight = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1f, 1f, 0f, 1f));
-            if (dxTextFormat == null) dxTextFormat = new TextFormat(new SharpDX.DirectWrite.Factory(), "Arial", SharpDX.DirectWrite.FontWeight.Normal, SharpDX.DirectWrite.FontStyle.Normal, 10);
-            if (dxTextFormatBold == null) dxTextFormatBold = new TextFormat(new SharpDX.DirectWrite.Factory(), "Arial", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 11);
+            if (dxBrushCall == null) dxBrushCall = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.06f, 0.73f, 0.51f, Opacidade/100f));
+            if (dxBrushPut == null) dxBrushPut = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.94f, 0.27f, 0.37f, Opacidade/100f));
+            if (dxBrushCallHeavy == null) dxBrushCallHeavy = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.06f, 0.85f, 0.55f, 0.92f));
+            if (dxBrushPutHeavy == null) dxBrushPutHeavy = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.95f, 0.20f, 0.35f, 0.92f));
+            if (dxBrushText == null) dxBrushText = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.95f, 0.97f, 1f, 1f));
+            if (dxBrushHighlight == null) dxBrushHighlight = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1f, 0.92f, 0.23f, 1f));
+            if (dxBrushNewMoney == null) dxBrushNewMoney = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1f, 0.65f, 0f, 0.95f));
+            if (dxBrushLabelBg == null) dxBrushLabelBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.04f, 0.06f, 0.10f, 0.82f));
+            if (dxTextFormat == null) dxTextFormat = new TextFormat(new SharpDX.DirectWrite.Factory(), "Consolas", SharpDX.DirectWrite.FontWeight.SemiBold, SharpDX.DirectWrite.FontStyle.Normal, 10);
+            if (dxTextFormatBold == null) dxTextFormatBold = new TextFormat(new SharpDX.DirectWrite.Factory(), "Consolas", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 11);
 
+            string modo = (ModoHistograma ?? "GAMMA").Trim().ToUpperInvariant();
             double maxG = 0;
-            foreach(var n in niveisGamma) if(Math.Abs(n.NetGamma) > maxG) maxG = Math.Abs(n.NetGamma);
+            foreach(var n in niveisGamma) {
+                double val = Math.Abs(ObterValorMetrica(n, modo));
+                if(val > maxG) maxG = val;
+            }
             if (maxG == 0) return;
 
             float canvasW = (float)chartControl.ActualWidth;
@@ -88,30 +114,38 @@ namespace NinjaTrader.NinjaScript.Indicators
             foreach (var n in niveisGamma) {
                 float y = (float)chartScale.GetYByValue(n.Strike);
                 if (y < -20 || y > canvasH + 20) continue;
-                double ratio = Math.Abs(n.NetGamma)/maxG;
+                double metricVal = ObterValorMetrica(n, modo);
+                double ratio = Math.Abs(metricVal)/maxG;
                 float w = (float)(ratio * LarguraMax);
                 if (w < 2) continue;
-                float h = (ratio > 0.5) ? 6 : 4;
+                float h = (ratio > 0.65) ? 7f : (ratio > 0.30 ? 5f : 3.5f);
                 SharpDX.RectangleF rect = new SharpDX.RectangleF(canvasW - w, y - h/2, w, h);
-                if (n.NetGamma > 0) {
-                    if (ratio > 0.70) RenderTarget.FillRectangle(rect, dxBrushCallHeavy);
-                    else RenderTarget.FillRectangle(rect, dxBrushCall);
+                if (metricVal > 0) {
+                    if (ratio > 0.70) {
+                        RenderTarget.FillRectangle(rect, dxBrushCallHeavy);
+                        RenderTarget.DrawRectangle(rect, dxBrushHighlight, 1.0f);
+                    } else RenderTarget.FillRectangle(rect, dxBrushCall);
                 } else {
-                    if (ratio > 0.70) RenderTarget.FillRectangle(rect, dxBrushPutHeavy);
-                    else RenderTarget.FillRectangle(rect, dxBrushPut);
+                    if (ratio > 0.70) {
+                        RenderTarget.FillRectangle(rect, dxBrushPutHeavy);
+                        RenderTarget.DrawRectangle(rect, dxBrushHighlight, 1.0f);
+                    } else RenderTarget.FillRectangle(rect, dxBrushPut);
                 }
 
-                // [CORREÇÃO 9] A coluna `ng` do GammaProfile_*.csv já está em dólares
-                // (coi/poi * gamma * mult * spot). Multiplicar de novo por 100 * Close[0]
-                // inflava o valor em ~760.000x no ES.
-                string txt = FormatVal(n.NetGamma); 
+                string txt = (modo == "GAMMA") ? FormatVal(metricVal) : FormatContracts(metricVal);
+                if (n.IsNewMoney && ratio > 0.35) txt = txt + " [NEW$]";
                 if (!string.IsNullOrEmpty(n.Label)) {
                     txt = n.Label + " " + txt;
-                    float tw = txt.Length * 8;
-                    RenderTarget.DrawText(txt, dxTextFormatBold, new SharpDX.RectangleF(canvasW - w - tw - 25, y - 10, tw + 25, 20), dxBrushHighlight);
-                } else if (ratio > 0.25) {
-                    float tw = txt.Length * 6;
-                    RenderTarget.DrawText(txt, dxTextFormat, new SharpDX.RectangleF(canvasW - w - tw - 10, y - 7, tw + 10, 15), dxBrushText);
+                    float tw = txt.Length * 7.2f;
+                    SharpDX.RectangleF bgRect = new SharpDX.RectangleF(canvasW - w - tw - 16, y - 9, tw + 12, 18);
+                    RenderTarget.FillRectangle(bgRect, dxBrushLabelBg);
+                    RenderTarget.DrawRectangle(bgRect, dxBrushHighlight, 0.8f);
+                    RenderTarget.DrawText(txt, dxTextFormatBold, new SharpDX.RectangleF(canvasW - w - tw - 10, y - 8, tw + 10, 18), dxBrushHighlight);
+                } else if (ratio > 0.25 && !string.IsNullOrEmpty(txt)) {
+                    float tw = txt.Length * 6.5f;
+                    SharpDX.RectangleF bgRect = new SharpDX.RectangleF(canvasW - w - tw - 12, y - 8, tw + 8, 16);
+                    RenderTarget.FillRectangle(bgRect, dxBrushLabelBg);
+                    RenderTarget.DrawText(txt, dxTextFormat, new SharpDX.RectangleF(canvasW - w - tw - 8, y - 7, tw + 8, 15), n.IsNewMoney ? dxBrushNewMoney : dxBrushText);
                 }
             }
         }
@@ -123,6 +157,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             if(dxBrushPutHeavy!=null) dxBrushPutHeavy.Dispose(); dxBrushPutHeavy=null;
             if(dxBrushText!=null) dxBrushText.Dispose(); dxBrushText=null;
             if(dxBrushHighlight!=null) dxBrushHighlight.Dispose(); dxBrushHighlight=null;
+            if(dxBrushNewMoney!=null) dxBrushNewMoney.Dispose(); dxBrushNewMoney=null;
+            if(dxBrushLabelBg!=null) dxBrushLabelBg.Dispose(); dxBrushLabelBg=null;
             if(dxTextFormat!=null) dxTextFormat.Dispose(); dxTextFormat=null;
             if(dxTextFormatBold!=null) dxTextFormatBold.Dispose(); dxTextFormatBold=null;
         }
@@ -165,11 +201,23 @@ namespace NinjaTrader.NinjaScript.Indicators
                         while(!sr.EndOfStream) {
                             var ln = sr.ReadLine().Split(',');
                             if(ln.Length>=2) {
-                                double st, ng;
+                                double st, ng, coi=0, poi=0, cvol=0, pvol=0;
                                 if(double.TryParse(ln[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out st) &&
                                    double.TryParse(ln[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out ng)) {
+                                    if(ln.Length>=6) {
+                                        double.TryParse(ln[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out coi);
+                                        double.TryParse(ln[3], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out poi);
+                                        double.TryParse(ln[4], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out cvol);
+                                        double.TryParse(ln[5], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out pvol);
+                                    }
                                     string lb = map.ContainsKey(st) ? map[st] : "";
-                                    novos.Add(new GammaLevel{Strike=st, NetGamma=ng, Label=lb});
+                                    bool isNew = (cvol > coi && cvol > 100) || (Math.Abs(pvol) > Math.Abs(poi) && Math.Abs(pvol) > 100);
+                                    novos.Add(new GammaLevel{
+                                        Strike=st, NetGamma=ng,
+                                        CallOI=coi, PutOI=Math.Abs(poi),
+                                        CallVol=cvol, PutVol=Math.Abs(pvol),
+                                        Label=lb, IsNewMoney=isNew
+                                    });
                                 }
                             }
                         }
@@ -185,6 +233,12 @@ namespace NinjaTrader.NinjaScript.Indicators
             double a = Math.Abs(v); string s = v<0?"-":"";
             if(a>=1e9) return s+"$"+(a/1e9).ToString("F1")+"B";
             if(a>=1e6) return s+"$"+(a/1e6).ToString("F1")+"M";
+            return "";
+        }
+        private string FormatContracts(double v) {
+            double a = Math.Abs(v); string s = v<0?"-":"+";
+            if(a>=1e3) return s+(a/1e3).ToString("F1")+"k ctrs";
+            if(a>=1) return s+Math.Round(a).ToString("F0")+" ctrs";
             return "";
         }
     }

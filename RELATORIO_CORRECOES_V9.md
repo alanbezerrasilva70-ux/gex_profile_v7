@@ -135,3 +135,19 @@ git push origin main
   - Em `app/page.tsx` (Tooltip do Heatmap), removido o `.toFixed(2)` que adicionava `.00` artificial na contagem inteira de contratos de `Open Interest` e `Volume`, aplicando `Math.round(Math.abs(Number(value))).toLocaleString('pt-BR') + ' contratos'` (ex.: `15.810 contratos`, `3.240 contratos`, `191.436 contratos`).
   - Em `instalador_cloud2.0.py` (`NiveisGammaPro`), aplicada formatação visual `ToString("N0", new CultureInfo("pt-BR"))` apenas nas strings de exibição `optionVolume` (`326.488 ctrs`) e `dashFlowVal` (`24.990`) após o parse seguro via `InvariantCulture`.
 - **Barra Inferior de Zoom Horizontal ("Esticar e Juntar Gráfico") em `app/page.tsx`:** Adicionada barra interativa no rodapé do card gráfico com botões `Esticar (+)` e `Juntar (-)`, controle deslizante contínuo (`range slider`) e atalhos rápidos (`Super Esticado ±1.5%`, `Ideal ±3.5%`, `Médio ±7%`, `Amplo ±15%` e `Tudo 100%`), iniciando por padrão em `±3.5%` para que as barras e curvas fiquem bem espaçadas e legíveis.
+
+
+---
+
+## 14. Central de Correlação Multi-Ativos (`/correlacao`), Mapa de Calor em Tempo Real, Adição de Dinheiro Novo (`Vol > OI`), Perfil de Volume 0DTE, Inclusão de `$NDX` e Novos Manuais (15/11/2026 20:24)
+- **Central de Correlação Macro & Heatmap em Tempo Real (`app/correlacao/page.tsx` e `app/api/market-context/route.ts`):**
+  - Criado menu dedicado `/correlacao` separado por classes de ativos (**Futuros CME**, **Índices Cash & Volatilidade `SPX/NDX/VIX`**, **ETFs `SPY/QQQ/TQQQ/HYG/VXX/UVXY/GLD/USO`**, **Bonds `ZB/ZN/TLT`**, **Forex `DXY/EURUSD/USDJPY/GBPUSD/AUDUSD`**, **Market Internals `ADD/TICK/TICKQ`** e **Mag 7 `NVDA/AAPL/MSFT`**).
+  - Gráfico multi-linhas interativo com seletor individual de cores (Roxa, Rosa, Ciano, Verde, Amarela, Laranja, Vermelha) e modo `Espelhar Inversos (× -1)` para comparar `ES/NQ` contra `VIX, VXX, UVXY, HYG, ZB, ZN, ADD, TICK, DXY e USD/JPY`.
+  - Mapa de Calor em tempo real com indicador explícito **`🟢 CORRELAÇÃO DIRETA`** vs. **`🔴 CORRELAÇÃO INVERSA`**, medidor de coeficiente de Pearson ($r$) e radar automático de divergência (`ES vs HYG`, `ES vs VIX`, `NQ vs ZN/DXY`).
+- **Adição de Dinheiro Novo (`NEW_MONEY`) e Perfil de Volume 0DTE (`VOL_PROFILE`) em `app/page.tsx` e `instalador_cloud2.0.py`:**
+  - Adicionadas as abas **`✨ DINHEIRO NOVO (FLOW)`** (identificando strikes onde $\text{Volume} > \text{Open Interest}$) e **`📊 PERFIL VOLUME 0DTE`** (com `POC Volume` e `Zero Gamma`) + Auto-Refresh a cada 60s.
+  - Em `instalador_cloud2.0.py` (`NiveisEstruturaPro`), adicionado suporte aos modos `GAMMA`, `VOLUME` e `NEW_MONEY` com etiqueta `[NEW$]` e fundo escuro de alto contraste via Direct2D GPU.
+  - Em `gex_profile_v7_cloud.py`, adicionado `$NDX` (`strike_mult: 1`, `gex_correcao: 5`) ao grupo agregado do `NQ` junto com `NQ*0` e `QQQ` (`strike_mult: 40`).
+- **Novos Manuais e Dicionários na Biblioteca (`19 módulos / 38 ebooks`):**
+  - `public/ebooks/correlacao_macro_fluxo/` (`teoria.md`, `pratica.md`, `DICIONARIO_CORRELACAO_MACRO.md`, `imagens/correlacao_direta_inversa_ecossistema.svg`)
+  - `public/ebooks/perfil_volume_0dte_dinheiro_novo/` (`teoria.md`, `pratica.md`, `imagens/dinheiro_novo_e_perfil_0dte.svg`)

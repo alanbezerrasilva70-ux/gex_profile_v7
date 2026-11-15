@@ -1855,6 +1855,7 @@ if __name__ == "__main__":
         ],
         "NQ": [
             {"url": "https://www.barchart.com/futures/quotes/NQ*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
+            {"url": "https://www.barchart.com/stocks/quotes/$NDX/options?view=split", "strike_mult": 1, "gex_correcao": 5},
             {"url": "https://www.barchart.com/etfs-funds/quotes/QQQ/options?view=split", "strike_mult": 40, "gex_correcao": 5}
         ],
         "GC": [
