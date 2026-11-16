@@ -151,3 +151,19 @@ git push origin main
 - **Novos Manuais e Dicionários na Biblioteca (`19 módulos / 38 ebooks`):**
   - `public/ebooks/correlacao_macro_fluxo/` (`teoria.md`, `pratica.md`, `DICIONARIO_CORRELACAO_MACRO.md`, `imagens/correlacao_direta_inversa_ecossistema.svg`)
   - `public/ebooks/perfil_volume_0dte_dinheiro_novo/` (`teoria.md`, `pratica.md`, `imagens/dinheiro_novo_e_perfil_0dte.svg`)
+
+
+---
+
+## 15. Correção de Layout & SVGs, Nomenclatura Oficial EUA (`Opening Flow / UOA`), Famílias Irmãos vs. Lados Opostos em `/correlacao` e Central Unificada `/macro` (Macro + Notícias + Finviz + Dark Pool Ao Vivo + Trader OS) (16/11/2026 00:15)
+- **Biblioteca & SVGs (`app/biblioteca/page.tsx`, `app/globals.css`, `public/ebooks/*`):**
+  - Melhorado `markdownToHtml` para renderizar tabelas responsivas (`.table-wrap`), links clicáveis, referências locais compactas (sem URLs cruas vazando da margem), citações e listas mistas; adicionado `overflow-wrap: anywhere` em `.markdown-body`.
+  - Redimensionados os 3 diagramas SVG (`correlacao_direta_inversa_ecossistema.svg`, `dinheiro_novo_e_perfil_0dte.svg` e `arquitetura_macro_darkpool.svg`) para canvas `1360px` com folga lateral rígida (`0 issues` na auditoria de largura).
+- **Nomenclatura Oficial EUA (`app/page.tsx`, `instalador_cloud2.0.py`, ebooks):**
+  - Renomeado "Dinheiro Novo (`Vol > OI`)" para os termos reais usados nos EUA: **`Opening Flow (Vol>OI)`** / **`Fresh Positioning (BTO/STO)`** / **`UOA`** (mantendo compatibilidade retroativa com `"NEW_MONEY"` no `NiveisEstruturaPro` e adotando tag **`[OPEN$]`**).
+- **Irmãos vs. Lados Opostos (`app/correlacao/page.tsx`, `app/api/market-context/route.ts`):**
+  - Adicionados filtros `🟢 Andam Juntos (+)` vs. `🔴 Lados Opostos (-)`, placar instantâneo dos **4 Futuros Irmãos (`ES + NQ + RTY + YM`)**, preset **`🤝 Kit Irmãos CME`**, inclusão das ETFs `IWM` e `DIA` (completando as 11 ETFs líquidas) e ajuste de `GC`/`SI`/`GLD` para `DIRETA`.
+- **Central Macro & Dark Pool Automática (`app/macro/page.tsx`, `app/api/macro-darkpool/route.ts`, `INDICADORES MACROECONOMICOS/*`):**
+  - Unificados automaticamente na nuvem (zero VS Code): FRED API / CSV Público (`FEDFUNDS`, `CPI`, `PCE`, `UNRATE`, `PAYEMS`, Curva `10Y-2Y`), Termômetro Global, Agenda USD com Alerta Prop 5 min, Scanner Finviz/Yahoo Short Squeeze, **FINRA Reg SHO Dark Pool direto (`cdn.finra.org`) + Detector Ao Vivo 5m de Absorção (`ETF → Futuro CME`)** e **Quant Trader OS** (Regra do 16 com IV Real + Auditor CSV com parser US/BR corrigido + Diário `localStorage`).
+  - Corrigidos também localmente `criador_dashboard_macro.py` (remoção do path fixo `NOTEBOOK`, `--auto`, fallback CSV público opcional e inclusão de `HYG`/`DXY` simétrico), `dashboard_trader.py` (parse CSV `$1,250.50` e Regra do 16 usando `iv_atual`) e criado `INICIAR_PAINEL_MACRO_AUTOMATICO.bat`.
+  - Criado o Módulo #20 na Biblioteca (`public/ebooks/indicadores_macro_darkpool/`: `teoria.md`, `pratica.md`, `DICIONARIO_MACRO_DARKPOOL.md`, `imagens/arquitetura_macro_darkpool.svg`), totalizando `20 módulos / 40 ebooks`.

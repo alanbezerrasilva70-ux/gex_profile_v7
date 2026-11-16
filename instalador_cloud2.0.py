@@ -64,7 +64,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         [NinjaScriptProperty] [Display(Name="Opacidade (%)", Order=1, GroupName="Visual")] public int Opacidade { get; set; }
         [NinjaScriptProperty] [Display(Name="Largura Max", Order=2, GroupName="Visual")] public int LarguraMax { get; set; }
         [NinjaScriptProperty] [Display(Name="Vencimento DTE (ALL, 0DTE, 1DTE, 2DTE, 7DTE)", Order=3, GroupName="Visual")] public string VencimentoDTE { get; set; }
-        [NinjaScriptProperty] [Display(Name="Modo Histograma (GAMMA, VOLUME, NEW_MONEY)", Order=4, GroupName="Visual")] public string ModoHistograma { get; set; }
+        [NinjaScriptProperty] [Display(Name="Modo Histograma (GAMMA, VOLUME, OPENING_FLOW)", Order=4, GroupName="Visual")] public string ModoHistograma { get; set; }
 
         protected override void OnStateChange() {
             if (State == State.SetDefaults) {
@@ -79,7 +79,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private double ObterValorMetrica(GammaLevel n, string modo) {
             if (modo == "VOLUME") return n.CallVol - n.PutVol;
-            if (modo == "NEW_MONEY") {
+            if (modo == "OPENING_FLOW" || modo == "NEW_MONEY") {
                 double newCall = Math.Max(0, n.CallVol - n.CallOI);
                 double newPut = Math.Max(0, n.PutVol - n.PutOI);
                 return newCall - newPut;
@@ -133,7 +133,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
 
                 string txt = (modo == "GAMMA") ? FormatVal(metricVal) : FormatContracts(metricVal);
-                if (n.IsNewMoney && ratio > 0.35) txt = txt + " [NEW$]";
+                if (n.IsNewMoney && ratio > 0.35) txt = txt + " [OPEN$]";
                 if (!string.IsNullOrEmpty(n.Label)) {
                     txt = n.Label + " " + txt;
                     float tw = txt.Length * 7.2f;
