@@ -177,3 +177,13 @@ git push origin main
   - Corrigido o detector de coluna no **Auditor NinjaTrader CSV** (em `app/macro/page.tsx` e `INDICADORES MACROECONOMICOS/dashboard_trader.py`) para priorizar `Profit`/`Lucro` e excluir `Cum. net profit` (lucro acumulado), exibindo na interface o caminho exato no NinjaTrader 8 (`Trade Performance > Trades > Export (.csv)`).
 - **`public/ebooks/indicadores_macro_darkpool/` (`teoria.md`, `pratica.md`, `DICIONARIO_MACRO_DARKPOOL.md`, `arquitetura_macro_darkpool.svg`):**
   - Detalhamento completo para leigos explicando **todos os "por quês"**: corte de juros vs. inflação/corte bom vs. corte de recessão, gangorra `^TNX vs. ZN/ZB`, mecânica completa de *Short Squeeze* ("carro alugado"), por que o OpenBB não oferece feed gratuito superior ao `cdn.finra.org`, assinatura SEC/FINRA TRF em até 10s nas velas `1m` e guia exato das colunas exportadas pelo NinjaTrader 8.
+
+
+---
+
+## 17. Restauração Integral + Fusão Expandida dos Ebooks (`teoria.md` e `pratica.md`) Sem Remoção de Tabelas ou Explicações (`16/11/2026 01:57`)
+- **`public/ebooks/indicadores_macro_darkpool/` (`teoria.md` e `pratica.md`):**
+  - Restauradas 100% das seções, tabela de 5 colunas do FRED/Termômetro Global, cenários `Actual vs. Forecast`, regra do 1º candle de 5m, watchlist/regras do Finviz & Squeeze, todas as 3 camadas do Dark Pool (`FINRA Reg SHO`, feeds SIP pagas vs. gratuitos, e Proxy ETF → Futuro CME), nota `STOCK Act` (45 dias) do Capitol Trades, fórmula da Regra do 16 (`√252 ≈ 16`) e rotinas pré-mercado/automação local `.bat` + `shell:startup` da versão anterior (`1e57ba0`).
+  - Mantido e expandido 100% do conteúdo didático para leigos adicionado em `3cdbf8e`: todos os "por quês" de corte de juros/inflação/recessão, gangorra `^TNX vs. ZN/ZB`, verdade sobre o OpenBB (`openbb-stockgrid`), mecanismo SEC/FINRA 10s em velas `1m` (`>= 2.5x` mediana, `rangePct <= 0.12%`, `$M` nocional), veredito de confluência no Day Trade, analogia do "carro alugado" no *Short Squeeze*, automação em nuvem Vercel e guia exato de exportação CSV do NinjaTrader 8 (`Control Center > New > Trade Performance > Trades > Export (.csv)`).
+- **`public/ebooks/correlacao_macro_fluxo/` e `public/ebooks/perfil_volume_0dte_dinheiro_novo/` (`teoria.md` e `pratica.md`):**
+  - Auditados contra o snapshot anterior (`f554bfa`) e restaurados todos os detalhes, exemplos práticos (`7690`, `7500`, `15–20 pts POC`, `20–40 pts Delta Unwind`), coluna `Nome Oficial` na tabela das 11 ETFs, fórmula matemática do `Opening Flow (Vol > OI)`, combinação `GEX OI + GEX Vol + Δ Delta` (*Straddle Pinning* e migração de parede) e passo-a-passo completo dos setups e modos `GAMMA / VOLUME / OPENING_FLOW` no `NiveisEstruturaPro` sem expor URLs quebrando o layout.
