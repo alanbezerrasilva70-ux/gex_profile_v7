@@ -167,3 +167,13 @@ git push origin main
   - Unificados automaticamente na nuvem (zero VS Code): FRED API / CSV Público (`FEDFUNDS`, `CPI`, `PCE`, `UNRATE`, `PAYEMS`, Curva `10Y-2Y`), Termômetro Global, Agenda USD com Alerta Prop 5 min, Scanner Finviz/Yahoo Short Squeeze, **FINRA Reg SHO Dark Pool direto (`cdn.finra.org`) + Detector Ao Vivo 5m de Absorção (`ETF → Futuro CME`)** e **Quant Trader OS** (Regra do 16 com IV Real + Auditor CSV com parser US/BR corrigido + Diário `localStorage`).
   - Corrigidos também localmente `criador_dashboard_macro.py` (remoção do path fixo `NOTEBOOK`, `--auto`, fallback CSV público opcional e inclusão de `HYG`/`DXY` simétrico), `dashboard_trader.py` (parse CSV `$1,250.50` e Regra do 16 usando `iv_atual`) e criado `INICIAR_PAINEL_MACRO_AUTOMATICO.bat`.
   - Criado o Módulo #20 na Biblioteca (`public/ebooks/indicadores_macro_darkpool/`: `teoria.md`, `pratica.md`, `DICIONARIO_MACRO_DARKPOOL.md`, `imagens/arquitetura_macro_darkpool.svg`), totalizando `20 módulos / 40 ebooks`.
+
+
+---
+
+## 16. Upgrade do Rastreador Dark Pool para Velas 1m (Zero Displacement + Valor Nocional `$M`), Filtro `Cum. net profit` no Auditor CSV e Expansão Didática "Por Quês" para Leigos (`16/11/2026 01:19`)
+- **`gex-dashboard/app/api/macro-darkpool/route.ts` & `app/macro/page.tsx`:**
+  - Aprimorado `fetchIntradayProxyBlocks()` de velas `5m` para **`1m` (`interval=1m&range=1d`)** usando mediana diária como linha de base (evitando distorção do leilão de abertura), cálculo do **Valor Nocional em `$M`** por minuto (`typicalPrice × volume`) e classificação **`DARK POOL PRINT / ABSORÇÃO 1m`** quando `rangePct <= 0.12%` com `RVOL >= 2.5x`.
+  - Corrigido o detector de coluna no **Auditor NinjaTrader CSV** (em `app/macro/page.tsx` e `INDICADORES MACROECONOMICOS/dashboard_trader.py`) para priorizar `Profit`/`Lucro` e excluir `Cum. net profit` (lucro acumulado), exibindo na interface o caminho exato no NinjaTrader 8 (`Trade Performance > Trades > Export (.csv)`).
+- **`public/ebooks/indicadores_macro_darkpool/` (`teoria.md`, `pratica.md`, `DICIONARIO_MACRO_DARKPOOL.md`, `arquitetura_macro_darkpool.svg`):**
+  - Detalhamento completo para leigos explicando **todos os "por quês"**: corte de juros vs. inflação/corte bom vs. corte de recessão, gangorra `^TNX vs. ZN/ZB`, mecânica completa de *Short Squeeze* ("carro alugado"), por que o OpenBB não oferece feed gratuito superior ao `cdn.finra.org`, assinatura SEC/FINRA TRF em até 10s nas velas `1m` e guia exato das colunas exportadas pelo NinjaTrader 8.
