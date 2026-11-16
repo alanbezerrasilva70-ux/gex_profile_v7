@@ -182,10 +182,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (CurrentBar < 1) return;
 
-            int t = ToTime(Time[0]);
+            int t = ToTime(Time[0]) / 100;
+            int tPrev = ToTime(Time[1]) / 100;
             
             // Inicio da Sessao
-            if (t >= HoraInicio && ToTime(Time[1]) < HoraInicio) 
+            if (t >= HoraInicio && tPrev < HoraInicio) 
             {
                 globexHigh = High[0]; globexLow = Low[0]; sessionStart = Time[0]; inSession = true;
             }
@@ -205,7 +206,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             
             // Fim da Madrugada -> Trava e Estende
-            if (inSession && t >= HoraFim && ToTime(Time[1]) < HoraFim)
+            if (inSession && t >= HoraFim && tPrev < HoraFim)
             {
                 inSession = false; 
                 string tag = "Globex_" + sessionStart.ToString("MMdd");

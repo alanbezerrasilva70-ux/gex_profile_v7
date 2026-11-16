@@ -192,23 +192,29 @@ namespace NinjaTrader.NinjaScript.Indicators
                     f2 = Path.Combine(pastaGexData, "GammaProfile_" + s + ".csv");
                 }
                 if(File.Exists(f1)) {
-                    var p = File.ReadAllText(f1).Split(',');
-                    if(p.Length>=5) { AddL(map, p[0], "CW"); AddL(map, p[1], "PW"); AddL(map, p[2], "ZG"); }
+                    string txt1 = LerTextoCompartilhado(f1);
+                    if (!string.IsNullOrWhiteSpace(txt1)) {
+                        var p = txt1.Split(',');
+                        if(p.Length>=5) { AddL(map, p[0], "CW"); AddL(map, p[1], "PW"); AddL(map, p[2], "ZG"); }
+                    }
                 }
                 if(File.Exists(f2)) {
-                    using(var sr = new StreamReader(f2)) {
+                    using(var fs = new FileStream(f2, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using(var sr = new StreamReader(fs)) {
                         sr.ReadLine();
                         while(!sr.EndOfStream) {
-                            var ln = sr.ReadLine().Split(',');
+                            string rawLine = sr.ReadLine();
+                            if (string.IsNullOrWhiteSpace(rawLine)) continue;
+                            var ln = rawLine.Split(',');
                             if(ln.Length>=2) {
                                 double st, ng, coi=0, poi=0, cvol=0, pvol=0;
                                 if(double.TryParse(ln[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out st) &&
                                    double.TryParse(ln[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out ng)) {
                                     if(ln.Length>=6) {
-                                        double.TryParse(ln[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out coi);
-                                        double.TryParse(ln[3], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out poi);
-                                        double.TryParse(ln[4], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out cvol);
-                                        double.TryParse(ln[5], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out pvol);
+                                        double.TryParse(ln[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out cvol);
+                                        double.TryParse(ln[3], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out pvol);
+                                        double.TryParse(ln[4], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out coi);
+                                        double.TryParse(ln[5], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out poi);
                                     }
                                     string lb = map.ContainsKey(st) ? map[st] : "";
                                     bool isNew = (cvol > coi && cvol > 100) || (Math.Abs(pvol) > Math.Abs(poi) && Math.Abs(pvol) > 100);
@@ -225,6 +231,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
                 if(novos.Count>0) niveisGamma=novos;
             } catch{}
+        }
+        private string LerTextoCompartilhado(string path) {
+            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (StreamReader sr = new StreamReader(fs))
+                return sr.ReadToEnd();
         }
         private void AddL(System.Collections.Generic.Dictionary<double,string> d, string v, string t) {
             if(double.TryParse(v, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double val)) d[val]=t;
@@ -398,7 +409,9 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 string f1 = Path.Combine(pastaGexData, "NiveisGamma_" + s + ".csv");
                 if (File.Exists(f1)) {
-                    var p = File.ReadAllText(f1).Split(',');
+                    string txt1 = LerTextoCompartilhado(f1);
+                    if (!string.IsNullOrWhiteSpace(txt1)) {
+                    var p = txt1.Split(',');
                     dashSource = p.Length >= 10 ? p[9].Trim() : "";
                     if (p.Length >= 7) {
                         bool callParsed = double.TryParse(p[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out callWall);
@@ -415,6 +428,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         double.TryParse(p[7], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out cw0DTE);
                         double.TryParse(p[8], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out pw0DTE);
                     }
+                    }
                 }
                 double cw0File = 0, pw0File = 0;
                 LerNiveisDte(s, "0DTE", out cw0File, out pw0File, out zg0DTE);
@@ -425,7 +439,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                 LerNiveisDte(s, "7DTE", out cw7DTE, out pw7DTE, out zg7DTE);
                 string f2 = Path.Combine(pastaGexData, "AlvosVolatilidade_" + s + ".csv");
                 if (File.Exists(f2)) { 
-                    var p = File.ReadAllText(f2).Split(','); 
+                    string txt2 = LerTextoCompartilhado(f2);
+                    if (!string.IsNullOrWhiteSpace(txt2)) {
+                    var p = txt2.Split(','); 
                     if (p.Length >= 9) { 
                         double.TryParse(p[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out maxPain); 
                         double.TryParse(p[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out optionVolumeStrike); 
@@ -453,15 +469,24 @@ namespace NinjaTrader.NinjaScript.Indicators
                     if (p.Length >= 13 && !string.IsNullOrWhiteSpace(p[12])) {
                         dashIvSource = p[12].Trim();
                     }
+                    }
                 }
             } catch (Exception ex) { niveisDisponiveis=false; Print("NiveisGammaPro: falha ao ler CSV GEX: " + ex.Message); }
+        }
+
+        private string LerTextoCompartilhado(string path) {
+            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (StreamReader sr = new StreamReader(fs))
+                return sr.ReadToEnd();
         }
 
         private void LerNiveisDte(string symbol, string dte, out double call, out double put, out double zero) {
             call=0; put=0; zero=0;
             string path = Path.Combine(pastaGexData, "NiveisGamma_" + symbol + "_" + dte + ".csv");
             if (!File.Exists(path)) return;
-            string[] values = File.ReadAllText(path).Split(',');
+            string txt = LerTextoCompartilhado(path);
+            if (string.IsNullOrWhiteSpace(txt)) return;
+            string[] values = txt.Split(',');
             if (values.Length < 3) return;
             double.TryParse(values[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out call);
             double.TryParse(values[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out put);
@@ -641,10 +666,12 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         private void LerDadosCSV() {
-            currentIV = 0; 
-            currentRegime = "Neutro";
             try {
-                if(Instrument==null)return;
+                if(Instrument==null) {
+                    currentIV = 0;
+                    currentRegime = "Neutro";
+                    return;
+                }
                 string s = Instrument.MasterInstrument.Name;
                 if(s.Contains("ES"))s="ES"; 
                 else if(s.Contains("NQ"))s="NQ"; 
@@ -661,18 +688,28 @@ namespace NinjaTrader.NinjaScript.Indicators
                 string f = Path.Combine(pastaGexData, "AlvosVolatilidade_" + s + suffix + ".csv");
                 if (!File.Exists(f) && suffix == "_0DTE") f = Path.Combine(pastaGexData, "AlvosVolatilidade_" + s + "_1DTE.csv");
                 if (!File.Exists(f)) f = Path.Combine(pastaGexData, "AlvosVolatilidade_" + s + ".csv");
-                if(File.Exists(f)) { 
-                    var lines = File.ReadAllText(f).Split(','); 
-                    if(lines.Length >= 4) { 
-                        string ivString = lines[3].Replace("%", "").Trim();
-                        double.TryParse(ivString, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out currentIV);
-                    }
-                    if(lines.Length >= 12) {
-                        currentRegime = lines[11].Trim();
-                    }
-                    if(lines.Length >= 13 && !string.IsNullOrWhiteSpace(lines[12])) {
-                        currentIVSource = lines[12].Trim();
-                    }
+                if(!File.Exists(f)) {
+                    currentIV = 0;
+                    currentRegime = "Neutro";
+                    return;
+                }
+                string content = "";
+                using (FileStream fs = new FileStream(f, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (StreamReader sr = new StreamReader(fs))
+                    content = sr.ReadToEnd();
+                if (string.IsNullOrWhiteSpace(content)) return;
+                currentIV = 0;
+                currentRegime = "Neutro";
+                var lines = content.Split(','); 
+                if(lines.Length >= 4) { 
+                    string ivString = lines[3].Replace("%", "").Trim();
+                    double.TryParse(ivString, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out currentIV);
+                }
+                if(lines.Length >= 12) {
+                    currentRegime = lines[11].Trim();
+                }
+                if(lines.Length >= 13 && !string.IsNullOrWhiteSpace(lines[12])) {
+                    currentIVSource = lines[12].Trim();
                 }
             } catch {}
         }
@@ -841,9 +878,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (CurrentBar < 1) return;
 
-            int t = ToTime(Time[0]);
+            int t = ToTime(Time[0]) / 100;
+            int tPrev = ToTime(Time[1]) / 100;
             
-            if (t >= HoraInicio && ToTime(Time[1]) < HoraInicio) 
+            if (t >= HoraInicio && tPrev < HoraInicio) 
             {
                 globexHigh = High[0]; globexLow = Low[0]; sessionStart = Time[0]; inSession = true;
             }
@@ -860,7 +898,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Draw.Line(this, "LineL_" + tag, false, sessionStart, globexLow, Time[0], globexLow, CorLinhas, DashStyleHelper.Dash, 1);
             }
             
-            if (inSession && t >= HoraFim && ToTime(Time[1]) < HoraFim)
+            if (inSession && t >= HoraFim && tPrev < HoraFim)
             {
                 inSession = false; 
                 string tag = "Globex_" + sessionStart.ToString("MMdd");
@@ -1659,6 +1697,7 @@ namespace NinjaTrader.NinjaScript.Indicators
     {
         private double sessionDelta = 0;
         private double barDelta = 0;
+        private int sessionStartBar = -1;
         
         [NinjaScriptProperty]
         [Display(Name = "Tipo de Visualização", 
@@ -1727,10 +1766,11 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (CurrentBars[0] < 0 || CurrentBars[1] < 0) return;
             if (BarsInProgress != 0) return;
 
-            if (Bars.IsFirstBarOfSession)
+            if (sessionStartBar < 0 || (Bars.IsFirstBarOfSession && sessionStartBar != CurrentBar))
             {
                 sessionDelta = 0;
                 barDelta = 0;
+                sessionStartBar = CurrentBar;
             }
             
             Values[0][0] = sessionDelta / (EscalaDelta != 0 ? EscalaDelta : 1);
@@ -1743,7 +1783,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         
         protected override void OnMarketData(MarketDataEventArgs e)
         {
-            if (e.MarketDataType != MarketDataType.Last) 
+            if (BarsInProgress != 0 || e.MarketDataType != MarketDataType.Last) 
                 return;
             
             double price = e.Price;
@@ -1756,7 +1796,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 isBuy = false;
             else
             {
-                if (BarsInProgress == 0 && CurrentBar > 0)
+                if (CurrentBar > 0)
                     isBuy = (price >= Close[0]);
                 else
                     return;

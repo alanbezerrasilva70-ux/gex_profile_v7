@@ -44,6 +44,7 @@ namespace NinjaTrader.NinjaScript.Indicators
     {
         private double sessionDelta = 0;
         private double barDelta = 0;
+        private int sessionStartBar = -1;
         
         [NinjaScriptProperty]
         [Display(Name = "Tipo de Visualização", 
@@ -112,10 +113,11 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (CurrentBars[0] < 0 || CurrentBars[1] < 0) return;
             if (BarsInProgress != 0) return;
 
-            if (Bars.IsFirstBarOfSession)
+            if (sessionStartBar < 0 || (Bars.IsFirstBarOfSession && sessionStartBar != CurrentBar))
             {
                 sessionDelta = 0;
                 barDelta = 0;
+                sessionStartBar = CurrentBar;
             }
             
             Values[0][0] = sessionDelta / (EscalaDelta != 0 ? EscalaDelta : 1);
@@ -128,7 +130,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         
         protected override void OnMarketData(MarketDataEventArgs e)
         {
-            if (e.MarketDataType != MarketDataType.Last) 
+            if (BarsInProgress != 0 || e.MarketDataType != MarketDataType.Last) 
                 return;
             
             double price = e.Price;
@@ -141,7 +143,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 isBuy = false;
             else
             {
-                if (BarsInProgress == 0 && CurrentBar > 0)
+                if (CurrentBar > 0)
                     isBuy = (price >= Close[0]);
                 else
                     return;
