@@ -273,3 +273,27 @@ git push origin main
   - `npx eslint app/api/yield-curve/route.ts app/macro/page.tsx`: **exit code `0`** (**0 erros / 0 avisos**).
   - **`gex-dashboard` (`master`) — Commit `158d521`:** `app/api/yield-curve/route.ts`, `app/macro/page.tsx`, `public/ebooks/indicadores_macro_darkpool/imagens/curva_juros_institucional.svg`, `teoria.md`, `pratica.md` (`app/api/macro-darkpool` preservado intacto).
   - **`gex_profile_v7` (`main`) — Commit desta atualização:** `RELATORIO_CORRECOES_V9.md`. *(Push remoto aguardando usuário.)*
+
+
+---
+
+## 22. `NiveisGammaPro`: Correção de Tags Invisíveis em Footprint (`barsAgo = -10/-60`), Sistema Anti-Colisão 2D e Dicionário Separado (`17/11/2026 12:26`)
+
+### 22.1. Diagnóstico & Correção no C# do NinjaTrader 8 (`gex_profile_v7/instalador_cloud2.0.py`)
+- **Erro encontrado (Tags `TxtDP`, `TxtMP`, `TxtCW`, `TxtPW`, `TxtZG` e DTEs sumindo ou se sobrepondo):**
+  1. `Desenhar()` e `DesenharNivelDte()` chamavam `Draw.Text(..., barsAgo = -10)` e `-60` (deslocados `10` a `60` candles futuros para a direita do candle atual). Em gráficos com velas largas (**Volumetric / Footprint**) ou sem extensa margem direita, esses rótulos caíam **totalmente fora da área visível à direita da escala de preço**.
+  2. Quando dois ou mais níveis coincidiam em strikes próximos (ou próximos às barras de `NiveisEstruturaPro` na borda direita), vários textos com o mesmo `barsAgo` sobrepunham uns aos outros.
+- **Correção aplicada (`CODE_GAMMA` em `instalador_cloud2.0.py`):**
+  - Mantidas todas as linhas horizontais via `Draw.HorizontalLine` e limpas as antigas tags legadas `Txt*` via `RemoveDrawObject`.
+  - Implementado **`OnRender(ChartControl, ChartScale)` com Direct2D / SharpDX** desenhando todas as tags visíveis (`MAX OPTION VOLUME`, `CALL WALL`, `PUT WALL`, `GEX FLIP`, `MAX PAIN`, `0DTE/1DTE/2DTE/7DTE`) em caixa escura de alto contraste com **algoritmo anti-colisão 2D**: tenta 3 colunas horizontais (`0`, `-310px`, `-620px`) no `Y` exato da linha e degraus verticais de `±26px` até encontrar espaço livre (evitando o painel `QUANT ENGINE V8` no topo esquerdo e o histograma `NiveisEstruturaPro` na borda direita via nova propriedade ajustável **`Margem Direita Tags (px)`**, padrão `190`), traçando fio conector pontilhado até a linha correspondente sempre que deslocado; todos os recursos Direct2D/DirectWrite são descartados em `OnRenderTargetChanged()`.
+- **Definição confirmada de `MAX OPTION VOLUME` (`Tag: DP` / `TxtDP`):**
+  - Gerado por `dp = df_levels.loc[df_levels["vol"].idxmax()]` em `gex_profile_v7_cloud.py`, identifica o strike que recebeu o **maior volume total de contratos de opções negociados na sessão** (Calls + Puts, por exemplo `253.785 contracts [26400]` no NQ agregado), atuando como pivô de liquidez institucional intradiário.
+
+### 22.2. Dicionário Separado (`gex-dashboard/public/ebooks/niveisgammapro/DICIONARIO_NIVEIS_GAMMA_PRO.md`)
+- Criado arquivo dedicado **separado de `teoria.md` e `pratica.md`** contendo a definição completa de todas as 17 linhas horizontais, explicação detalhada da diferença entre `CW`/`PW` sem DTE (`ALL` / Macro) vs. `0DTE`/`1DTE`/`2DTE`/`7DTE`, siglas do `NiveisEstruturaPro` (`CW`, `PW`, `ZG`, `[OPEN$]`), explicação de `MAX OPTION VOLUME | 253785 contracts [26400]`, glossário do painel `🛡️ QUANT ENGINE V8` e explicação do novo sistema anti-colisão.
+
+### 22.3. Validações & Commits (`17/11/2026 12:26`)
+- **`py_compile instalador_cloud2.0.py` & balanço `{`/`}`:** OK em todos os 9 blocos `CODE_*` (diferença `0`).
+- **`python -m unittest -v test_gex_profile_v7_cloud.py`:** **51/51 OK** (`9.850s`).
+- **`gex-dashboard` (`master`) — Commit `2bcde91`:** `public/ebooks/niveisgammapro/DICIONARIO_NIVEIS_GAMMA_PRO.md`.
+- **`gex_profile_v7` (`main`) — Commit desta atualização:** `instalador_cloud2.0.py` e `RELATORIO_CORRECOES_V9.md`. *(Lembrete: executar `instalador_cloud2.0.py` e pressionar **F5** no NinjaScript Editor do NinjaTrader 8 para recompilar o indicador; push remoto aguardando usuário.)*

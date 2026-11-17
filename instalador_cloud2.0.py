@@ -261,6 +261,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 # ==============================================================================
 CODE_GAMMA = r"""
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
@@ -278,6 +279,16 @@ namespace NinjaTrader.NinjaScript.Indicators
 {
     public class NiveisGammaPro : Indicator
     {
+        private class LabelItem
+        {
+            public string Key;
+            public string Text;
+            public double Price;
+            public SharpDX.Color4 Color;
+            public bool Bold;
+            public int Priority;
+        }
+
         private DateTime ultimaLeitura = DateTime.MinValue;
         private string pastaGexData = @"C:\Users\alanb\Dropbox\Dropbox\Aplicativos\RoboGexNinjaV1"; 
         private double callWall=0, putWall=0, zeroGamma=0, posGex=0, negGex=0, maxPain=0, optionVolumeStrike=0;
@@ -293,18 +304,23 @@ namespace NinjaTrader.NinjaScript.Indicators
         private string dashSource="";
 
         private System.Windows.Media.Brush brushCallLine, brushPutLine, brushVolumeLine;
-        private System.Windows.Media.Brush brushCallText, brushPutText, brushVolumeText;
-        private SimpleFont fonteDash, fonteLabels, fonteBold;
+        private SimpleFont fonteDash, fonteLabels;
 
-        [NinjaScriptProperty] [XmlIgnore] [Display(Name="Cor Call Wall", GroupName="Cores")] public System.Windows.Media.Brush CorCallWall { get; set; }
-        [NinjaScriptProperty] [XmlIgnore] [Display(Name="Cor Put Wall", GroupName="Cores")] public System.Windows.Media.Brush CorPutWall { get; set; }
+        private SharpDX.DirectWrite.Factory dxFactory;
+        private SharpDX.DirectWrite.TextFormat dxFmtRegular, dxFmtBold;
+        private SharpDX.Direct2D1.SolidColorBrush dxBgBrush, dxLeaderBrush;
+        private readonly Dictionary<string, SharpDX.Direct2D1.SolidColorBrush> dxColorBrushes = new Dictionary<string, SharpDX.Direct2D1.SolidColorBrush>();
+
+        [NinjaScriptProperty] [XmlIgnore] [Display(Name="Cor Call Wall", Order=1, GroupName="Cores")] public System.Windows.Media.Brush CorCallWall { get; set; }
+        [NinjaScriptProperty] [XmlIgnore] [Display(Name="Cor Put Wall", Order=2, GroupName="Cores")] public System.Windows.Media.Brush CorPutWall { get; set; }
+        [NinjaScriptProperty] [Display(Name="Margem Direita Tags (px)", Order=3, GroupName="Cores")] public int MargemDireitaTags { get; set; }
         [Browsable(false)] public string CorCallWallSerialize { get { return Serialize.BrushToString(CorCallWall); } set { CorCallWall = Serialize.StringToBrush(value); } }
         [Browsable(false)] public string CorPutWallSerialize { get { return Serialize.BrushToString(CorPutWall); } set { CorPutWall = Serialize.StringToBrush(value); } }
 
         protected override void OnStateChange() {
             if (State == State.SetDefaults) {
                 Name = "NiveisGammaPro"; Calculate = Calculate.OnEachTick; IsOverlay = true; DisplayInDataBox = true; DrawOnPricePanel = true; ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
-                CorCallWall = Brushes.Cyan; CorPutWall = Brushes.Magenta; 
+                CorCallWall = System.Windows.Media.Brushes.Cyan; CorPutWall = System.Windows.Media.Brushes.Magenta; MargemDireitaTags = 190;
             }
         }
 
@@ -314,44 +330,53 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         private void CriarPinceis() {
-            if (brushCallLine == null && CorCallWall != null) { Color c = ((SolidColorBrush)CorCallWall).Color; brushCallLine = new SolidColorBrush(Color.FromArgb(50, c.R, c.G, c.B)); brushCallText = CorCallWall; }
-            if (brushPutLine == null && CorPutWall != null) { Color c = ((SolidColorBrush)CorPutWall).Color; brushPutLine = new SolidColorBrush(Color.FromArgb(50, c.R, c.G, c.B)); brushPutText = CorPutWall; }
-            if (brushVolumeLine == null) { brushVolumeLine = new SolidColorBrush(Color.FromArgb(80, 138, 43, 226)); brushVolumeText = Brushes.BlueViolet; }
+            if (brushCallLine == null && CorCallWall != null) { System.Windows.Media.Color c = ((System.Windows.Media.SolidColorBrush)CorCallWall).Color; brushCallLine = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(65, c.R, c.G, c.B)); }
+            if (brushPutLine == null && CorPutWall != null) { System.Windows.Media.Color c = ((System.Windows.Media.SolidColorBrush)CorPutWall).Color; brushPutLine = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(65, c.R, c.G, c.B)); }
+            if (brushVolumeLine == null) { brushVolumeLine = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(95, 138, 43, 226)); }
             if (fonteDash == null) fonteDash = new SimpleFont("Consolas", 10) { Bold = true };
             if (fonteLabels == null) fonteLabels = new SimpleFont("Arial", 10);
-            if (fonteBold == null) fonteBold = new SimpleFont("Arial", 11) { Bold = true };
             if(brushCallLine != null) brushCallLine.Freeze(); if(brushPutLine != null) brushPutLine.Freeze(); if(brushVolumeLine != null) brushVolumeLine.Freeze();
         }
 
         private void Desenhar() {
-            DesenharNivelDte("CW0DTE", "0DTE CALL WALL", cw0DTE, Brushes.Yellow, DashStyleHelper.Dash, 3, 18);
-            DesenharNivelDte("PW0DTE", "0DTE PUT WALL", pw0DTE, Brushes.DarkOrange, DashStyleHelper.Dash, 3, -18);
-            DesenharNivelDte("ZG0DTE", "0DTE GEX FLIP", zg0DTE, Brushes.Gold, DashStyleHelper.Dot, 2, 24);
-            DesenharNivelDte("CW1DTE", "1DTE CALL WALL", cw1DTE, Brushes.DodgerBlue, DashStyleHelper.Dash, 2, 30);
-            DesenharNivelDte("PW1DTE", "1DTE PUT WALL", pw1DTE, Brushes.MediumPurple, DashStyleHelper.Dash, 2, -30);
-            DesenharNivelDte("ZG1DTE", "1DTE GEX FLIP", zg1DTE, Brushes.LightSkyBlue, DashStyleHelper.Dot, 2, 36);
-            DesenharNivelDte("CW2DTE", "2DTE CALL WALL", cw2DTE, Brushes.Cyan, DashStyleHelper.Dash, 2, 42);
-            DesenharNivelDte("PW2DTE", "2DTE PUT WALL", pw2DTE, Brushes.Magenta, DashStyleHelper.Dash, 2, -42);
-            DesenharNivelDte("ZG2DTE", "2DTE GEX FLIP", zg2DTE, Brushes.Goldenrod, DashStyleHelper.Dot, 2, 48);
-            DesenharNivelDte("CW7DTE", "7DTE CALL WALL", cw7DTE, Brushes.LimeGreen, DashStyleHelper.Dash, 2, 54);
-            DesenharNivelDte("PW7DTE", "7DTE PUT WALL", pw7DTE, Brushes.Tomato, DashStyleHelper.Dash, 2, -54);
-            DesenharNivelDte("ZG7DTE", "7DTE GEX FLIP", zg7DTE, Brushes.Silver, DashStyleHelper.Dot, 2, 60);
-            if (callWall > 0 && brushCallLine != null) { Draw.HorizontalLine(this, "CW", callWall, brushCallLine, DashStyleHelper.Solid, 5); Draw.Text(this, "TxtCW", false, "CALL WALL | " + cwMoney + " | " + callWall, -10, callWall, 18, brushCallText, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
-            else { RemoveDrawObject("CW"); RemoveDrawObject("TxtCW"); }
-            if (putWall > 0 && brushPutLine != null) { Draw.HorizontalLine(this, "PW", putWall, brushPutLine, DashStyleHelper.Solid, 5); Draw.Text(this, "TxtPW", false, "PUT WALL | " + pwMoney + " | " + putWall, -10, putWall, -18, brushPutText, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
-            else { RemoveDrawObject("PW"); RemoveDrawObject("TxtPW"); }
-            if (optionVolumeStrike > 0 && brushVolumeLine != null) { Draw.HorizontalLine(this, "DP", optionVolumeStrike, brushVolumeLine, DashStyleHelper.Solid, 6); Draw.Text(this, "TxtDP", false, "MAX OPTION VOLUME | " + optionVolume + " contracts [" + optionVolumeStrike + "]", -10, optionVolumeStrike, 35, brushVolumeText, fonteBold, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
-            else { RemoveDrawObject("DP"); RemoveDrawObject("TxtDP"); }
-            if (zeroGamma > 0) { Draw.HorizontalLine(this, "ZG", zeroGamma, Brushes.White, DashStyleHelper.Dot, 1); Draw.Text(this, "TxtZG", false, "GEX FLIP [" + zeroGamma + "]", -60, zeroGamma, 10, Brushes.White, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
-            else { RemoveDrawObject("ZG"); RemoveDrawObject("TxtZG"); }
-            if (maxPain > 0) { Draw.HorizontalLine(this, "MP", maxPain, Brushes.Goldenrod, DashStyleHelper.Dash, 2); Draw.Text(this, "TxtMP", false, "MAX PAIN [" + maxPain + "]", -60, maxPain, -10, Brushes.Goldenrod, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100); }
-            else { RemoveDrawObject("MP"); RemoveDrawObject("TxtMP"); }
+            DesenharLinhaDte("CW0DTE", cw0DTE, System.Windows.Media.Brushes.Yellow, DashStyleHelper.Dash, 3);
+            DesenharLinhaDte("PW0DTE", pw0DTE, System.Windows.Media.Brushes.DarkOrange, DashStyleHelper.Dash, 3);
+            DesenharLinhaDte("ZG0DTE", zg0DTE, System.Windows.Media.Brushes.Gold, DashStyleHelper.Dot, 2);
+            DesenharLinhaDte("CW1DTE", cw1DTE, System.Windows.Media.Brushes.DodgerBlue, DashStyleHelper.Dash, 2);
+            DesenharLinhaDte("PW1DTE", pw1DTE, System.Windows.Media.Brushes.MediumPurple, DashStyleHelper.Dash, 2);
+            DesenharLinhaDte("ZG1DTE", zg1DTE, System.Windows.Media.Brushes.LightSkyBlue, DashStyleHelper.Dot, 2);
+            DesenharLinhaDte("CW2DTE", cw2DTE, System.Windows.Media.Brushes.Cyan, DashStyleHelper.Dash, 2);
+            DesenharLinhaDte("PW2DTE", pw2DTE, System.Windows.Media.Brushes.Magenta, DashStyleHelper.Dash, 2);
+            DesenharLinhaDte("ZG2DTE", zg2DTE, System.Windows.Media.Brushes.Goldenrod, DashStyleHelper.Dot, 2);
+            DesenharLinhaDte("CW7DTE", cw7DTE, System.Windows.Media.Brushes.LimeGreen, DashStyleHelper.Dash, 2);
+            DesenharLinhaDte("PW7DTE", pw7DTE, System.Windows.Media.Brushes.Tomato, DashStyleHelper.Dash, 2);
+            DesenharLinhaDte("ZG7DTE", zg7DTE, System.Windows.Media.Brushes.Silver, DashStyleHelper.Dot, 2);
 
-            Brush corFundoDash = Brushes.Black;
-            Brush corTextoRegime = Brushes.White;
+            if (callWall > 0 && brushCallLine != null) { Draw.HorizontalLine(this, "CW", callWall, brushCallLine, DashStyleHelper.Solid, 5); }
+            else { RemoveDrawObject("CW"); }
+            RemoveDrawObject("TxtCW");
+
+            if (putWall > 0 && brushPutLine != null) { Draw.HorizontalLine(this, "PW", putWall, brushPutLine, DashStyleHelper.Solid, 5); }
+            else { RemoveDrawObject("PW"); }
+            RemoveDrawObject("TxtPW");
+
+            if (optionVolumeStrike > 0 && brushVolumeLine != null) { Draw.HorizontalLine(this, "DP", optionVolumeStrike, brushVolumeLine, DashStyleHelper.Solid, 6); }
+            else { RemoveDrawObject("DP"); }
+            RemoveDrawObject("TxtDP");
+
+            if (zeroGamma > 0) { Draw.HorizontalLine(this, "ZG", zeroGamma, System.Windows.Media.Brushes.White, DashStyleHelper.Dot, 1); }
+            else { RemoveDrawObject("ZG"); }
+            RemoveDrawObject("TxtZG");
+
+            if (maxPain > 0) { Draw.HorizontalLine(this, "MP", maxPain, System.Windows.Media.Brushes.Goldenrod, DashStyleHelper.Dash, 2); }
+            else { RemoveDrawObject("MP"); }
+            RemoveDrawObject("TxtMP");
+
+            System.Windows.Media.Brush corFundoDash = System.Windows.Media.Brushes.Black;
+            System.Windows.Media.Brush corTextoRegime = System.Windows.Media.Brushes.White;
             
-            if (dashRegime.Contains("SHORT")) { corFundoDash = Brushes.DarkRed; corTextoRegime = Brushes.Yellow; }
-            else if (dashRegime.Contains("LONG")) { corFundoDash = Brushes.DarkGreen; corTextoRegime = Brushes.White; }
+            if (dashRegime.Contains("SHORT")) { corFundoDash = System.Windows.Media.Brushes.DarkRed; corTextoRegime = System.Windows.Media.Brushes.Yellow; }
+            else if (dashRegime.Contains("LONG")) { corFundoDash = System.Windows.Media.Brushes.DarkGreen; corTextoRegime = System.Windows.Media.Brushes.White; }
 
             string titulo = "🛡️ QUANT ENGINE V8\n------------------";
             string fonte = string.IsNullOrEmpty(dashSource) ? "" : "\nFONTE: " + dashSource;
@@ -368,18 +393,162 @@ namespace NinjaTrader.NinjaScript.Indicators
             string alvosResumo = (dashAlvoUp != "0" && dashAlvoDown != "0") ? "\nALVOS VOL: " + dashAlvoDown + " <-> " + dashAlvoUp : "";
             string ivLabel = string.IsNullOrWhiteSpace(dashIvSource) ? "IV BASE" : dashIvSource.ToUpperInvariant();
             string dados = "\nREGIME: " + dashRegime + "\n------------------" + "\nCALL/PUT VOLUME BALANCE (source/model units): " + dashNetFlow + " (" + dashFlowVal + ")" + "\nNET GEX: " + dashNetGex + " (" + dashGexVal + ")" + niveisResumo + "\n" + flipStatus + "\nRATIO: " + dashRatio + " " + ratioTag + "\n" + ivLabel + ": " + dashIv + "%" + alvosResumo + fonte + "\nATUALIZADO: " + DateTime.Now.ToString("HH:mm:ss");
-            Draw.TextFixed(this, "DashFundo", titulo + dados, TextPosition.TopLeft, corTextoRegime, fonteDash, corFundoDash, Brushes.Black, 100);
+            Draw.TextFixed(this, "DashFundo", titulo + dados, TextPosition.TopLeft, corTextoRegime, fonteDash, corFundoDash, System.Windows.Media.Brushes.Black, 100);
         }
 
-        private void DesenharNivelDte(string tag, string label, double value, System.Windows.Media.Brush brush, DashStyleHelper dash, int width, int yOffset) {
-            string textTag = "Txt" + tag;
-            if (value > 0) {
-                Draw.HorizontalLine(this, tag, value, brush, dash, width);
-                Draw.Text(this, textTag, false, label + " [" + value + "]", -10, value, yOffset, brush, fonteLabels, TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 100);
-            } else {
-                RemoveDrawObject(tag);
-                RemoveDrawObject(textTag);
+        private void DesenharLinhaDte(string tag, double value, System.Windows.Media.Brush brush, DashStyleHelper dash, int width) {
+            RemoveDrawObject("Txt" + tag);
+            if (value > 0) Draw.HorizontalLine(this, tag, value, brush, dash, width);
+            else RemoveDrawObject(tag);
+        }
+
+        private SharpDX.Color4 ToColor4(System.Windows.Media.Brush brush, SharpDX.Color4 fallback) {
+            var sb = brush as System.Windows.Media.SolidColorBrush;
+            if (sb == null) return fallback;
+            var c = sb.Color;
+            return new SharpDX.Color4(c.R / 255f, c.G / 255f, c.B / 255f, 1.0f);
+        }
+
+        private SharpDX.Direct2D1.SolidColorBrush GetDxBrush(string key, SharpDX.Color4 col) {
+            SharpDX.Direct2D1.SolidColorBrush b;
+            if (!dxColorBrushes.TryGetValue(key, out b) || b == null) {
+                b = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, col);
+                dxColorBrushes[key] = b;
             }
+            return b;
+        }
+
+        protected override void OnRender(ChartControl chartControl, ChartScale chartScale) {
+            if (chartControl == null || chartScale == null || ChartPanel == null || RenderTarget == null) return;
+
+            if (dxFactory == null) dxFactory = new SharpDX.DirectWrite.Factory();
+            if (dxFmtRegular == null) dxFmtRegular = new SharpDX.DirectWrite.TextFormat(dxFactory, "Consolas", SharpDX.DirectWrite.FontWeight.SemiBold, SharpDX.DirectWrite.FontStyle.Normal, 10.5f);
+            if (dxFmtBold == null) dxFmtBold = new SharpDX.DirectWrite.TextFormat(dxFactory, "Consolas", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 11f);
+            if (dxBgBrush == null) dxBgBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.03f, 0.05f, 0.09f, 0.88f));
+            if (dxLeaderBrush == null) dxLeaderBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.70f, 0.78f, 0.90f, 0.55f));
+
+            var items = new List<LabelItem>();
+            SharpDX.Color4 cwCol = ToColor4(CorCallWall, new SharpDX.Color4(0f, 1f, 1f, 1f));
+            SharpDX.Color4 pwCol = ToColor4(CorPutWall, new SharpDX.Color4(1f, 0f, 1f, 1f));
+
+            if (optionVolumeStrike > 0) items.Add(new LabelItem { Key="DP", Text="MAX OPTION VOLUME | " + optionVolume + " ctrs [" + optionVolumeStrike + "]", Price=optionVolumeStrike, Color=new SharpDX.Color4(0.68f, 0.42f, 1f, 1f), Bold=true, Priority=1 });
+            if (callWall > 0) items.Add(new LabelItem { Key="CW", Text="CALL WALL | " + cwMoney + " [" + callWall + "]", Price=callWall, Color=cwCol, Bold=true, Priority=2 });
+            if (putWall > 0) items.Add(new LabelItem { Key="PW", Text="PUT WALL | " + pwMoney + " [" + putWall + "]", Price=putWall, Color=pwCol, Bold=true, Priority=3 });
+            if (zeroGamma > 0) items.Add(new LabelItem { Key="ZG", Text="GEX FLIP [" + zeroGamma + "]", Price=zeroGamma, Color=new SharpDX.Color4(1f, 1f, 1f, 1f), Bold=true, Priority=4 });
+            if (maxPain > 0) items.Add(new LabelItem { Key="MP", Text="MAX PAIN [" + maxPain + "]", Price=maxPain, Color=new SharpDX.Color4(0.95f, 0.76f, 0.20f, 1f), Bold=true, Priority=5 });
+
+            if (cw0DTE > 0) items.Add(new LabelItem { Key="CW0DTE", Text="0DTE CALL WALL [" + cw0DTE + "]", Price=cw0DTE, Color=new SharpDX.Color4(1f, 0.95f, 0.25f, 1f), Bold=false, Priority=6 });
+            if (pw0DTE > 0) items.Add(new LabelItem { Key="PW0DTE", Text="0DTE PUT WALL [" + pw0DTE + "]", Price=pw0DTE, Color=new SharpDX.Color4(1f, 0.55f, 0.10f, 1f), Bold=false, Priority=7 });
+            if (zg0DTE > 0) items.Add(new LabelItem { Key="ZG0DTE", Text="0DTE GEX FLIP [" + zg0DTE + "]", Price=zg0DTE, Color=new SharpDX.Color4(1f, 0.84f, 0.20f, 1f), Bold=false, Priority=8 });
+            if (cw1DTE > 0) items.Add(new LabelItem { Key="CW1DTE", Text="1DTE CALL WALL [" + cw1DTE + "]", Price=cw1DTE, Color=new SharpDX.Color4(0.25f, 0.65f, 1f, 1f), Bold=false, Priority=9 });
+            if (pw1DTE > 0) items.Add(new LabelItem { Key="PW1DTE", Text="1DTE PUT WALL [" + pw1DTE + "]", Price=pw1DTE, Color=new SharpDX.Color4(0.65f, 0.48f, 0.92f, 1f), Bold=false, Priority=10 });
+            if (zg1DTE > 0) items.Add(new LabelItem { Key="ZG1DTE", Text="1DTE GEX FLIP [" + zg1DTE + "]", Price=zg1DTE, Color=new SharpDX.Color4(0.53f, 0.81f, 0.98f, 1f), Bold=false, Priority=11 });
+            if (cw2DTE > 0) items.Add(new LabelItem { Key="CW2DTE", Text="2DTE CALL WALL [" + cw2DTE + "]", Price=cw2DTE, Color=new SharpDX.Color4(0.20f, 0.95f, 0.95f, 1f), Bold=false, Priority=12 });
+            if (pw2DTE > 0) items.Add(new LabelItem { Key="PW2DTE", Text="2DTE PUT WALL [" + pw2DTE + "]", Price=pw2DTE, Color=new SharpDX.Color4(0.95f, 0.35f, 0.90f, 1f), Bold=false, Priority=13 });
+            if (zg2DTE > 0) items.Add(new LabelItem { Key="ZG2DTE", Text="2DTE GEX FLIP [" + zg2DTE + "]", Price=zg2DTE, Color=new SharpDX.Color4(0.85f, 0.68f, 0.25f, 1f), Bold=false, Priority=14 });
+            if (cw7DTE > 0) items.Add(new LabelItem { Key="CW7DTE", Text="7DTE CALL WALL [" + cw7DTE + "]", Price=cw7DTE, Color=new SharpDX.Color4(0.30f, 0.85f, 0.35f, 1f), Bold=false, Priority=15 });
+            if (pw7DTE > 0) items.Add(new LabelItem { Key="PW7DTE", Text="7DTE PUT WALL [" + pw7DTE + "]", Price=pw7DTE, Color=new SharpDX.Color4(1f, 0.42f, 0.32f, 1f), Bold=false, Priority=16 });
+            if (zg7DTE > 0) items.Add(new LabelItem { Key="ZG7DTE", Text="7DTE GEX FLIP [" + zg7DTE + "]", Price=zg7DTE, Color=new SharpDX.Color4(0.78f, 0.82f, 0.86f, 1f), Bold=false, Priority=17 });
+
+            if (items.Count == 0) return;
+
+            float panelLeft = (float)ChartPanel.X;
+            float panelTop = (float)ChartPanel.Y;
+            float panelRight = (float)(ChartPanel.X + ChartPanel.W);
+            float panelBottom = (float)(ChartPanel.Y + ChartPanel.H);
+            float rightMargin = (MargemDireitaTags > 0) ? MargemDireitaTags : 190f;
+
+            // Zona reservada no canto superior esquerdo para o painel QUANT ENGINE V8
+            SharpDX.RectangleF hudReserve = new SharpDX.RectangleF(panelLeft, panelTop, 420f, 235f);
+            var placedRects = new List<SharpDX.RectangleF>();
+
+            items.Sort((a, b) => a.Priority.CompareTo(b.Priority));
+
+            foreach (var item in items) {
+                float rawY = (float)chartScale.GetYByValue(item.Price);
+                if (rawY < panelTop + 8f || rawY > panelBottom - 8f) continue;
+
+                float charW = item.Bold ? 7.1f : 6.7f;
+                float boxW = Math.Max(110f, item.Text.Length * charW + 16f);
+                float boxH = 19f;
+
+                SharpDX.RectangleF chosen = new SharpDX.RectangleF();
+                bool found = false;
+
+                // Tenta primeiro no mesmo Y em colunas horizontais escalonadas; depois desloca Y (+/- 26px...)
+                float[] dyCandidates = { 0f, -26f, 26f, -52f, 52f, -78f, 78f, -104f, 104f, -130f, 130f, -156f, 156f, -182f, 182f, -208f, 208f };
+                float[] dxLanes = { 0f, -310f, -620f };
+
+                foreach (float dy in dyCandidates) {
+                    float centerY = Math.Max(panelTop + boxH * 0.5f + 4f, Math.Min(panelBottom - boxH * 0.5f - 4f, rawY + dy));
+                    float topY = centerY - boxH * 0.5f;
+
+                    foreach (float dx in dxLanes) {
+                        float boxRight = Math.Min(panelRight - 8f, panelRight - rightMargin + dx);
+                        float boxLeft = boxRight - boxW;
+                        if (boxLeft < panelLeft + 8f) {
+                            if (dx < 0f) continue;
+                            boxLeft = panelLeft + 8f;
+                            boxRight = Math.Min(panelRight - 6f, boxLeft + boxW);
+                        }
+                        if (boxRight > panelRight - 6f) continue;
+
+                        SharpDX.RectangleF candidate = new SharpDX.RectangleF(boxLeft, topY, boxW, boxH);
+                        SharpDX.RectangleF padded = new SharpDX.RectangleF(boxLeft - 4f, topY - 3f, boxW + 8f, boxH + 6f);
+
+                        if (RectOverlaps(padded, hudReserve) && (panelRight - panelLeft) > (boxW + 450f)) continue;
+
+                        bool collides = false;
+                        foreach (var pr in placedRects) {
+                            if (RectOverlaps(padded, pr)) { collides = true; break; }
+                        }
+                        if (!collides) {
+                            chosen = candidate;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                }
+
+                if (!found) {
+                    float fallbackY = Math.Max(panelTop + 6f, Math.Min(panelBottom - boxH - 6f, rawY - boxH * 0.5f));
+                    float fallbackX = Math.Max(panelLeft + 8f, panelRight - rightMargin - boxW);
+                    chosen = new SharpDX.RectangleF(fallbackX, fallbackY, boxW, boxH);
+                }
+
+                placedRects.Add(chosen);
+
+                float chosenMidY = chosen.Top + chosen.Height * 0.5f;
+                if (Math.Abs(chosenMidY - rawY) > 6f || chosen.Right < panelRight - rightMargin - 10f) {
+                    RenderTarget.DrawLine(
+                        new SharpDX.Vector2(chosen.Right, chosenMidY),
+                        new SharpDX.Vector2(Math.Min(panelRight - 6f, chosen.Right + 18f), rawY),
+                        dxLeaderBrush,
+                        1.0f
+                    );
+                }
+
+                var accentBrush = GetDxBrush(item.Key, item.Color);
+                RenderTarget.FillRectangle(chosen, dxBgBrush);
+                RenderTarget.DrawRectangle(chosen, accentBrush, 1.0f);
+                SharpDX.RectangleF textRect = new SharpDX.RectangleF(chosen.Left + 7f, chosen.Top + 2f, chosen.Width - 10f, chosen.Height - 2f);
+                RenderTarget.DrawText(item.Text, item.Bold ? dxFmtBold : dxFmtRegular, textRect, accentBrush);
+            }
+        }
+
+        private bool RectOverlaps(SharpDX.RectangleF a, SharpDX.RectangleF b) {
+            return a.Left < b.Right && a.Right > b.Left && a.Top < b.Bottom && a.Bottom > b.Top;
+        }
+
+        public override void OnRenderTargetChanged() {
+            foreach (var kv in dxColorBrushes) { if (kv.Value != null) kv.Value.Dispose(); }
+            dxColorBrushes.Clear();
+            if (dxBgBrush != null) { dxBgBrush.Dispose(); dxBgBrush = null; }
+            if (dxLeaderBrush != null) { dxLeaderBrush.Dispose(); dxLeaderBrush = null; }
+            if (dxFmtRegular != null) { dxFmtRegular.Dispose(); dxFmtRegular = null; }
+            if (dxFmtBold != null) { dxFmtBold.Dispose(); dxFmtBold = null; }
+            if (dxFactory != null) { dxFactory.Dispose(); dxFactory = null; }
         }
 
         private void LerArquivos() {
