@@ -371,4 +371,31 @@ git push origin main
 - **`py_compile instalador_cloud2.0.py`:** **OK** (`PY_COMPILE_OK`).
 - **Balanço `{`/`}` em todos os 9 blocos `CODE_*`:** **OK** (`CODE_ESTRUTURA` 451 linhas `{=107 }=107 diff=0`; `CODE_GAMMA` 430 linhas `{=92 }=92 diff=0`; `CODE_VWAP` 264 linhas `{=41 }=41 diff=0`; todos os 9 blocos com `diff=0`).
 - **`python -m unittest -v test_gex_profile_v7_cloud.py`:** **51/51 OK** em `5.778s`.
-- **`gex_profile_v7` (`main`) — Commit `050e1d7` + limpeza do relatório:** `instalador_cloud2.0.py` e `RELATORIO_CORRECOES_V9.md`. *(Lembrete: executar `python instalador_cloud2.0.py` e pressionar **F5** no NinjaScript Editor do NinjaTrader 8; se o `VWAPInstitucionalPro` já estiver salvo com `3.0` no seu template antigo do gráfico, ajuste `Multiplicador Desvio Max = 2.0` nas propriedades ou remova/reinsira o indicador; e faça `git push` nos dois repositórios.)*
+- **`gex_profile_v7` (`main`) — Commits `050e1d7` e `5fa4a7b`.**
+
+---
+
+## 26. Correção de Tabelas/Negrito da `/biblioteca`, Explicação do `SOFR (SR3)`, Guia `[OPEN$]` em `niveisestruturapro` & Redesign Completo de `FluentliWatchdog.cs` (`17/11/2026 20:30`)
+
+### 26.1. `gex-dashboard` (`master`) — E-book `niveisestruturapro`, `/biblioteca` CSS/Markdown & `SOFR (SR3)`
+- **`public/ebooks/niveisestruturapro/teoria.md` & `pratica.md` (`9c7e3b2`):** Adicionadas Seções 6 e 5 (sem remover conteúdo prévio) explicando `[OPEN$]` (`Volume > OI`) vs. sem `[OPEN$]`, barras em `$k` (`CW $318k`), barras apagadinhas (`ratio <= 0.25`), modos `GAMMA / VOLUME / OPENING_FLOW` e `EfeitoVisual` (`NEON_GLOW / GLASS_3D / ECO`).
+- **`app/biblioteca/page.tsx` (`formatInline`):** Corrigido regex de negrito para `/\*\*((?:(?!\*\*)[^\n])+?)\*\*/g`, resolvendo casos de negrito com itálico interno (`**CBOT · Aveia (*Oats*)**`) que antes quebravam mostrando asteriscos literais sem negrito.
+- **`app/globals.css`:** Adicionado `word-break: normal` e `white-space: nowrap` em `.md-table th` e `.md-table code` + `min-width: 78px` em `.md-table td` (impedindo colunas como `Código` / `SR3` de quebrar letra por letra na vertical) e restaurada a regra `.reader-audio { justify-content: flex-start; }` em `@media (max-width: 800px)`.
+- **`public/ebooks/microestrutura_mercados_cme/pratica.md`:** Limpos aninhamentos de asteriscos e adicionada explicação direta do **CME · 3-Month SOFR (`SR3`)** ("DI Futuro dos EUA", índice `100 - Taxa %`).
+
+### 26.2. `gex_profile_v7` — Auditoria & Reescrita Completa de `FluentliWatchdog.cs` (Icebergs Dinâmico & Sintético em SharpDX)
+- **Problemas encontrados no `FluentliWatchdog.cs` original:**
+  1. Só disparava em print único (`agressao >= LotePequeno && volumeAnterior[preco] < agressao`), sem detectar recarregamento no livro DOM (`ReloadCount`) nem ordens fracionadas (**Iceberg Sintético**).
+  2. `OnMarketDepth` gravava apenas `volumeAnterior[e.Price] = e.Volume` ignorando `Operation.Remove` e `e.Position` (gerando falsos disparos quando um nível era removido virando `0`).
+  3. `bool icebergDeVenda = preco >= Close[0]` classificava quase todo trade recente no Ask como venda (porque `Last` atualizava `Close[0] = preco`).
+  4. Bolinhas `PlotStyle.Dot` ficavam limitadas a `4/8/14 px` (não cresciam proporcionalmente acima de `LoteGigante`) e `Draw.Text(..., yPos ± 6 * TickSize)` desenhava o texto **em cima da bolinha** quando o zoom vertical comprimia os candles; além disso faltavam `lock (syncLock)`, `Cooldown` de voz e `Dispose()` no `SpeechSynthesizer`.
+- **Correções implementadas em `FluentliWatchdog.cs` (601 linhas, `{=97 }=97 diff=0`):**
+  - **Rastreamento completo Level 2 por `Position` (`Operation.Add / Update / Remove`) + Bid/Ask L1:** Atualiza profundidade real por preço e distingue compra vs. venda passiva comparando `e.Price` contra `Ask` e `Bid` reais.
+  - **Iceberg Dinâmico (`D` — bolinha preenchida com aura Neon):** Detectado por recarregamento passivo no DOM (`ReloadCount >= 2` durante agressões no nível, compatível com Live e Market Replay via `e.Time`) ou agressão que supera a liquidez visível no book.
+  - **Iceberg Sintético (`S` — anel duplo vazado):** Detectado por acúmulo fracionado no mesmo preço dentro de `JanelaSinteticoSeg` (padrão `15s`), atualizando e crescendo a mesma bolinha quando novos lotes picados entram naquele nível e barra.
+  - **Tamanho proporcional real + texto SEMPRE fora da bolinha:** Renderização SharpDX GPU na coordenada `(BarIndex, Price)` exata com raio dinâmico (`5.5px` até `22px` via raiz quadrada do volume) e pílulas de texto (`D 540` / `S 320`) ancoradas **a `+7px` da borda externa da bolinha** em pixels de tela (com anti-colisão vertical `LabelColide`).
+  - **Segurança & Leveza para 8GB RAM:** Acesso protegido por `lock (syncLock)`, lista limitada a `400` eventos, cooldown de `4s` no `SpeechSynthesizer` e `.Dispose()` limpo em `State.Terminated` e `OnRenderTargetChanged()`.
+
+### 26.3. Validações & Commits (`17/11/2026 20:30`)
+- **`gex-dashboard` (`master`):** `eslint app/biblioteca/page.tsx` -> **`0 erros`** (`1` aviso pré-existente linha 919); `tsc --noEmit` -> **`0 erros`**; regex Markdown validado (`broken_asterisks=0` em `teoria.md` e `pratica.md`); commits `9c7e3b2` e commit de `/biblioteca` CSS/Markdown/`SOFR`.
+- **`gex_profile_v7` (`main`):** `FluentliWatchdog.cs` (`601` linhas, `{=97 }=97 diff=0`, APIs `MarketDataEventArgs` e `MarketDepthEventArgs` validadas na doc oficial NT8); commit desta atualização com `FluentliWatchdog.cs` e `RELATORIO_CORRECOES_V9.md`. *(Lembrete: copiar `FluentliWatchdog.cs` para a pasta `Documents\NinjaTrader 8\bin\Custom\Indicators\` se ele não for copiado pelo `instalador_cloud2.0.py`, pressionar **F5** no NinjaScript Editor do NinjaTrader 8 e fazer `git push` nos dois repositórios.)*
