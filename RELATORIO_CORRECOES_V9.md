@@ -254,3 +254,22 @@ git push origin main
   - **`npx tsc --noEmit`:** **exit code `0`** (**0 erros de tipagem**).
   - **`npx eslint app/api/macro-darkpool/route.ts app/api/market-context/route.ts app/macro/page.tsx app/correlacao/page.tsx`:** **exit code `0`** (**0 erros / 0 avisos**).
   - **Push remoto:** aguardando execução manual do usuário (`git push origin main` no `gex_profile_v7` e `git push origin master` no `gex-dashboard`).
+
+
+---
+
+## 21. Curva de Juros Institucional da Tesouraria EUA em Tempo Real (`Par + Bootstrapped Spot Zero + 5y5y Forward`) e Guia Visual Completo (`17/11/2026 10:12`)
+
+- **Esclarecimento Técnico sobre Calendário Econômico USD (Sem Alterar `app/api/macro-darkpool`):**
+  - A pasta `gex-dashboard/app/api/macro-darkpool/` foi mantida **100% intacta**. A rota existente já consulta `https://nfs.faireconomy.media/ff_calendar_thisweek.json` (**ForexFactory / FairEconomy**, não `sslecal2.forexprostools.com` do Investing.com). Para feeds estilo **MetaStock XENITH** (wire institucional Refinitiv em milissegundos), exige-se assinatura paga profissional; como alternativa gratuita com API REST oficial JSON e chave gratuita opcional, destaca-se **Finnhub Economic Calendar** (`/calendar/economic`).
+- **Novo Motor Dedicado `gex-dashboard/app/api/yield-curve/route.ts`:**
+  - Integra a curva oficial completa de **11 vértices do Departamento do Tesouro dos EUA** (`home.treasury.gov` XML: `1M, 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 20Y, 30Y`), fallback **St. Louis FRED CSV** (`DGS3MO..DGS30`) e sobreposição ao vivo intraday (`5m`) via **Yahoo/CME** (`^IRX`, `2YY=F`, `^FVX`, `^TNX`, `^TYX`, com normalização segura de escala `/ 10` se `> 18`).
+  - Executa **Bootstrapping Semestral padrão de Renda Fixa** para extrair a curva **Zero-Cupom Spot (`z(t)`)** (`DF_k = (1 - (c_k / 2) * Sum(DF_j)) / (1 + c_k / 2)`), calcula **`Forward 5y5y`**, **`Spread 2s10s`**, **`10Y - 3M` (Modelo Fed)**, **`5s30s`** e **`Butterfly 2s5s10s`** (`2*5Y - 2Y - 10Y`), além de classificar automaticamente os **4 Regimes Intraday** (`BULL_STEEPENING`, `BEAR_STEEPENING`, `BULL_FLATTENING`, `BEAR_FLATTENING`) com impacto direcional em **Índices (`ES/NQ/RTY`)**, **Bonds (`ZT/ZN/ZB`)** e **Commodities/Dólar (`GC/CL/HG/DXY`)**.
+- **Interface & E-book (`app/macro/page.tsx`, `teoria.md`, `pratica.md`, `curva_juros_institucional.svg`):**
+  - Integrado gráfico de 3 linhas (*Par Yield Tempo Real* vs *Spot Zero Bootstrapped* vs *Fechamento Anterior*) + cards de *Spreads*, *Butterfly*, *5y5y Forward* e impacto direcional dentro do bloco **Banco Central / FRED Oficial** de `/macro`.
+  - Adicionados diagrama SVG (`curva_juros_institucional.svg`), **Seção 9 em `teoria.md`** (fórmulas, regimes e exemplos reais de mercado em alta/baixa) e **Seção 7 em `pratica.md`** (rotina de 4 passos antes das ordens), sem apagar conteúdo anterior.
+- **Validações & Commits (`17/11/2026 10:12`):**
+  - `npx tsc --noEmit`: **exit code `0`** (**0 erros**).
+  - `npx eslint app/api/yield-curve/route.ts app/macro/page.tsx`: **exit code `0`** (**0 erros / 0 avisos**).
+  - **`gex-dashboard` (`master`) — Commit `158d521`:** `app/api/yield-curve/route.ts`, `app/macro/page.tsx`, `public/ebooks/indicadores_macro_darkpool/imagens/curva_juros_institucional.svg`, `teoria.md`, `pratica.md` (`app/api/macro-darkpool` preservado intacto).
+  - **`gex_profile_v7` (`main`) — Commit desta atualização:** `RELATORIO_CORRECOES_V9.md`. *(Push remoto aguardando usuário.)*
