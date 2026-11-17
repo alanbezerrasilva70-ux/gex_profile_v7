@@ -281,7 +281,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         Rect = new SharpDX.RectangleF(barLeft, barTop + 0.6f, capW, Math.Max(2f, h - 1.2f)),
                         RadiusX = 1.2f, RadiusY = 1.2f
                     };
-                    SharpDX.Direct2D1.Brush capBrush = (n.IsNewMoney && ratio > 0.35)
+                    SharpDX.Direct2D1.Brush capBrush = n.IsNewMoney
                         ? dxBrushNewMoney
                         : (isCall ? dxBrushCallTip : dxBrushPutTip);
                     RenderTarget.FillRoundedRectangle(tipCap, capBrush);
@@ -289,7 +289,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 // Camada 4: Pílula de Texto Moderna com Anti-Colisão Vertical
                 string txt = (modo == "GAMMA") ? FormatVal(metricVal) : FormatContracts(metricVal);
-                if (n.IsNewMoney && ratio > 0.35 && !string.IsNullOrEmpty(txt)) txt = txt + " [OPEN$]";
+                if (n.IsNewMoney && !string.IsNullOrEmpty(txt)) txt = txt + " [OPEN$]";
                 if (hasLabel) txt = n.Label + (string.IsNullOrEmpty(txt) ? "" : " " + txt);
 
                 if ((hasLabel || ratio > 0.25) && !string.IsNullOrEmpty(txt)) {
@@ -465,6 +465,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             double a = Math.Abs(v); string s = v<0?"-":"";
             if(a>=1e9) return s+"$"+(a/1e9).ToString("F1")+"B";
             if(a>=1e6) return s+"$"+(a/1e6).ToString("F1")+"M";
+            if(a>=1e3) return s+"$"+Math.Round(a/1e3).ToString("F0")+"k";
             return "";
         }
         private string FormatContracts(double v) {
@@ -524,12 +525,13 @@ namespace NinjaTrader.NinjaScript.Indicators
         private string dashAlvoUp="0", dashAlvoDown="0";
         private string dashSource="";
 
-        private System.Windows.Media.Brush brushCallLine, brushPutLine, brushVolumeLine;
-        private SimpleFont fonteDash, fonteLabels;
+        private SimpleFont fonteDash;
+        private bool legacyCleared = false;
 
         private SharpDX.DirectWrite.Factory dxFactory;
         private SharpDX.DirectWrite.TextFormat dxFmtRegular, dxFmtBold;
-        private SharpDX.Direct2D1.SolidColorBrush dxBgBrush, dxLeaderBrush;
+        private SharpDX.Direct2D1.SolidColorBrush dxBgBrush, dxLeaderBrush, dxBorderNeutralBrush;
+        private SharpDX.Direct2D1.StrokeStyle dxStrokeDash, dxStrokeDot;
         private readonly Dictionary<string, SharpDX.Direct2D1.SolidColorBrush> dxColorBrushes = new Dictionary<string, SharpDX.Direct2D1.SolidColorBrush>();
 
         [NinjaScriptProperty] [XmlIgnore] [Display(Name="Cor Call Wall", Order=1, GroupName="Cores")] public System.Windows.Media.Brush CorCallWall { get; set; }
@@ -541,57 +543,38 @@ namespace NinjaTrader.NinjaScript.Indicators
         protected override void OnStateChange() {
             if (State == State.SetDefaults) {
                 Name = "NiveisGammaPro"; Calculate = Calculate.OnEachTick; IsOverlay = true; DisplayInDataBox = true; DrawOnPricePanel = true; ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
-                CorCallWall = System.Windows.Media.Brushes.Cyan; CorPutWall = System.Windows.Media.Brushes.Magenta; MargemDireitaTags = 190;
+                CorCallWall = System.Windows.Media.Brushes.Cyan; CorPutWall = System.Windows.Media.Brushes.Magenta; MargemDireitaTags = 370;
+            } else if (State == State.Terminated) {
+                LimparRecursos();
             }
         }
 
         protected override void OnBarUpdate() {
-            if (DateTime.Now > ultimaLeitura.AddSeconds(3)) { LerArquivos(); CriarPinceis(); ultimaLeitura = DateTime.Now; ForceRefresh(); }
-            Desenhar();
+            if (DateTime.Now > ultimaLeitura.AddSeconds(3)) {
+                LerArquivos();
+                CriarPinceis();
+                Desenhar();
+                ultimaLeitura = DateTime.Now;
+                ForceRefresh();
+            }
         }
 
         private void CriarPinceis() {
-            if (brushCallLine == null && CorCallWall != null) { System.Windows.Media.Color c = ((System.Windows.Media.SolidColorBrush)CorCallWall).Color; brushCallLine = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(65, c.R, c.G, c.B)); }
-            if (brushPutLine == null && CorPutWall != null) { System.Windows.Media.Color c = ((System.Windows.Media.SolidColorBrush)CorPutWall).Color; brushPutLine = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(65, c.R, c.G, c.B)); }
-            if (brushVolumeLine == null) { brushVolumeLine = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(95, 138, 43, 226)); }
             if (fonteDash == null) fonteDash = new SimpleFont("Consolas", 10) { Bold = true };
-            if (fonteLabels == null) fonteLabels = new SimpleFont("Arial", 10);
-            if(brushCallLine != null) brushCallLine.Freeze(); if(brushPutLine != null) brushPutLine.Freeze(); if(brushVolumeLine != null) brushVolumeLine.Freeze();
         }
 
         private void Desenhar() {
-            DesenharLinhaDte("CW0DTE", cw0DTE, System.Windows.Media.Brushes.Yellow, DashStyleHelper.Dash, 3);
-            DesenharLinhaDte("PW0DTE", pw0DTE, System.Windows.Media.Brushes.DarkOrange, DashStyleHelper.Dash, 3);
-            DesenharLinhaDte("ZG0DTE", zg0DTE, System.Windows.Media.Brushes.Gold, DashStyleHelper.Dot, 2);
-            DesenharLinhaDte("CW1DTE", cw1DTE, System.Windows.Media.Brushes.DodgerBlue, DashStyleHelper.Dash, 2);
-            DesenharLinhaDte("PW1DTE", pw1DTE, System.Windows.Media.Brushes.MediumPurple, DashStyleHelper.Dash, 2);
-            DesenharLinhaDte("ZG1DTE", zg1DTE, System.Windows.Media.Brushes.LightSkyBlue, DashStyleHelper.Dot, 2);
-            DesenharLinhaDte("CW2DTE", cw2DTE, System.Windows.Media.Brushes.Cyan, DashStyleHelper.Dash, 2);
-            DesenharLinhaDte("PW2DTE", pw2DTE, System.Windows.Media.Brushes.Magenta, DashStyleHelper.Dash, 2);
-            DesenharLinhaDte("ZG2DTE", zg2DTE, System.Windows.Media.Brushes.Goldenrod, DashStyleHelper.Dot, 2);
-            DesenharLinhaDte("CW7DTE", cw7DTE, System.Windows.Media.Brushes.LimeGreen, DashStyleHelper.Dash, 2);
-            DesenharLinhaDte("PW7DTE", pw7DTE, System.Windows.Media.Brushes.Tomato, DashStyleHelper.Dash, 2);
-            DesenharLinhaDte("ZG7DTE", zg7DTE, System.Windows.Media.Brushes.Silver, DashStyleHelper.Dot, 2);
-
-            if (callWall > 0 && brushCallLine != null) { Draw.HorizontalLine(this, "CW", callWall, brushCallLine, DashStyleHelper.Solid, 5); }
-            else { RemoveDrawObject("CW"); }
-            RemoveDrawObject("TxtCW");
-
-            if (putWall > 0 && brushPutLine != null) { Draw.HorizontalLine(this, "PW", putWall, brushPutLine, DashStyleHelper.Solid, 5); }
-            else { RemoveDrawObject("PW"); }
-            RemoveDrawObject("TxtPW");
-
-            if (optionVolumeStrike > 0 && brushVolumeLine != null) { Draw.HorizontalLine(this, "DP", optionVolumeStrike, brushVolumeLine, DashStyleHelper.Solid, 6); }
-            else { RemoveDrawObject("DP"); }
-            RemoveDrawObject("TxtDP");
-
-            if (zeroGamma > 0) { Draw.HorizontalLine(this, "ZG", zeroGamma, System.Windows.Media.Brushes.White, DashStyleHelper.Dot, 1); }
-            else { RemoveDrawObject("ZG"); }
-            RemoveDrawObject("TxtZG");
-
-            if (maxPain > 0) { Draw.HorizontalLine(this, "MP", maxPain, System.Windows.Media.Brushes.Goldenrod, DashStyleHelper.Dash, 2); }
-            else { RemoveDrawObject("MP"); }
-            RemoveDrawObject("TxtMP");
+            if (!legacyCleared) {
+                string[] oldTags = {
+                    "CW", "TxtCW", "PW", "TxtPW", "DP", "TxtDP", "ZG", "TxtZG", "MP", "TxtMP",
+                    "CW0DTE", "TxtCW0DTE", "PW0DTE", "TxtPW0DTE", "ZG0DTE", "TxtZG0DTE",
+                    "CW1DTE", "TxtCW1DTE", "PW1DTE", "TxtPW1DTE", "ZG1DTE", "TxtZG1DTE",
+                    "CW2DTE", "TxtCW2DTE", "PW2DTE", "TxtPW2DTE", "ZG2DTE", "TxtZG2DTE",
+                    "CW7DTE", "TxtCW7DTE", "PW7DTE", "TxtPW7DTE", "ZG7DTE", "TxtZG7DTE"
+                };
+                foreach (string t in oldTags) RemoveDrawObject(t);
+                legacyCleared = true;
+            }
 
             System.Windows.Media.Brush corFundoDash = System.Windows.Media.Brushes.Black;
             System.Windows.Media.Brush corTextoRegime = System.Windows.Media.Brushes.White;
@@ -617,12 +600,6 @@ namespace NinjaTrader.NinjaScript.Indicators
             Draw.TextFixed(this, "DashFundo", titulo + dados, TextPosition.TopLeft, corTextoRegime, fonteDash, corFundoDash, System.Windows.Media.Brushes.Black, 100);
         }
 
-        private void DesenharLinhaDte(string tag, double value, System.Windows.Media.Brush brush, DashStyleHelper dash, int width) {
-            RemoveDrawObject("Txt" + tag);
-            if (value > 0) Draw.HorizontalLine(this, tag, value, brush, dash, width);
-            else RemoveDrawObject(tag);
-        }
-
         private SharpDX.Color4 ToColor4(System.Windows.Media.Brush brush, SharpDX.Color4 fallback) {
             var sb = brush as System.Windows.Media.SolidColorBrush;
             if (sb == null) return fallback;
@@ -643,16 +620,29 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (chartControl == null || chartScale == null || ChartPanel == null || RenderTarget == null) return;
 
             if (dxFactory == null) dxFactory = new SharpDX.DirectWrite.Factory();
-            if (dxFmtRegular == null) dxFmtRegular = new SharpDX.DirectWrite.TextFormat(dxFactory, "Consolas", SharpDX.DirectWrite.FontWeight.SemiBold, SharpDX.DirectWrite.FontStyle.Normal, 10.5f);
-            if (dxFmtBold == null) dxFmtBold = new SharpDX.DirectWrite.TextFormat(dxFactory, "Consolas", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 11f);
-            if (dxBgBrush == null) dxBgBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.03f, 0.05f, 0.09f, 0.88f));
-            if (dxLeaderBrush == null) dxLeaderBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.70f, 0.78f, 0.90f, 0.55f));
+            if (dxFmtRegular == null) dxFmtRegular = new SharpDX.DirectWrite.TextFormat(dxFactory, "Consolas", SharpDX.DirectWrite.FontWeight.SemiBold, SharpDX.DirectWrite.FontStyle.Normal, 10f);
+            if (dxFmtBold == null) dxFmtBold = new SharpDX.DirectWrite.TextFormat(dxFactory, "Consolas", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 10.5f);
+            if (dxBgBrush == null) dxBgBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.03f, 0.05f, 0.09f, 0.96f));
+            if (dxBorderNeutralBrush == null) dxBorderNeutralBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.28f, 0.36f, 0.50f, 0.72f));
+            if (dxLeaderBrush == null) dxLeaderBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.75f, 0.84f, 0.96f, 0.70f));
+            if (dxStrokeDash == null) {
+                dxStrokeDash = new SharpDX.Direct2D1.StrokeStyle(
+                    NinjaTrader.Core.Globals.D2DFactory,
+                    new SharpDX.Direct2D1.StrokeStyleProperties { DashStyle = SharpDX.Direct2D1.DashStyle.Dash }
+                );
+            }
+            if (dxStrokeDot == null) {
+                dxStrokeDot = new SharpDX.Direct2D1.StrokeStyle(
+                    NinjaTrader.Core.Globals.D2DFactory,
+                    new SharpDX.Direct2D1.StrokeStyleProperties { DashStyle = SharpDX.Direct2D1.DashStyle.Dot }
+                );
+            }
 
             var items = new List<LabelItem>();
             SharpDX.Color4 cwCol = ToColor4(CorCallWall, new SharpDX.Color4(0f, 1f, 1f, 1f));
             SharpDX.Color4 pwCol = ToColor4(CorPutWall, new SharpDX.Color4(1f, 0f, 1f, 1f));
 
-            if (optionVolumeStrike > 0) items.Add(new LabelItem { Key="DP", Text="MAX OPTION VOLUME | " + optionVolume + " ctrs [" + optionVolumeStrike + "]", Price=optionVolumeStrike, Color=new SharpDX.Color4(0.68f, 0.42f, 1f, 1f), Bold=true, Priority=1 });
+            if (optionVolumeStrike > 0) items.Add(new LabelItem { Key="DP", Text="MAX OPTION VOLUME | " + optionVolume + " ctrs [" + optionVolumeStrike + "]", Price=optionVolumeStrike, Color=new SharpDX.Color4(0.70f, 0.44f, 1f, 1f), Bold=true, Priority=1 });
             if (callWall > 0) items.Add(new LabelItem { Key="CW", Text="CALL WALL | " + cwMoney + " [" + callWall + "]", Price=callWall, Color=cwCol, Bold=true, Priority=2 });
             if (putWall > 0) items.Add(new LabelItem { Key="PW", Text="PUT WALL | " + pwMoney + " [" + putWall + "]", Price=putWall, Color=pwCol, Bold=true, Priority=3 });
             if (zeroGamma > 0) items.Add(new LabelItem { Key="ZG", Text="GEX FLIP [" + zeroGamma + "]", Price=zeroGamma, Color=new SharpDX.Color4(1f, 1f, 1f, 1f), Bold=true, Priority=4 });
@@ -677,9 +667,37 @@ namespace NinjaTrader.NinjaScript.Indicators
             float panelTop = (float)ChartPanel.Y;
             float panelRight = (float)(ChartPanel.X + ChartPanel.W);
             float panelBottom = (float)(ChartPanel.Y + ChartPanel.H);
-            float rightMargin = (MargemDireitaTags > 0) ? MargemDireitaTags : 190f;
+            float rightMargin = (MargemDireitaTags > 0 && MargemDireitaTags != 190) ? MargemDireitaTags : 370f;
 
-            // Zona reservada no canto superior esquerdo para o painel QUANT ENGINE V8
+            // Passo 1: Feixes horizontais estilizados em SharpDX (desenhados ANTES das tags para ZERO corte no texto!)
+            foreach (var item in items) {
+                float lineY = (float)chartScale.GetYByValue(item.Price);
+                if (lineY < panelTop + 2f || lineY > panelBottom - 2f) continue;
+
+                bool isMainWall = (item.Key == "CW" || item.Key == "PW" || item.Key == "DP");
+                bool isZg = item.Key.StartsWith("ZG");
+                bool isMp = (item.Key == "MP");
+
+                SharpDX.Vector2 pStart = new SharpDX.Vector2(panelLeft, lineY);
+                SharpDX.Vector2 pEnd = new SharpDX.Vector2(panelRight, lineY);
+
+                if (isMainWall) {
+                    var glowBrush = GetDxBrush("GLOW_" + item.Key, new SharpDX.Color4(item.Color.Red, item.Color.Green, item.Color.Blue, 0.16f));
+                    var coreBrush = GetDxBrush("CORE_" + item.Key, new SharpDX.Color4(item.Color.Red, item.Color.Green, item.Color.Blue, 0.88f));
+                    RenderTarget.DrawLine(pStart, pEnd, glowBrush, 5.0f);
+                    RenderTarget.DrawLine(pStart, pEnd, coreBrush, 1.5f);
+                } else if (isZg || isMp) {
+                    var glowBrush = GetDxBrush("GLOW_" + item.Key, new SharpDX.Color4(item.Color.Red, item.Color.Green, item.Color.Blue, 0.10f));
+                    var coreBrush = GetDxBrush("CORE_" + item.Key, new SharpDX.Color4(item.Color.Red, item.Color.Green, item.Color.Blue, 0.82f));
+                    RenderTarget.DrawLine(pStart, pEnd, glowBrush, 3.6f);
+                    RenderTarget.DrawLine(pStart, pEnd, coreBrush, 1.3f, isZg ? dxStrokeDot : dxStrokeDash);
+                } else {
+                    var dteBrush = GetDxBrush("LINE_" + item.Key, new SharpDX.Color4(item.Color.Red, item.Color.Green, item.Color.Blue, 0.66f));
+                    RenderTarget.DrawLine(pStart, pEnd, dteBrush, item.Key.Contains("0DTE") ? 1.35f : 1.05f, isZg ? dxStrokeDot : dxStrokeDash);
+                }
+            }
+
+            // Passo 2: Etiquetas flutuantes ACIMA da linha (nunca no meio do traço) com pílula arredondada & anti-colisão
             SharpDX.RectangleF hudReserve = new SharpDX.RectangleF(panelLeft, panelTop, 420f, 235f);
             var placedRects = new List<SharpDX.RectangleF>();
 
@@ -689,16 +707,16 @@ namespace NinjaTrader.NinjaScript.Indicators
                 float rawY = (float)chartScale.GetYByValue(item.Price);
                 if (rawY < panelTop + 8f || rawY > panelBottom - 8f) continue;
 
-                float charW = item.Bold ? 7.1f : 6.7f;
-                float boxW = Math.Max(110f, item.Text.Length * charW + 16f);
-                float boxH = 19f;
+                float charW = item.Bold ? 6.8f : 6.4f;
+                float boxW = Math.Max(110f, item.Text.Length * charW + 18f);
+                float boxH = item.Bold ? 18f : 17f;
 
                 SharpDX.RectangleF chosen = new SharpDX.RectangleF();
                 bool found = false;
 
-                // Tenta primeiro no mesmo Y em colunas horizontais escalonadas; depois desloca Y (+/- 26px...)
-                float[] dyCandidates = { 0f, -26f, 26f, -52f, 52f, -78f, 78f, -104f, 104f, -130f, 130f, -156f, 156f, -182f, 182f, -208f, 208f };
-                float[] dxLanes = { 0f, -310f, -620f };
+                // Prioriza ficar ACIMA (-15px) ou ABAIXO (+15px) da linha para nunca ser cortada ao meio!
+                float[] dyCandidates = { -15f, 15f, -36f, 36f, -57f, 57f, -78f, 78f, -99f, 99f, -120f, 120f, -141f, 141f, -162f, 162f, -183f, 183f };
+                float[] dxLanes = { 0f, -280f, -560f };
 
                 foreach (float dy in dyCandidates) {
                     float centerY = Math.Max(panelTop + boxH * 0.5f + 4f, Math.Min(panelBottom - boxH * 0.5f - 4f, rawY + dy));
@@ -715,7 +733,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         if (boxRight > panelRight - 6f) continue;
 
                         SharpDX.RectangleF candidate = new SharpDX.RectangleF(boxLeft, topY, boxW, boxH);
-                        SharpDX.RectangleF padded = new SharpDX.RectangleF(boxLeft - 4f, topY - 3f, boxW + 8f, boxH + 6f);
+                        SharpDX.RectangleF padded = new SharpDX.RectangleF(boxLeft - 4f, topY - 2f, boxW + 8f, boxH + 4f);
 
                         if (RectOverlaps(padded, hudReserve) && (panelRight - panelLeft) > (boxW + 450f)) continue;
 
@@ -733,27 +751,29 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
 
                 if (!found) {
-                    float fallbackY = Math.Max(panelTop + 6f, Math.Min(panelBottom - boxH - 6f, rawY - boxH * 0.5f));
+                    float fallbackY = Math.Max(panelTop + 6f, Math.Min(panelBottom - boxH - 6f, rawY - boxH - 4f));
                     float fallbackX = Math.Max(panelLeft + 8f, panelRight - rightMargin - boxW);
                     chosen = new SharpDX.RectangleF(fallbackX, fallbackY, boxW, boxH);
                 }
 
                 placedRects.Add(chosen);
 
-                float chosenMidY = chosen.Top + chosen.Height * 0.5f;
-                if (Math.Abs(chosenMidY - rawY) > 6f || chosen.Right < panelRight - rightMargin - 10f) {
-                    RenderTarget.DrawLine(
-                        new SharpDX.Vector2(chosen.Right, chosenMidY),
-                        new SharpDX.Vector2(Math.Min(panelRight - 6f, chosen.Right + 18f), rawY),
-                        dxLeaderBrush,
-                        1.0f
-                    );
+                var accentBrush = GetDxBrush(item.Key, item.Color);
+
+                // Pequena haste vertical ligando a etiqueta à linha horizontal + ponto indicador na linha
+                float pinX = Math.Min(panelRight - 8f, chosen.Right - 10f);
+                float pinStartY = (chosen.Top + chosen.Height * 0.5f < rawY) ? chosen.Bottom : chosen.Top;
+                if (Math.Abs(pinStartY - rawY) >= 2f && Math.Abs(pinStartY - rawY) <= 165f) {
+                    RenderTarget.DrawLine(new SharpDX.Vector2(pinX, pinStartY), new SharpDX.Vector2(pinX, rawY), dxLeaderBrush, 0.9f);
+                    RenderTarget.FillEllipse(new SharpDX.Direct2D1.Ellipse(new SharpDX.Vector2(pinX, rawY), 2.3f, 2.3f), accentBrush);
                 }
 
-                var accentBrush = GetDxBrush(item.Key, item.Color);
-                RenderTarget.FillRectangle(chosen, dxBgBrush);
-                RenderTarget.DrawRectangle(chosen, accentBrush, 1.0f);
-                SharpDX.RectangleF textRect = new SharpDX.RectangleF(chosen.Left + 7f, chosen.Top + 2f, chosen.Width - 10f, chosen.Height - 2f);
+                SharpDX.Direct2D1.RoundedRectangle pill = new SharpDX.Direct2D1.RoundedRectangle { Rect = chosen, RadiusX = 4f, RadiusY = 4f };
+                RenderTarget.FillRoundedRectangle(pill, dxBgBrush);
+                RenderTarget.DrawRoundedRectangle(pill, item.Bold ? (SharpDX.Direct2D1.Brush)accentBrush : (SharpDX.Direct2D1.Brush)dxBorderNeutralBrush, item.Bold ? 1.0f : 0.75f);
+                RenderTarget.FillRectangle(new SharpDX.RectangleF(chosen.Left + 2.5f, chosen.Top + 3f, 2.5f, chosen.Height - 6f), accentBrush);
+
+                SharpDX.RectangleF textRect = new SharpDX.RectangleF(chosen.Left + 8f, chosen.Top + 2f, chosen.Width - 11f, chosen.Height - 2f);
                 RenderTarget.DrawText(item.Text, item.Bold ? dxFmtBold : dxFmtRegular, textRect, accentBrush);
             }
         }
@@ -762,14 +782,21 @@ namespace NinjaTrader.NinjaScript.Indicators
             return a.Left < b.Right && a.Right > b.Left && a.Top < b.Bottom && a.Bottom > b.Top;
         }
 
-        public override void OnRenderTargetChanged() {
+        private void LimparRecursos() {
             foreach (var kv in dxColorBrushes) { if (kv.Value != null) kv.Value.Dispose(); }
             dxColorBrushes.Clear();
             if (dxBgBrush != null) { dxBgBrush.Dispose(); dxBgBrush = null; }
+            if (dxBorderNeutralBrush != null) { dxBorderNeutralBrush.Dispose(); dxBorderNeutralBrush = null; }
             if (dxLeaderBrush != null) { dxLeaderBrush.Dispose(); dxLeaderBrush = null; }
+            if (dxStrokeDash != null) { dxStrokeDash.Dispose(); dxStrokeDash = null; }
+            if (dxStrokeDot != null) { dxStrokeDot.Dispose(); dxStrokeDot = null; }
             if (dxFmtRegular != null) { dxFmtRegular.Dispose(); dxFmtRegular = null; }
             if (dxFmtBold != null) { dxFmtBold.Dispose(); dxFmtBold = null; }
             if (dxFactory != null) { dxFactory.Dispose(); dxFactory = null; }
+        }
+
+        public override void OnRenderTargetChanged() {
+            LimparRecursos();
         }
 
         private void LerArquivos() {
@@ -1867,12 +1894,11 @@ namespace NinjaTrader.NinjaScript.Indicators
 {
     public class VWAPInstitucionalPro : Indicator
     {
-        private double sumPV = 0;
-        private double sumVol = 0;
-        private double sumP2V = 0;
-        private double lastBarVolume = 0;
+        private double closedSumVol = 0;
+        private double closedVwap = 0;
+        private double closedM2 = 0;
+        private int lastCommittedBar = -1;
         private int sessionStartBar = -1;
-        private int lastProcessedBar = -1;
 
         [NinjaScriptProperty]
         [Display(Name = "Numero de Bandas", Order = 1, GroupName = "Configuracao")]
@@ -1894,7 +1920,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (State == State.SetDefaults)
             {
-                Description = "VWAP Institucional com 4 Desvios Padrão";
+                Description = "VWAP Institucional Welford com 4 Bandas Proporcionais ao Desvio Maximo";
                 Name = "VWAPInstitucionalPro";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
@@ -1904,71 +1930,120 @@ namespace NinjaTrader.NinjaScript.Indicators
                 NumBandas = 4;
                 MostrarBandas = true;
                 ResetDiario = true;
-                DesvioMaximo = 3.0;
+                DesvioMaximo = 2.0;
 
-                AddPlot(new Stroke(Brushes.Yellow, DashStyleHelper.Solid, 3), PlotStyle.Line, "VWAP");
+                AddPlot(new Stroke(Brushes.Yellow, DashStyleHelper.Solid, 2), PlotStyle.Line, "VWAP");
                 AddPlot(new Stroke(Brushes.DodgerBlue, DashStyleHelper.Dot, 1), PlotStyle.Line, "Top SD1");
                 AddPlot(new Stroke(Brushes.DodgerBlue, DashStyleHelper.Dot, 1), PlotStyle.Line, "Bot SD1");
-                AddPlot(new Stroke(Brushes.Cyan, DashStyleHelper.Dash, 2), PlotStyle.Line, "Top SD2");
-                AddPlot(new Stroke(Brushes.Cyan, DashStyleHelper.Dash, 2), PlotStyle.Line, "Bot SD2");
-                AddPlot(new Stroke(Brushes.Orange, DashStyleHelper.Solid, 2), PlotStyle.Line, "Top SD3");
-                AddPlot(new Stroke(Brushes.Orange, DashStyleHelper.Solid, 2), PlotStyle.Line, "Bot SD3");
-                AddPlot(new Stroke(Brushes.Red, DashStyleHelper.Solid, 3), PlotStyle.Line, "Top SD4");
-                AddPlot(new Stroke(Brushes.Red, DashStyleHelper.Solid, 3), PlotStyle.Line, "Bot SD4");
+                AddPlot(new Stroke(Brushes.Cyan, DashStyleHelper.Dash, 1), PlotStyle.Line, "Top SD2");
+                AddPlot(new Stroke(Brushes.Cyan, DashStyleHelper.Dash, 1), PlotStyle.Line, "Bot SD2");
+                AddPlot(new Stroke(Brushes.Orange, DashStyleHelper.Dash, 2), PlotStyle.Line, "Top SD3");
+                AddPlot(new Stroke(Brushes.Orange, DashStyleHelper.Dash, 2), PlotStyle.Line, "Bot SD3");
+                AddPlot(new Stroke(Brushes.Red, DashStyleHelper.Solid, 2), PlotStyle.Line, "Top SD4");
+                AddPlot(new Stroke(Brushes.Red, DashStyleHelper.Solid, 2), PlotStyle.Line, "Bot SD4");
             }
+            else if (State == State.DataLoaded)
+            {
+                closedSumVol = 0;
+                closedVwap = 0;
+                closedM2 = 0;
+                lastCommittedBar = -1;
+                sessionStartBar = -1;
+            }
+        }
+
+        private void AcumularWelford(double tp, double vol, ref double sVol, ref double mean, ref double m2)
+        {
+            if (vol <= 0) return;
+            double nextVol = sVol + vol;
+            double delta = tp - mean;
+            double nextMean = mean + (vol / nextVol) * delta;
+            m2 += vol * delta * (tp - nextMean);
+            mean = nextMean;
+            sVol = nextVol;
         }
 
         protected override void OnBarUpdate()
         {
             if (CurrentBar < 0) return;
 
-            if (sessionStartBar < 0 ||
-                (ResetDiario && Bars.IsFirstBarOfSession && sessionStartBar != CurrentBar))
+            if (CurrentBar > lastCommittedBar)
             {
-                if (sessionStartBar >= 0)
+                if (lastCommittedBar >= 0)
                 {
-                    sumPV = 0;
-                    sumVol = 0;
-                    sumP2V = 0;
+                    if (ResetDiario && Bars.IsFirstBarOfSession)
+                    {
+                        closedSumVol = 0;
+                        closedVwap = 0;
+                        closedM2 = 0;
+                        sessionStartBar = CurrentBar;
+                    }
+                    else
+                    {
+                        double prevTp = (High[1] + Low[1] + Close[1]) / 3.0;
+                        double prevVol = Math.Max(0, Volume[1]);
+                        AcumularWelford(prevTp, prevVol, ref closedSumVol, ref closedVwap, ref closedM2);
+                    }
                 }
-                sessionStartBar = CurrentBar;
+                else
+                {
+                    sessionStartBar = CurrentBar;
+                }
+                lastCommittedBar = CurrentBar;
             }
 
-            if (CurrentBar != lastProcessedBar)
+            if (sessionStartBar < 0) sessionStartBar = CurrentBar;
+
+            double curVol = Math.Max(0, Volume[0]);
+            double curTp = (High[0] + Low[0] + Close[0]) / 3.0;
+
+            double totVol = closedSumVol;
+            double vwapValue = closedVwap;
+            double m2 = closedM2;
+
+            AcumularWelford(curTp, curVol, ref totVol, ref vwapValue, ref m2);
+
+            if (totVol <= 0)
             {
-                lastBarVolume = 0;
-                lastProcessedBar = CurrentBar;
+                Values[0][0] = curTp;
+                return;
             }
 
-            double typicalPrice = (High[0] + Low[0] + Close[0]) / 3.0;
-            double barVolume = Volume[0];
-            double volumeDelta = Math.Max(0, barVolume - lastBarVolume);
-            lastBarVolume = Math.Max(lastBarVolume, barVolume);
-
-            sumPV += typicalPrice * volumeDelta;
-            sumVol += volumeDelta;
-            sumP2V += (typicalPrice * typicalPrice) * volumeDelta;
-
-            if (sumVol == 0) return;
-
-            double vwapValue = sumPV / sumVol;
-            double variance = (sumP2V / sumVol) - (vwapValue * vwapValue);
-            if (variance < 0) variance = 0;
+            double variance = Math.Max(0.0, m2 / totVol);
             double stdDevValue = Math.Sqrt(variance);
 
             Values[0][0] = vwapValue;
 
             if (MostrarBandas)
             {
-                if (NumBandas >= 1) Values[1][0] = vwapValue + (1.0 * stdDevValue);
-                if (NumBandas >= 2) Values[3][0] = vwapValue + (2.0 * stdDevValue);
-                if (NumBandas >= 3) Values[5][0] = vwapValue + (3.0 * stdDevValue);
-                if (NumBandas >= 4) Values[7][0] = vwapValue + (4.0 * stdDevValue);
+                int safeBandas = Math.Max(1, Math.Min(4, NumBandas));
+                double safeDesvio = (DesvioMaximo > 0.0 && DesvioMaximo <= 6.0) ? DesvioMaximo : 2.0;
+                double step = safeDesvio / safeBandas;
 
-                if (NumBandas >= 1) Values[2][0] = vwapValue - (1.0 * stdDevValue);
-                if (NumBandas >= 2) Values[4][0] = vwapValue - (2.0 * stdDevValue);
-                if (NumBandas >= 3) Values[6][0] = vwapValue - (3.0 * stdDevValue);
-                if (NumBandas >= 4) Values[8][0] = vwapValue - (4.0 * stdDevValue);
+                if (safeBandas >= 1)
+                {
+                    double d1 = step * 1.0 * stdDevValue;
+                    Values[1][0] = vwapValue + d1;
+                    Values[2][0] = vwapValue - d1;
+                }
+                if (safeBandas >= 2)
+                {
+                    double d2 = step * 2.0 * stdDevValue;
+                    Values[3][0] = vwapValue + d2;
+                    Values[4][0] = vwapValue - d2;
+                }
+                if (safeBandas >= 3)
+                {
+                    double d3 = step * 3.0 * stdDevValue;
+                    Values[5][0] = vwapValue + d3;
+                    Values[6][0] = vwapValue - d3;
+                }
+                if (safeBandas >= 4)
+                {
+                    double d4 = step * 4.0 * stdDevValue;
+                    Values[7][0] = vwapValue + d4;
+                    Values[8][0] = vwapValue - d4;
+                }
             }
         }
     }
@@ -1984,12 +2059,12 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         public VWAPInstitucionalPro VWAPInstitucionalPro()
         {
-            return VWAPInstitucionalPro(Input, 4, true, true, 3.0);
+            return VWAPInstitucionalPro(Input, 4, true, true, 2.0);
         }
 
         public VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input)
         {
-            return VWAPInstitucionalPro(input, 4, true, true, 3.0);
+            return VWAPInstitucionalPro(input, 4, true, true, 2.0);
         }
 
         public VWAPInstitucionalPro VWAPInstitucionalPro(int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
@@ -2014,12 +2089,12 @@ namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
     {
         public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro()
         {
-            return indicator.VWAPInstitucionalPro(Input, 4, true, true, 3.0);
+            return indicator.VWAPInstitucionalPro(Input, 4, true, true, 2.0);
         }
 
         public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input)
         {
-            return indicator.VWAPInstitucionalPro(input, 4, true, true, 3.0);
+            return indicator.VWAPInstitucionalPro(input, 4, true, true, 2.0);
         }
 
         public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
@@ -2040,12 +2115,12 @@ namespace NinjaTrader.NinjaScript.Strategies
     {
         public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro()
         {
-            return indicator.VWAPInstitucionalPro(Input, 4, true, true, 3.0);
+            return indicator.VWAPInstitucionalPro(Input, 4, true, true, 2.0);
         }
 
         public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input)
         {
-            return indicator.VWAPInstitucionalPro(input, 4, true, true, 3.0);
+            return indicator.VWAPInstitucionalPro(input, 4, true, true, 2.0);
         }
 
         public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
