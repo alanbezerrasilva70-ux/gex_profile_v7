@@ -23,7 +23,7 @@ print(f"📂 PASTA DETECTADA: {pasta_destino}")
 print("🔨 INICIANDO COMPILAÇÃO DOS ARQUIVOS PREMIUM...")
 
 # ==============================================================================
-# ARQUIVO 1: NiveisEstruturaPro (Histograma Gamma) - Fonte: Original v1
+# ARQUIVO 1: NiveisEstruturaPro (Histograma Gamma) - SharpDX Neon Glow Ultra-Leve
 # ==============================================================================
 CODE_ESTRUTURA = r"""
 using System;
@@ -57,24 +57,46 @@ namespace NinjaTrader.NinjaScript.Indicators
         private List<GammaLevel> niveisGamma = new List<GammaLevel>();
         private DateTime ultimaLeitura = DateTime.MinValue;
         private string pastaGexData = @"C:\Users\alanb\Dropbox\Dropbox\Aplicativos\RoboGexNinjaV1";
-        
-        private SharpDX.Direct2D1.Brush dxBrushCall, dxBrushPut, dxBrushText, dxBrushHighlight, dxBrushCallHeavy, dxBrushPutHeavy, dxBrushLabelBg, dxBrushNewMoney;
+
+        private SharpDX.DirectWrite.Factory dxFactory;
         private SharpDX.DirectWrite.TextFormat dxTextFormat, dxTextFormatBold;
+        private SharpDX.Direct2D1.SolidColorBrush dxBrushCall, dxBrushPut;
+        private SharpDX.Direct2D1.SolidColorBrush dxBrushCallGlow, dxBrushPutGlow, dxBrushCallGlowOuter, dxBrushPutGlowOuter;
+        private SharpDX.Direct2D1.SolidColorBrush dxBrushCallTip, dxBrushPutTip, dxBrushSpecular;
+        private SharpDX.Direct2D1.SolidColorBrush dxBrushText, dxBrushHighlight, dxBrushNewMoney, dxBrushLabelBg, dxBrushLabelBorder, dxBrushLeader;
+        private SharpDX.Direct2D1.GradientStopCollection dxStopsCall, dxStopsPut, dxStopsCallHeavy, dxStopsPutHeavy;
+        private SharpDX.Direct2D1.LinearGradientBrush dxGradCall, dxGradPut, dxGradCallHeavy, dxGradPutHeavy;
+
+        private float cachedCanvasRight = -1f;
+        private int cachedLarguraMax = -1;
+        private int cachedOpacidade = -1;
+        private string ultimaAssinaturaCsv = "";
+        private readonly List<SharpDX.RectangleF> usedTagRects = new List<SharpDX.RectangleF>(64);
 
         [NinjaScriptProperty] [Display(Name="Opacidade (%)", Order=1, GroupName="Visual")] public int Opacidade { get; set; }
         [NinjaScriptProperty] [Display(Name="Largura Max", Order=2, GroupName="Visual")] public int LarguraMax { get; set; }
         [NinjaScriptProperty] [Display(Name="Vencimento DTE (ALL, 0DTE, 1DTE, 2DTE, 7DTE)", Order=3, GroupName="Visual")] public string VencimentoDTE { get; set; }
         [NinjaScriptProperty] [Display(Name="Modo Histograma (GAMMA, VOLUME, OPENING_FLOW)", Order=4, GroupName="Visual")] public string ModoHistograma { get; set; }
+        [NinjaScriptProperty] [Display(Name="Efeito Visual (NEON_GLOW, GLASS_3D, ECO)", Order=5, GroupName="Visual")] public string EfeitoVisual { get; set; }
+        [NinjaScriptProperty] [Display(Name="Espessura Max Barra (px)", Order=6, GroupName="Visual")] public int EspessuraMax { get; set; }
 
         protected override void OnStateChange() {
             if (State == State.SetDefaults) {
                 Name = "NiveisEstruturaPro"; Calculate = Calculate.OnEachTick; IsOverlay = true;
-                Opacidade = 45; LarguraMax = 300; VencimentoDTE = "ALL"; ModoHistograma = "GAMMA";
-            } else if (State == State.DataLoaded) LerTudo();
+                Opacidade = 58; LarguraMax = 300; VencimentoDTE = "ALL"; ModoHistograma = "GAMMA";
+                EfeitoVisual = "NEON_GLOW"; EspessuraMax = 10;
+            } else if (State == State.DataLoaded) {
+                LerTudo();
+            } else if (State == State.Terminated) {
+                LimparRecursos();
+            }
         }
 
         protected override void OnBarUpdate() {
-            if (DateTime.Now > ultimaLeitura.AddSeconds(5)) { LerTudo(); ultimaLeitura = DateTime.Now; ForceRefresh(); }
+            if (DateTime.Now > ultimaLeitura.AddSeconds(5)) {
+                ultimaLeitura = DateTime.Now;
+                if (LerTudo()) ForceRefresh();
+            }
         }
 
         private double ObterValorMetrica(GammaLevel n, string modo) {
@@ -87,85 +109,275 @@ namespace NinjaTrader.NinjaScript.Indicators
             return n.NetGamma;
         }
 
+        private void EnsureStaticResources(int safeOpacity) {
+            if (dxFactory == null) dxFactory = new SharpDX.DirectWrite.Factory();
+            if (dxTextFormat == null) dxTextFormat = new TextFormat(dxFactory, "Consolas", SharpDX.DirectWrite.FontWeight.SemiBold, SharpDX.DirectWrite.FontStyle.Normal, 10f);
+            if (dxTextFormatBold == null) dxTextFormatBold = new TextFormat(dxFactory, "Consolas", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 10.5f);
+
+            if (dxBrushCallTip == null) dxBrushCallTip = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.22f, 0.98f, 0.85f, 1.0f));
+            if (dxBrushPutTip == null) dxBrushPutTip = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1.00f, 0.32f, 0.62f, 1.0f));
+            if (dxBrushCallGlow == null) dxBrushCallGlow = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.08f, 0.88f, 0.65f, 0.18f));
+            if (dxBrushPutGlow == null) dxBrushPutGlow = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.98f, 0.22f, 0.45f, 0.19f));
+            if (dxBrushCallGlowOuter == null) dxBrushCallGlowOuter = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.06f, 0.82f, 0.60f, 0.08f));
+            if (dxBrushPutGlowOuter == null) dxBrushPutGlowOuter = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.96f, 0.18f, 0.42f, 0.08f));
+            if (dxBrushSpecular == null) dxBrushSpecular = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1.0f, 1.0f, 1.0f, 0.26f));
+            if (dxBrushText == null) dxBrushText = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.94f, 0.97f, 1.0f, 1.0f));
+            if (dxBrushHighlight == null) dxBrushHighlight = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1.0f, 0.88f, 0.28f, 0.95f));
+            if (dxBrushNewMoney == null) dxBrushNewMoney = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1.0f, 0.68f, 0.12f, 0.98f));
+            if (dxBrushLabelBg == null) dxBrushLabelBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.03f, 0.05f, 0.09f, 0.90f));
+            if (dxBrushLabelBorder == null) dxBrushLabelBorder = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.24f, 0.32f, 0.45f, 0.70f));
+            if (dxBrushLeader == null) dxBrushLeader = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.60f, 0.70f, 0.85f, 0.45f));
+
+            if (cachedOpacidade != safeOpacity || dxGradCall == null) {
+                DisporBrushesDinamicos();
+                float baseA = Math.Max(0.15f, Math.Min(1.0f, safeOpacity / 100f));
+                dxBrushCall = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.06f, 0.78f, 0.56f, Math.Min(0.95f, baseA * 1.1f)));
+                dxBrushPut = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.94f, 0.24f, 0.42f, Math.Min(0.95f, baseA * 1.1f)));
+
+                dxStopsCall = new SharpDX.Direct2D1.GradientStopCollection(RenderTarget, new SharpDX.Direct2D1.GradientStop[] {
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.00f, Color = new Color4(0.02f, 0.28f, 0.22f, baseA * 0.52f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.58f, Color = new Color4(0.06f, 0.76f, 0.54f, Math.Min(0.92f, baseA * 1.18f)) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 1.00f, Color = new Color4(0.18f, 0.94f, 0.80f, Math.Min(0.98f, baseA * 1.38f)) }
+                });
+                dxStopsCallHeavy = new SharpDX.Direct2D1.GradientStopCollection(RenderTarget, new SharpDX.Direct2D1.GradientStop[] {
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.00f, Color = new Color4(0.03f, 0.36f, 0.28f, Math.Min(0.86f, baseA * 0.82f)) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.52f, Color = new Color4(0.08f, 0.86f, 0.62f, 0.94f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 1.00f, Color = new Color4(0.24f, 0.99f, 0.88f, 1.00f) }
+                });
+                dxStopsPut = new SharpDX.Direct2D1.GradientStopCollection(RenderTarget, new SharpDX.Direct2D1.GradientStop[] {
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.00f, Color = new Color4(0.32f, 0.04f, 0.12f, baseA * 0.52f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.58f, Color = new Color4(0.90f, 0.18f, 0.35f, Math.Min(0.92f, baseA * 1.18f)) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 1.00f, Color = new Color4(1.00f, 0.28f, 0.54f, Math.Min(0.98f, baseA * 1.38f)) }
+                });
+                dxStopsPutHeavy = new SharpDX.Direct2D1.GradientStopCollection(RenderTarget, new SharpDX.Direct2D1.GradientStop[] {
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.00f, Color = new Color4(0.42f, 0.05f, 0.16f, Math.Min(0.86f, baseA * 0.82f)) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.52f, Color = new Color4(0.96f, 0.20f, 0.40f, 0.94f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 1.00f, Color = new Color4(1.00f, 0.34f, 0.66f, 1.00f) }
+                });
+
+                var props = new SharpDX.Direct2D1.LinearGradientBrushProperties {
+                    StartPoint = new SharpDX.Vector2(0f, 0f),
+                    EndPoint = new SharpDX.Vector2(100f, 0f)
+                };
+                dxGradCall = new SharpDX.Direct2D1.LinearGradientBrush(RenderTarget, props, dxStopsCall);
+                dxGradCallHeavy = new SharpDX.Direct2D1.LinearGradientBrush(RenderTarget, props, dxStopsCallHeavy);
+                dxGradPut = new SharpDX.Direct2D1.LinearGradientBrush(RenderTarget, props, dxStopsPut);
+                dxGradPutHeavy = new SharpDX.Direct2D1.LinearGradientBrush(RenderTarget, props, dxStopsPutHeavy);
+                cachedOpacidade = safeOpacity;
+                cachedCanvasRight = -1f;
+            }
+        }
+
+        private bool TagColide(SharpDX.RectangleF candidate) {
+            for (int i = 0; i < usedTagRects.Count; i++) {
+                SharpDX.RectangleF b = usedTagRects[i];
+                if (candidate.Left < b.Right && candidate.Right > b.Left && candidate.Top < b.Bottom && candidate.Bottom > b.Top)
+                    return true;
+            }
+            return false;
+        }
+
         protected override void OnRender(ChartControl chartControl, ChartScale chartScale) {
-            if (niveisGamma.Count == 0 || chartControl == null) return;
-            if (dxBrushCall == null) dxBrushCall = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.06f, 0.73f, 0.51f, Opacidade/100f));
-            if (dxBrushPut == null) dxBrushPut = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.94f, 0.27f, 0.37f, Opacidade/100f));
-            if (dxBrushCallHeavy == null) dxBrushCallHeavy = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.06f, 0.85f, 0.55f, 0.92f));
-            if (dxBrushPutHeavy == null) dxBrushPutHeavy = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.95f, 0.20f, 0.35f, 0.92f));
-            if (dxBrushText == null) dxBrushText = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.95f, 0.97f, 1f, 1f));
-            if (dxBrushHighlight == null) dxBrushHighlight = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1f, 0.92f, 0.23f, 1f));
-            if (dxBrushNewMoney == null) dxBrushNewMoney = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1f, 0.65f, 0f, 0.95f));
-            if (dxBrushLabelBg == null) dxBrushLabelBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.04f, 0.06f, 0.10f, 0.82f));
-            if (dxTextFormat == null) dxTextFormat = new TextFormat(new SharpDX.DirectWrite.Factory(), "Consolas", SharpDX.DirectWrite.FontWeight.SemiBold, SharpDX.DirectWrite.FontStyle.Normal, 10);
-            if (dxTextFormatBold == null) dxTextFormatBold = new TextFormat(new SharpDX.DirectWrite.Factory(), "Consolas", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 11);
+            if (niveisGamma.Count == 0 || chartControl == null || chartScale == null || RenderTarget == null) return;
+
+            int safeOpacity = (Opacidade > 0 && Opacidade <= 100) ? Opacidade : 58;
+            int safeLarguraMax = (LarguraMax > 20) ? LarguraMax : 300;
+            float maxBarH = (EspessuraMax >= 4 && EspessuraMax <= 24) ? (float)EspessuraMax : 10f;
+
+            string estilo = string.IsNullOrWhiteSpace(EfeitoVisual) ? "NEON_GLOW" : EfeitoVisual.Trim().ToUpperInvariant();
+            bool isEco = (estilo == "ECO");
+            bool useGlow = (estilo == "NEON_GLOW");
+            bool useGradient = !isEco;
+
+            EnsureStaticResources(safeOpacity);
+
+            float panelLeft = (ChartPanel != null) ? (float)ChartPanel.X : 0f;
+            float panelTop = (ChartPanel != null) ? (float)ChartPanel.Y : 0f;
+            float panelRight = (ChartPanel != null) ? (float)(ChartPanel.X + ChartPanel.W) : (float)chartControl.ActualWidth;
+            float panelBottom = (ChartPanel != null) ? (float)(ChartPanel.Y + ChartPanel.H) : (float)chartControl.ActualHeight;
+            float canvasRight = Math.Max(panelLeft + 40f, panelRight - 3f);
+
+            if (Math.Abs(cachedCanvasRight - canvasRight) > 0.5f || cachedLarguraMax != safeLarguraMax) {
+                var sp = new SharpDX.Vector2(canvasRight, 0f);
+                var ep = new SharpDX.Vector2(canvasRight - safeLarguraMax, 0f);
+                dxGradCall.StartPoint = sp; dxGradCall.EndPoint = ep;
+                dxGradCallHeavy.StartPoint = sp; dxGradCallHeavy.EndPoint = ep;
+                dxGradPut.StartPoint = sp; dxGradPut.EndPoint = ep;
+                dxGradPutHeavy.StartPoint = sp; dxGradPutHeavy.EndPoint = ep;
+                cachedCanvasRight = canvasRight;
+                cachedLarguraMax = safeLarguraMax;
+            }
 
             string modo = (ModoHistograma ?? "GAMMA").Trim().ToUpperInvariant();
             double maxG = 0;
-            foreach(var n in niveisGamma) {
-                double val = Math.Abs(ObterValorMetrica(n, modo));
-                if(val > maxG) maxG = val;
+            for (int i = 0; i < niveisGamma.Count; i++) {
+                double val = Math.Abs(ObterValorMetrica(niveisGamma[i], modo));
+                if (val > maxG) maxG = val;
             }
-            if (maxG == 0) return;
+            if (maxG <= 0) return;
 
-            float canvasW = (float)chartControl.ActualWidth;
-            float canvasH = (float)chartControl.ActualHeight;
+            usedTagRects.Clear();
 
-            foreach (var n in niveisGamma) {
+            for (int i = 0; i < niveisGamma.Count; i++) {
+                var n = niveisGamma[i];
                 float y = (float)chartScale.GetYByValue(n.Strike);
-                if (y < -20 || y > canvasH + 20) continue;
+                if (y < panelTop - 20f || y > panelBottom + 20f) continue;
+
                 double metricVal = ObterValorMetrica(n, modo);
-                double ratio = Math.Abs(metricVal)/maxG;
-                float w = (float)(ratio * LarguraMax);
-                if (w < 2) continue;
-                float h = (ratio > 0.65) ? 7f : (ratio > 0.30 ? 5f : 3.5f);
-                SharpDX.RectangleF rect = new SharpDX.RectangleF(canvasW - w, y - h/2, w, h);
-                if (metricVal > 0) {
-                    if (ratio > 0.70) {
-                        RenderTarget.FillRectangle(rect, dxBrushCallHeavy);
-                        RenderTarget.DrawRectangle(rect, dxBrushHighlight, 1.0f);
-                    } else RenderTarget.FillRectangle(rect, dxBrushCall);
-                } else {
-                    if (ratio > 0.70) {
-                        RenderTarget.FillRectangle(rect, dxBrushPutHeavy);
-                        RenderTarget.DrawRectangle(rect, dxBrushHighlight, 1.0f);
-                    } else RenderTarget.FillRectangle(rect, dxBrushPut);
+                double ratio = Math.Abs(metricVal) / maxG;
+                float w = (float)(ratio * safeLarguraMax);
+                if (w < 3f) continue;
+
+                bool isCall = metricVal > 0;
+                bool hasLabel = !string.IsNullOrEmpty(n.Label);
+                bool isHeavy = (ratio > 0.65 || hasLabel);
+
+                float h = (ratio > 0.72) ? maxBarH : (ratio > 0.40 ? Math.Max(4.5f, maxBarH * 0.72f) : Math.Max(3.0f, maxBarH * 0.44f));
+                float barLeft = canvasRight - w;
+                float barTop = y - h * 0.5f;
+                float rad = Math.Min(h * 0.48f, w * 0.48f);
+
+                SharpDX.RectangleF barRect = new SharpDX.RectangleF(barLeft, barTop, w, h);
+                SharpDX.Direct2D1.RoundedRectangle roundedBar = new SharpDX.Direct2D1.RoundedRectangle { Rect = barRect, RadiusX = rad, RadiusY = rad };
+
+                // Camada 1: Glow Neon Geométrico Ultra-Leve (zero shader pesado de VRAM)
+                if (useGlow && ratio > 0.34) {
+                    if (isHeavy) {
+                        SharpDX.Direct2D1.RoundedRectangle outerGlow = new SharpDX.Direct2D1.RoundedRectangle {
+                            Rect = new SharpDX.RectangleF(barLeft - 4f, barTop - 4f, w + 4f, h + 8f),
+                            RadiusX = rad + 3f, RadiusY = rad + 3f
+                        };
+                        RenderTarget.FillRoundedRectangle(outerGlow, isCall ? dxBrushCallGlowOuter : dxBrushPutGlowOuter);
+                    }
+                    SharpDX.Direct2D1.RoundedRectangle innerGlow = new SharpDX.Direct2D1.RoundedRectangle {
+                        Rect = new SharpDX.RectangleF(barLeft - 2f, barTop - 2f, w + 2f, h + 4f),
+                        RadiusX = rad + 1.5f, RadiusY = rad + 1.5f
+                    };
+                    RenderTarget.FillRoundedRectangle(innerGlow, isCall ? dxBrushCallGlow : dxBrushPutGlow);
                 }
 
+                // Camada 2: Corpo Principal em Degradê Linear Horizontal (pré-cacheado)
+                SharpDX.Direct2D1.Brush fillBrush = useGradient
+                    ? (SharpDX.Direct2D1.Brush)(isCall ? (isHeavy ? dxGradCallHeavy : dxGradCall) : (isHeavy ? dxGradPutHeavy : dxGradPut))
+                    : (SharpDX.Direct2D1.Brush)(isCall ? dxBrushCall : dxBrushPut);
+
+                if (!isEco) RenderTarget.FillRoundedRectangle(roundedBar, fillBrush);
+                else RenderTarget.FillRectangle(barRect, fillBrush);
+
+                // Contorno fino elegante apenas em barras principais / Walls
+                if (isHeavy && !isEco) {
+                    SharpDX.Direct2D1.Brush borderBrush = isCall ? dxBrushCallTip : dxBrushPutTip;
+                    RenderTarget.DrawRoundedRectangle(roundedBar, borderBrush, hasLabel ? 0.95f : 0.55f);
+                }
+
+                // Camada 3: Reflexo Specular Glass 3D no topo da barra + Ponta Neon ("Leading Cap")
+                if (!isEco && w >= 14f && h >= 5.0f) {
+                    SharpDX.RectangleF specRect = new SharpDX.RectangleF(barLeft + rad * 0.6f, barTop + 0.9f, Math.Max(4f, w - rad * 1.2f), 1.25f);
+                    RenderTarget.FillRectangle(specRect, dxBrushSpecular);
+                }
+                if (!isEco && w >= 7f && ratio > 0.25) {
+                    float capW = isHeavy ? 3.2f : 2.2f;
+                    SharpDX.Direct2D1.RoundedRectangle tipCap = new SharpDX.Direct2D1.RoundedRectangle {
+                        Rect = new SharpDX.RectangleF(barLeft, barTop + 0.6f, capW, Math.Max(2f, h - 1.2f)),
+                        RadiusX = 1.2f, RadiusY = 1.2f
+                    };
+                    SharpDX.Direct2D1.Brush capBrush = (n.IsNewMoney && ratio > 0.35)
+                        ? dxBrushNewMoney
+                        : (isCall ? dxBrushCallTip : dxBrushPutTip);
+                    RenderTarget.FillRoundedRectangle(tipCap, capBrush);
+                }
+
+                // Camada 4: Pílula de Texto Moderna com Anti-Colisão Vertical
                 string txt = (modo == "GAMMA") ? FormatVal(metricVal) : FormatContracts(metricVal);
-                if (n.IsNewMoney && ratio > 0.35) txt = txt + " [OPEN$]";
-                if (!string.IsNullOrEmpty(n.Label)) {
-                    txt = n.Label + " " + txt;
-                    float tw = txt.Length * 7.2f;
-                    SharpDX.RectangleF bgRect = new SharpDX.RectangleF(canvasW - w - tw - 16, y - 9, tw + 12, 18);
-                    RenderTarget.FillRectangle(bgRect, dxBrushLabelBg);
-                    RenderTarget.DrawRectangle(bgRect, dxBrushHighlight, 0.8f);
-                    RenderTarget.DrawText(txt, dxTextFormatBold, new SharpDX.RectangleF(canvasW - w - tw - 10, y - 8, tw + 10, 18), dxBrushHighlight);
-                } else if (ratio > 0.25 && !string.IsNullOrEmpty(txt)) {
-                    float tw = txt.Length * 6.5f;
-                    SharpDX.RectangleF bgRect = new SharpDX.RectangleF(canvasW - w - tw - 12, y - 8, tw + 8, 16);
-                    RenderTarget.FillRectangle(bgRect, dxBrushLabelBg);
-                    RenderTarget.DrawText(txt, dxTextFormat, new SharpDX.RectangleF(canvasW - w - tw - 8, y - 7, tw + 8, 15), n.IsNewMoney ? dxBrushNewMoney : dxBrushText);
+                if (n.IsNewMoney && ratio > 0.35 && !string.IsNullOrEmpty(txt)) txt = txt + " [OPEN$]";
+                if (hasLabel) txt = n.Label + (string.IsNullOrEmpty(txt) ? "" : " " + txt);
+
+                if ((hasLabel || ratio > 0.25) && !string.IsNullOrEmpty(txt)) {
+                    float charW = hasLabel ? 7.0f : 6.4f;
+                    float badgeH = hasLabel ? 18f : 16f;
+                    float badgeW = Math.Max(48f, txt.Length * charW + 16f);
+                    float boxLeft = Math.Max(panelLeft + 6f, barLeft - badgeW - 8f);
+
+                    float chosenTop = Math.Max(panelTop + 4f, Math.Min(panelBottom - badgeH - 4f, y - badgeH * 0.5f));
+                    if (TagColide(new SharpDX.RectangleF(boxLeft - 2f, chosenTop - 1f, badgeW + 4f, badgeH + 2f))) {
+                        float[] dyOffsets = { -19f, 19f, -38f, 38f };
+                        foreach (float dy in dyOffsets) {
+                            float candTop = Math.Max(panelTop + 4f, Math.Min(panelBottom - badgeH - 4f, (y + dy) - badgeH * 0.5f));
+                            if (!TagColide(new SharpDX.RectangleF(boxLeft - 2f, candTop - 1f, badgeW + 4f, badgeH + 2f))) {
+                                chosenTop = candTop;
+                                break;
+                            }
+                        }
+                    }
+
+                    SharpDX.RectangleF tagRect = new SharpDX.RectangleF(boxLeft, chosenTop, badgeW, badgeH);
+                    usedTagRects.Add(new SharpDX.RectangleF(boxLeft - 2f, chosenTop - 1f, badgeW + 4f, badgeH + 2f));
+
+                    float tagMidY = chosenTop + badgeH * 0.5f;
+                    if (Math.Abs(tagMidY - y) > 4f && barLeft > tagRect.Right + 2f) {
+                        RenderTarget.DrawLine(new SharpDX.Vector2(tagRect.Right, tagMidY), new SharpDX.Vector2(barLeft - 1f, y), dxBrushLeader, 0.9f);
+                    }
+
+                    SharpDX.Direct2D1.Brush accentBrush = hasLabel
+                        ? (isCall ? dxBrushCallTip : dxBrushPutTip)
+                        : (n.IsNewMoney ? dxBrushNewMoney : (isCall ? dxBrushCallTip : dxBrushPutTip));
+
+                    SharpDX.Direct2D1.RoundedRectangle pill = new SharpDX.Direct2D1.RoundedRectangle { Rect = tagRect, RadiusX = 4f, RadiusY = 4f };
+                    RenderTarget.FillRoundedRectangle(pill, dxBrushLabelBg);
+                    RenderTarget.DrawRoundedRectangle(pill, hasLabel ? accentBrush : dxBrushLabelBorder, hasLabel ? 0.95f : 0.7f);
+
+                    // Faixa indicadora lateral esquerda dentro da pílula
+                    RenderTarget.FillRectangle(new SharpDX.RectangleF(boxLeft + 2f, chosenTop + 3f, 2.5f, badgeH - 6f), accentBrush);
+
+                    SharpDX.Direct2D1.Brush txtColor = hasLabel ? dxBrushHighlight : (n.IsNewMoney ? dxBrushNewMoney : dxBrushText);
+                    RenderTarget.DrawText(txt, hasLabel ? dxTextFormatBold : dxTextFormat, new SharpDX.RectangleF(boxLeft + 8f, chosenTop + 2f, badgeW - 10f, badgeH - 2f), txtColor);
                 }
             }
         }
-        
-        public override void OnRenderTargetChanged() {
-            if(dxBrushCall!=null) dxBrushCall.Dispose(); dxBrushCall=null;
-            if(dxBrushPut!=null) dxBrushPut.Dispose(); dxBrushPut=null;
-            if(dxBrushCallHeavy!=null) dxBrushCallHeavy.Dispose(); dxBrushCallHeavy=null;
-            if(dxBrushPutHeavy!=null) dxBrushPutHeavy.Dispose(); dxBrushPutHeavy=null;
-            if(dxBrushText!=null) dxBrushText.Dispose(); dxBrushText=null;
-            if(dxBrushHighlight!=null) dxBrushHighlight.Dispose(); dxBrushHighlight=null;
-            if(dxBrushNewMoney!=null) dxBrushNewMoney.Dispose(); dxBrushNewMoney=null;
-            if(dxBrushLabelBg!=null) dxBrushLabelBg.Dispose(); dxBrushLabelBg=null;
-            if(dxTextFormat!=null) dxTextFormat.Dispose(); dxTextFormat=null;
-            if(dxTextFormatBold!=null) dxTextFormatBold.Dispose(); dxTextFormatBold=null;
+
+        private void DisporBrushesDinamicos() {
+            if (dxBrushCall != null) { dxBrushCall.Dispose(); dxBrushCall = null; }
+            if (dxBrushPut != null) { dxBrushPut.Dispose(); dxBrushPut = null; }
+            if (dxGradCall != null) { dxGradCall.Dispose(); dxGradCall = null; }
+            if (dxGradPut != null) { dxGradPut.Dispose(); dxGradPut = null; }
+            if (dxGradCallHeavy != null) { dxGradCallHeavy.Dispose(); dxGradCallHeavy = null; }
+            if (dxGradPutHeavy != null) { dxGradPutHeavy.Dispose(); dxGradPutHeavy = null; }
+            if (dxStopsCall != null) { dxStopsCall.Dispose(); dxStopsCall = null; }
+            if (dxStopsPut != null) { dxStopsPut.Dispose(); dxStopsPut = null; }
+            if (dxStopsCallHeavy != null) { dxStopsCallHeavy.Dispose(); dxStopsCallHeavy = null; }
+            if (dxStopsPutHeavy != null) { dxStopsPutHeavy.Dispose(); dxStopsPutHeavy = null; }
+            cachedOpacidade = -1;
+            cachedCanvasRight = -1f;
+            cachedLarguraMax = -1;
         }
 
-        private void LerTudo() {
+        private void LimparRecursos() {
+            DisporBrushesDinamicos();
+            if (dxBrushCallGlow != null) { dxBrushCallGlow.Dispose(); dxBrushCallGlow = null; }
+            if (dxBrushPutGlow != null) { dxBrushPutGlow.Dispose(); dxBrushPutGlow = null; }
+            if (dxBrushCallGlowOuter != null) { dxBrushCallGlowOuter.Dispose(); dxBrushCallGlowOuter = null; }
+            if (dxBrushPutGlowOuter != null) { dxBrushPutGlowOuter.Dispose(); dxBrushPutGlowOuter = null; }
+            if (dxBrushCallTip != null) { dxBrushCallTip.Dispose(); dxBrushCallTip = null; }
+            if (dxBrushPutTip != null) { dxBrushPutTip.Dispose(); dxBrushPutTip = null; }
+            if (dxBrushSpecular != null) { dxBrushSpecular.Dispose(); dxBrushSpecular = null; }
+            if (dxBrushText != null) { dxBrushText.Dispose(); dxBrushText = null; }
+            if (dxBrushHighlight != null) { dxBrushHighlight.Dispose(); dxBrushHighlight = null; }
+            if (dxBrushNewMoney != null) { dxBrushNewMoney.Dispose(); dxBrushNewMoney = null; }
+            if (dxBrushLabelBg != null) { dxBrushLabelBg.Dispose(); dxBrushLabelBg = null; }
+            if (dxBrushLabelBorder != null) { dxBrushLabelBorder.Dispose(); dxBrushLabelBorder = null; }
+            if (dxBrushLeader != null) { dxBrushLeader.Dispose(); dxBrushLeader = null; }
+            if (dxTextFormat != null) { dxTextFormat.Dispose(); dxTextFormat = null; }
+            if (dxTextFormatBold != null) { dxTextFormatBold.Dispose(); dxTextFormatBold = null; }
+            if (dxFactory != null) { dxFactory.Dispose(); dxFactory = null; }
+        }
+
+        public override void OnRenderTargetChanged() {
+            LimparRecursos();
+        }
+
+        private bool LerTudo() {
             try {
-                if(Instrument==null)return;
+                if(Instrument==null)return false;
                 string s = Instrument.MasterInstrument.Name;
                 if(s.Contains("ES"))s="ES"; 
                 else if(s.Contains("NQ"))s="NQ"; 
@@ -191,6 +403,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                     f1 = Path.Combine(pastaGexData, "NiveisGamma_" + s + ".csv");
                     f2 = Path.Combine(pastaGexData, "GammaProfile_" + s + ".csv");
                 }
+                long t1 = File.Exists(f1) ? File.GetLastWriteTimeUtc(f1).Ticks : 0L;
+                long t2 = File.Exists(f2) ? File.GetLastWriteTimeUtc(f2).Ticks : 0L;
+                string sig = f1 + "|" + t1 + "|" + f2 + "|" + t2;
+                if (sig == ultimaAssinaturaCsv && niveisGamma.Count > 0) return false;
                 if(File.Exists(f1)) {
                     string txt1 = LerTextoCompartilhado(f1);
                     if (!string.IsNullOrWhiteSpace(txt1)) {
@@ -229,8 +445,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                         }
                     }
                 }
-                if(novos.Count>0) niveisGamma=novos;
+                if(novos.Count>0) {
+                    niveisGamma=novos;
+                    ultimaAssinaturaCsv = sig;
+                    return true;
+                }
             } catch{}
+            return false;
         }
         private string LerTextoCompartilhado(string path) {
             using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))

@@ -297,3 +297,49 @@ git push origin main
 - **`python -m unittest -v test_gex_profile_v7_cloud.py`:** **51/51 OK** (`9.850s`).
 - **`gex-dashboard` (`master`) — Commit `2bcde91`:** `public/ebooks/niveisgammapro/DICIONARIO_NIVEIS_GAMMA_PRO.md`.
 - **`gex_profile_v7` (`main`) — Commit desta atualização:** `instalador_cloud2.0.py` e `RELATORIO_CORRECOES_V9.md`. *(Lembrete: executar `instalador_cloud2.0.py` e pressionar **F5** no NinjaScript Editor do NinjaTrader 8 para recompilar o indicador; push remoto aguardando usuário.)*
+
+---
+
+## 23. Glossário Macro/Portunhol, Correção SVG da Curva de Juros & E-book Completo de Microestrutura, MBO e Contratos CME/Globais (`17/11/2026 14:29`)
+
+### 23.1. Correção Visual SVG (`curva_juros_institucional.svg`)
+- Corrigido o vazamento de texto à direita em **`(expectativa estrutural)`** na caixa das 4 métricas institucionais de `gex-dashboard/public/ebooks/indicadores_macro_darkpool/imagens/curva_juros_institucional.svg`: largura da caixa ampliada (`x=48`, `width=596`), `Spot Zero Bootstrapped + Forward 5y5y` quebrado em duas linhas com `font-size="10.2"` / `"10"`. Validado via `xml.etree.ElementTree.parse` (`XML=OK`, `backticks=0`).
+
+### 23.2. Glossário de Siglas e Termos Macro + "Portunhol de Tela" (`Deflação vs. Inflação`)
+- **`c:\Users\alanb\source\gex-dashboard\DOCUMENTACAO_TRADING\INDICADORES_MACROECONOMICOS\GLOSSARIO_SIGLAS_TERMOS_PAINEL_MACRO.md`:** Arquivo separado na pasta `INDICADORES_MACROECONOMICOS` explicando em linguagem direta `Mag 7`, `Beta Alto`, `Proxy`, `RVOL`, `Short Float/Ratio/Squeeze`, `Bull/Bear Flattening & Steepening`, `5y5y Forward`, `Spot Zero`, `Butterfly 2s5s10s`, `bps`, `Inflação / Desinflação / Deflação / Estagflação`, `Hawkish/Dovish`, `QE/QT`, `CPI/PCE/PPI/NFP`, `DXY`, `VIX/VXX/UVXY`, `HYG/LQD`, `Market Internals ($ADD/$TICK)`, `FINRA Reg SHO/TRF/Condition Code D`, `MOC` e `Regra do 16`. *(Observação: a pasta pai `c:\Users\alanb\source\gex-dashboard` não é repositório Git — arquivo salvo diretamente em disco.)*
+- **`gex-dashboard/public/ebooks/indicadores_macro_darkpool/pratica.md` (Seção 8 adicionada sem apagar conteúdo anterior):** Explicação prática da diferença entre **Inflação**, **Desinflação**, **Deflação** e **Estagflação**, mais lista rápida "Portunhol de Tela".
+
+### 23.3. Novo E-book Completo: `gex-dashboard/public/ebooks/microestrutura_mercados_cme/`
+- **`teoria.md`:** Microestrutura completa do `CLOB / DOM` CME (`FIFO` em `ES/NQ/GC/CL` vs. `Pro-Rata` em Treasuries curtos), **`MBO` (*Market-By-Order*, feed CME MDP 3.0)** vs. **`MBP` (*Level 2*)**, leitura de lotes individuais, **Icebergs Nativos CME**, *Pulling vs. Absorption*, ranking de liquidez global, participantes reais com nomes e objetivos (**Market Makers / Primary Dealers / HFTs:** Citadel, Virtu, Jane Street, Optiver, SIG, IMC, Jump, HRT, DRW, XTX, JPM, Goldman; **Market Takers / Fundos / Hedgers:** Bridgewater, Millennium, BlackRock, PIMCO, CTAs, Exxon, Vitol, Cargill, ADM, JBS), arbitragens (*Soybean Crush* `ZS/ZM/ZL`, *3:2:1 Crack Spread* `CL/RB/HO`, *EFP* `GC/SI`, *Index Arb* & *Delta-Hedging GEX*), conexões intermercados e ponte cultural EUA ↔ **B3 (`WIN/IND`, `WDO/DOL`, `DI1`, `EWZ`)**.
+- **`pratica.md`:** Precificação de índices (`Fair Value` e Mini vs. Micro `1/10`) + **Tabelas completas A–F** cobrindo **Índices (`ES/MES`, `NQ/MNQ`, `YM/MYM`, `RTY/M2K`)**, **Metais (`GC/MGC/1OZ`, `SI/SIL`, `PL`, `PA`, `HG/MHG`)**, **Energia (`CL/MCL`, `BZ`, `RB`, `HO`, `NG/QG/MNG`)**, **Grãos (`ZC/XC`, `ZS/XK`, `ZL`, `ZM`, `ZW/XW`, `ZO`, `ZR`)**, **Pecuária (`LE`, `GF`, `HE`)**, **Treasuries CBOT em 32 avos (`UB`, `ZB`, `ZN`, `ZF`, `ZT`)**, **Moedas CME (`6E/M6E`, `6J/M6J`, `6B/M6B`, `6A/M6A`, `6C`, `6S`, `6L`) + Micro Cripto (`MBT/MET`)**, **SOFR (`SR3`)**, **Softs globais na ICE (`KC`, `SB`, `CC`, `CT`)** e **B3 (`IND/WIN`, `DOL/WDO`, `DI1`)**, além de regras práticas com **`MBO`**, `MoneyRiskPro`, `DeltaCumulativePro` e `NiveisGammaPro`.
+- **Recursos Visuais (4 arquivos em `imagens/`):** `market_makers_vs_takers.jpg`, `cme_ativos_ilustrados.jpg`, `fluxograma_conexao_mercados.svg` e `ilustracao_contratos_cme.svg` (todos os SVGs validados via `xml.etree.ElementTree.parse` e todas as referências de imagem conferidas em disco).
+
+### 23.4. Commits & Observação sobre `/biblioteca` (`17/11/2026 14:29`)
+- **`gex-dashboard` (`master`) — Commit `f0df1ff`:** `public/ebooks/indicadores_macro_darkpool/imagens/curva_juros_institucional.svg`, `public/ebooks/indicadores_macro_darkpool/pratica.md` e toda a pasta `public/ebooks/microestrutura_mercados_cme/` (8 arquivos no commit).
+- **Observação:** `app/biblioteca/page.tsx` foi preservado intacto porque já possuía alterações locais não comitadas no working tree (nas quais o `eslint` apontou 2 erros pré-existentes de `react-hooks/set-state-in-effect`); por isso o módulo `microestrutura_mercados_cme` ainda não foi adicionado à array `books` do menu lateral até o usuário decidir sobre aquelas edições locais.
+- **`gex_profile_v7` (`main`) — Commit anterior absorvido abaixo (`14:39`).**
+
+---
+
+## 24. Upgrade Visual `Neon Glow 3D` Ultra-Leve no `NiveisEstruturaPro` (`instalador_cloud2.0.py`) (`17/11/2026 14:39`)
+
+### 24.1. Problema Identificado & Meta de Hardware (`Vivobook Ryzen 5 7520U / 8GB RAM / 486MB VRAM`)
+- As barras horizontais do **`NiveisEstruturaPro`** eram desenhadas como retângulos chapados (`FillRectangle`, `3.5px–7px`), sem gradiente, com bordas amarelas rígidas nas barras fortes e sem proteção anti-colisão nas etiquetas de texto (`-$4,8M [OPEN$]`, `-$4,4M [OPEN$]`).
+- Como o notebook executa o **NinjaTrader 8 + MZPack Footprint** com **7,28 GB de RAM utilizáveis e 486 MB de VRAM compartilhada Radeon**, efeitos pesados de shader GPU (`GaussianBlur`, timers a 60fps ou alocação de `Brush` por barra a cada tick) causariam travamentos.
+
+### 24.2. Melhorias Gráficas & Otimizações Aplicadas no `NiveisEstruturaPro` (`CODE_ESTRUTURA`)
+- **Degradê Horizontal em GPU Pré-Cacheado (`LinearGradientBrush` + `GradientStopCollection`):** 4 gradientes cacheados fora do loop (Calls regulares, Calls fortes `>65%`/Walls, Puts regulares e Puts fortes), variando de base profunda translúcida na escala direita até ponta **Ciano-Menta Neon** (Calls) ou **Magenta-Rosa Neon** (Puts). Como todas as barras compartilham a âncora à direita (`canvasRight`), **nenhum brush é recriado por frame** (apenas `.StartPoint` / `.EndPoint` são atualizados se a largura do painel mudar).
+- **Efeito Neon Glow em Camadas Geométricas (Zero Shader VRAM):** `FillRoundedRectangle` com cantos arredondados (`RadiusX/Y`) + sub-camada halo translúcida atrás das barras dominantes + **filete specular Glass 3D (`1.25px`)** no topo + **ponta luminosa (*Leading Edge Cap*)** na extremidade esquerda (em **Âmbar/Ouro** automático quando `[OPEN$]`).
+- **Pílulas Arredondadas & Anti-Colisão Vertical:** Etiquetas `CW`/`PW`/`ZG`/`-$X.XM [OPEN$]` agora usam pílulas escuras arredondadas com faixa lateral colorida e verificação `TagColide` (`usedTagRects`), deslocando apenas a etiqueta com linha guia quando strikes ficam colados — mantendo as barras sempre travadas no preço exato do strike.
+- **Throttle Inteligente de I/O & VRAM:**
+  - `LerTudo()` agora checa os timestamps UTC de `NiveisGamma_*.csv` e `GammaProfile_*.csv` (`File.GetLastWriteTimeUtc`), retornando `false` (sem reler CSV, sem alocar listas e sem chamar `ForceRefresh()`) quando os arquivos não mudaram.
+  - `SharpDX.DirectWrite.Factory` agora é único e cacheado, descartado corretamente em `LimparRecursos()` tanto em `OnRenderTargetChanged()` quanto em `State.Terminated`.
+- **Novas Propriedades em `Propriedades -> Visual`:**
+  - **`EfeitoVisual`**: `"NEON_GLOW"` (padrão, com fallback seguro mesmo para templates antigos salvos no NT8), `"GLASS_3D"` (gradiente + brilho sem halo) ou `"ECO"` (ultra-leve reto para economia máxima de bateria/GPU).
+  - **`EspessuraMax`**: espessura máxima da barra dominante em pixels (padrão `10 px`, escalando proporcionalmente de `4.4px` a `10px`).
+
+### 24.3. Validações & Commits (`17/11/2026 14:39`)
+- **`py_compile instalador_cloud2.0.py`:** **OK** (`PY_COMPILE_OK`).
+- **Balanço de chaves `{`/`}` em todos os 9 blocos C# (`CODE_*`):** **OK** (`CODE_ESTRUTURA` 450 linhas, `{=107 }=107`, `diff=0`; todos os 9 blocos com `diff=0`).
+- **`python -m unittest -v test_gex_profile_v7_cloud.py`:** **51/51 OK** em `4.792s`.
+- **`gex_profile_v7` (`main`) — Commit desta atualização:** `instalador_cloud2.0.py` e `RELATORIO_CORRECOES_V9.md`. *(Lembrete: executar `python instalador_cloud2.0.py` e pressionar **F5** no NinjaScript Editor do NinjaTrader 8 para aplicar o novo visual no gráfico.)*
