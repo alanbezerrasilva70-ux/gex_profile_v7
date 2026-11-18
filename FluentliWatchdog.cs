@@ -191,7 +191,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (State == State.SetDefaults)
             {
                 Description = @"Rastreador Institucional de Icebergs Dinâmicos (DOM Reload), Sintéticos (Fracionados) e Rastreio de Defesa no Preço";
-                Name = "FluentliWatchdog";
+                Name = "VeltrixQuant - FluentliWatchdog";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
                 DrawOnPricePanel = true;

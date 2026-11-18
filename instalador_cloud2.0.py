@@ -1,5 +1,9 @@
 import os
+import shutil
 import tkinter.messagebox as messagebox
+
+MARCA_PASTA = "VeltrixQuant"
+DASHBOARD_URL_PADRAO = os.environ.get("VELTRIX_DASHBOARD_URL", "http://localhost:3000").strip() or "http://localhost:3000"
 
 # ==============================================================================
 # 1. LOCALIZADOR INTELIGENTE DE PASTA (NinjaTrader 8)
@@ -82,7 +86,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         protected override void OnStateChange() {
             if (State == State.SetDefaults) {
-                Name = "NiveisEstruturaPro"; Calculate = Calculate.OnEachTick; IsOverlay = true;
+                Name = "VeltrixQuant - NiveisEstruturaPro"; Calculate = Calculate.OnEachTick; IsOverlay = true;
                 Opacidade = 58; LarguraMax = 300; VencimentoDTE = "ALL"; ModoHistograma = "GAMMA";
                 EfeitoVisual = "NEON_GLOW"; EspessuraMax = 10;
             } else if (State == State.DataLoaded) {
@@ -542,7 +546,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         protected override void OnStateChange() {
             if (State == State.SetDefaults) {
-                Name = "NiveisGammaPro"; Calculate = Calculate.OnEachTick; IsOverlay = true; DisplayInDataBox = true; DrawOnPricePanel = true; ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
+                Name = "VeltrixQuant - NiveisGammaPro"; Calculate = Calculate.OnEachTick; IsOverlay = true; DisplayInDataBox = true; DrawOnPricePanel = true; ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
                 CorCallWall = System.Windows.Media.Brushes.Cyan; CorPutWall = System.Windows.Media.Brushes.Magenta; MargemDireitaTags = 370;
             } else if (State == State.Terminated) {
                 LimparRecursos();
@@ -977,7 +981,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         protected override void OnStateChange() {
             if(State==State.SetDefaults){ 
-                Name="MoneyRiskPro"; 
+                Name="VeltrixQuant - MoneyRiskPro"; 
                 Description="Versão V76 - Risco Institucional Avançado";
                 Calculate = Calculate.OnBarClose; 
                 IsOverlay=true; 
@@ -1180,7 +1184,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (State == State.SetDefaults)
             {
                 Description = "RTH Vertical Strip (Gold V65)";
-                Name = "DailyOHLCPro";
+                Name = "VeltrixQuant - DailyOHLCPro";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = true;
                 DrawOnPricePanel = true;
@@ -1280,7 +1284,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (State == State.SetDefaults)
             {
                 Description = "Globex Strategy (Lines Only)";
-                Name = "GlobexRangePro";
+                Name = "VeltrixQuant - GlobexRangePro";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = true;
                 DrawOnPricePanel = true;
@@ -1402,7 +1406,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         protected override void OnStateChange() {
             if (State == State.SetDefaults) {
-                Name = "VolatilidadeImplicitaPro"; 
+                Name = "VeltrixQuant - VolatilidadeImplicitaPro"; 
                 Description = "Plota faixas estimadas de 1, 2 e 3 desvios da IV-base, ancoradas na abertura da sessão.";
                 Calculate = Calculate.OnEachTick; 
                 IsOverlay = true;
@@ -1639,7 +1643,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (State == State.SetDefaults)
             {
                 Description = @"Usa o VIX automaticamente apenas em ES/MES. Outros ativos exigem volatilidade manual apropriada.";
-                Name = "FluentliExpectedMove";
+                Name = "VeltrixQuant - FluentliExpectedMove";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = true;
                 DisplayInDataBox = false;
@@ -1921,7 +1925,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (State == State.SetDefaults)
             {
                 Description = "VWAP Institucional Welford com 4 Bandas Proporcionais ao Desvio Maximo";
-                Name = "VWAPInstitucionalPro";
+                Name = "VeltrixQuant - VWAPInstitucionalPro";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
                 DrawOnPricePanel = true;
@@ -2207,7 +2211,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (State == State.SetDefaults)
             {
                 Description = "🔴🟢 DELTA CUMULATIVE PRO v2.0 - Fluxo de Agressão (Compatível com Footprint)";
-                Name = "DeltaCumulativePro";
+                Name = "VeltrixQuant - DeltaCumulativePro";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = false;
                 DrawOnPricePanel = false;
@@ -2576,7 +2580,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (State == State.SetDefaults)
             {
                 Description = @"Rastreador Institucional de Icebergs Dinâmicos (DOM Reload), Sintéticos (Fracionados) e Rastreio de Defesa no Preço";
-                Name = "FluentliWatchdog";
+                Name = "VeltrixQuant - FluentliWatchdog";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
                 DrawOnPricePanel = true;
@@ -3314,8 +3318,2376 @@ namespace NinjaTrader.NinjaScript.Indicators
 """
 
 # ==============================================================================
-# ESCREVENDO TUDO NO DISCO
+# 11. DARK POOL BEAMS PRO (FEIXES LILAS + FINRA BARRA DE FORCA + CORRELACAO)
 # ==============================================================================
+CODE_DARKPOOL_BEAMS = r'''using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.IO;
+using System.Net;
+using System.Text;
+using System.Threading;
+using System.Windows.Media;
+using System.Windows.Threading;
+using System.Xml.Serialization;
+using NinjaTrader.Cbi;
+using NinjaTrader.Data;
+using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.NinjaScript;
+using SharpDX;
+using SharpDX.Direct2D1;
+using SharpDX.DirectWrite;
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+    public class DarkPoolBeamsPro : Indicator
+    {
+        private class DpBeam
+        {
+            public string Etf;
+            public string FutureTarget;
+            public string TimeEt;
+            public string TimeBrt;
+            public string DateLabel;
+            public bool IsToday;
+            public double EtfPrice;
+            public double ProjectedFuture;
+            public double BarVolume;
+            public double NotionalM;
+            public double RvolBar;
+            public double AbsorptionScore;
+            public string SideBias;
+            public string Classification;
+        }
+
+        private class FinraSummary
+        {
+            public bool HasData;
+            public string Symbol;
+            public string FutureTarget;
+            public string Date;
+            public double TotalVol;
+            public double ShortVol;
+            public double NonShortVol;
+            public double ShortPct;
+            public double NonShortPct;
+            public double Price;
+            public double NotionalM;
+            public string FlowTag;
+            public string Signal;
+        }
+
+        private sealed class VeltrixTimeoutWebClient : WebClient
+        {
+            private readonly int timeoutMs;
+            public VeltrixTimeoutWebClient(int timeoutMs)
+            {
+                this.timeoutMs = timeoutMs;
+            }
+
+            protected override WebRequest GetWebRequest(Uri address)
+            {
+                ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072 | (SecurityProtocolType)768 | SecurityProtocolType.Tls;
+                WebRequest req = base.GetWebRequest(address);
+                if (req != null) req.Timeout = timeoutMs;
+                HttpWebRequest http = req as HttpWebRequest;
+                if (http != null)
+                {
+                    http.UserAgent = "VeltrixQuant-NT8/1.0";
+                    http.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+                }
+                return req;
+            }
+        }
+
+        private sealed class VeltrixJsonParser
+        {
+            private readonly string json;
+            private int idx;
+
+            private VeltrixJsonParser(string src)
+            {
+                json = src ?? "";
+                idx = 0;
+            }
+
+            public static object Parse(string src)
+            {
+                if (string.IsNullOrEmpty(src)) return null;
+                VeltrixJsonParser p = new VeltrixJsonParser(src);
+                return p.ParseValue();
+            }
+
+            private void SkipWs()
+            {
+                while (idx < json.Length && char.IsWhiteSpace(json[idx])) idx++;
+            }
+
+            private object ParseValue()
+            {
+                SkipWs();
+                if (idx >= json.Length) return null;
+                char c = json[idx];
+                if (c == '{') return ParseObject();
+                if (c == '[') return ParseArray();
+                if (c == '"') return ParseString();
+                if (c == 't') { idx += 4; return true; }
+                if (c == 'f') { idx += 5; return false; }
+                if (c == 'n') { idx += 4; return null; }
+                return ParseNumber();
+            }
+
+            private Dictionary<string, object> ParseObject()
+            {
+                Dictionary<string, object> map = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                idx++;
+                while (idx < json.Length)
+                {
+                    SkipWs();
+                    if (idx >= json.Length) break;
+                    if (json[idx] == '}') { idx++; break; }
+                    if (json[idx] == ',') { idx++; continue; }
+                    string key = ParseString();
+                    SkipWs();
+                    if (idx < json.Length && json[idx] == ':') idx++;
+                    object val = ParseValue();
+                    if (key != null) map[key] = val;
+                }
+                return map;
+            }
+
+            private List<object> ParseArray()
+            {
+                List<object> list = new List<object>();
+                idx++;
+                while (idx < json.Length)
+                {
+                    SkipWs();
+                    if (idx >= json.Length) break;
+                    if (json[idx] == ']') { idx++; break; }
+                    if (json[idx] == ',') { idx++; continue; }
+                    list.Add(ParseValue());
+                }
+                return list;
+            }
+
+            private string ParseString()
+            {
+                if (idx >= json.Length || json[idx] != '"') return string.Empty;
+                idx++;
+                StringBuilder sb = new StringBuilder();
+                while (idx < json.Length)
+                {
+                    char c = json[idx++];
+                    if (c == '"') break;
+                    if (c == '\\' && idx < json.Length)
+                    {
+                        char esc = json[idx++];
+                        switch (esc)
+                        {
+                            case '"': sb.Append('"'); break;
+                            case '\\': sb.Append('\\'); break;
+                            case '/': sb.Append('/'); break;
+                            case 'b': sb.Append('\b'); break;
+                            case 'f': sb.Append('\f'); break;
+                            case 'n': sb.Append('\n'); break;
+                            case 'r': sb.Append('\r'); break;
+                            case 't': sb.Append('\t'); break;
+                            case 'u':
+                                if (idx + 4 <= json.Length)
+                                {
+                                    int hex;
+                                    if (int.TryParse(json.Substring(idx, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out hex))
+                                        sb.Append((char)hex);
+                                    idx += 4;
+                                }
+                                break;
+                            default: sb.Append(esc); break;
+                        }
+                    }
+                    else
+                    {
+                        sb.Append(c);
+                    }
+                }
+                return sb.ToString();
+            }
+
+            private object ParseNumber()
+            {
+                int start = idx;
+                while (idx < json.Length)
+                {
+                    char c = json[idx];
+                    if ((c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.' || c == 'e' || c == 'E')
+                        idx++;
+                    else
+                        break;
+                }
+                string token = json.Substring(start, Math.Max(0, idx - start));
+                double num;
+                if (double.TryParse(token, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
+                    return num;
+                return 0.0;
+            }
+
+            public static Dictionary<string, object> AsDict(object obj) { return obj as Dictionary<string, object>; }
+            public static List<object> AsList(object obj) { return obj as List<object>; }
+
+            public static string Str(Dictionary<string, object> d, string key, string defVal)
+            {
+                if (d == null) return defVal;
+                object v;
+                if (!d.TryGetValue(key, out v) || v == null) return defVal;
+                return Convert.ToString(v, CultureInfo.InvariantCulture) ?? defVal;
+            }
+
+            public static double Num(Dictionary<string, object> d, string key, double defVal)
+            {
+                if (d == null) return defVal;
+                object v;
+                if (!d.TryGetValue(key, out v) || v == null) return defVal;
+                if (v is double) return (double)v;
+                if (v is int) return (int)v;
+                double parsed;
+                if (double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out parsed))
+                    return parsed;
+                return defVal;
+            }
+
+            public static bool Bool(Dictionary<string, object> d, string key, bool defVal)
+            {
+                if (d == null) return defVal;
+                object v;
+                if (!d.TryGetValue(key, out v) || v == null) return defVal;
+                if (v is bool) return (bool)v;
+                return defVal;
+            }
+        }
+
+        private readonly object dataLock = new object();
+        private List<DpBeam> activeBeams = new List<DpBeam>();
+        private FinraSummary finraSummary = new FinraSummary();
+        private double latestEtfRefPrice = 0;
+        private string feedStatusMsg = "AGUARDANDO CONEXAO...";
+        private string resolvedUrlInUse = "http://localhost:3000";
+        private bool apiOnline = false;
+        private DateTime lastSyncLocal = DateTime.MinValue;
+
+        private string chartRoot = "ES";
+        private string targetEtf = "SPY";
+        private string targetDisplay = "S&P 500";
+        private bool isEtfDirectChart = false;
+
+        private Timer pollTimer;
+        private int isFetchingFlag = 0;
+        private DispatcherTimer pulseTimer;
+
+        // SharpDX GPU resources
+        private SharpDX.Direct2D1.LinearGradientBrush dxGradLilac;
+        private SharpDX.Direct2D1.LinearGradientBrush dxGradBid;
+        private SharpDX.Direct2D1.LinearGradientBrush dxGradAsk;
+        private SharpDX.Direct2D1.GradientStopCollection dxStopsLilac;
+        private SharpDX.Direct2D1.GradientStopCollection dxStopsBid;
+        private SharpDX.Direct2D1.GradientStopCollection dxStopsAsk;
+
+        private SharpDX.Direct2D1.SolidColorBrush dxAuraLilac;
+        private SharpDX.Direct2D1.SolidColorBrush dxAuraBid;
+        private SharpDX.Direct2D1.SolidColorBrush dxAuraAsk;
+        private SharpDX.Direct2D1.SolidColorBrush dxCoreLilac;
+        private SharpDX.Direct2D1.SolidColorBrush dxCoreBid;
+        private SharpDX.Direct2D1.SolidColorBrush dxCoreAsk;
+        private SharpDX.Direct2D1.SolidColorBrush dxPillBg;
+        private SharpDX.Direct2D1.SolidColorBrush dxPillBorder;
+        private SharpDX.Direct2D1.SolidColorBrush dxTextBright;
+        private SharpDX.Direct2D1.SolidColorBrush dxTextMuted;
+        private SharpDX.Direct2D1.SolidColorBrush dxBarTrack;
+        private SharpDX.Direct2D1.SolidColorBrush dxFinraCardBg;
+        private SharpDX.Direct2D1.SolidColorBrush dxLeader;
+        private SharpDX.DirectWrite.Factory dxDwFactory;
+        private SharpDX.DirectWrite.TextFormat dxFontMain;
+        private SharpDX.DirectWrite.TextFormat dxFontSmall;
+        private SharpDX.DirectWrite.TextFormat dxFontTitle;
+
+        private readonly List<SharpDX.RectangleF> usedTagsScratch = new List<SharpDX.RectangleF>();
+
+        #region Propriedades
+        [NinjaScriptProperty]
+        [Display(Name = "URL Dashboard (AUTO ou URL)", Description = "AUTO le VeltrixQuant_URL.txt ou localhost:3000", Order = 1, GroupName = "01. Conexao API")]
+        public string DashboardUrl { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(5, 300)]
+        [Display(Name = "Atualizar a cada (Segundos)", Order = 2, GroupName = "01. Conexao API")]
+        public int AtualizarSegundos { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 20)]
+        [Display(Name = "Max Feixes Dark Pool no Grafico", Order = 3, GroupName = "02. Feixes e Pulso")]
+        public int MaxFeixesVisiveis { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(6, 200)]
+        [Display(Name = "Largura do Feixe (Barras)", Order = 4, GroupName = "02. Feixes e Pulso")]
+        public int LarguraFeixeBarras { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(0.0, 5000.0)]
+        [Display(Name = "Notional Minimo ($M, 0=Todos)", Order = 5, GroupName = "02. Feixes e Pulso")]
+        public double NotionalMinMilhoes { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Ativar Feixe Piscante (Pulso)", Order = 6, GroupName = "02. Feixes e Pulso")]
+        public bool AtivarFeixePiscante { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(4, 600)]
+        [Display(Name = "Distancia Pulso Forte (Ticks)", Order = 7, GroupName = "02. Feixes e Pulso")]
+        public int DistanciaPulsoTicks { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Mostrar Card FINRA + Barra de Forca", Order = 8, GroupName = "03. Visual e HUD")]
+        public bool MostrarBarraFinra { get; set; }
+
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "Cor Base dos Feixes (Lilas)", Order = 9, GroupName = "03. Visual e HUD")]
+        public Brush CorFeixePrincipal { get; set; }
+
+        [Browsable(false)]
+        public string CorFeixePrincipalSerialize
+        {
+            get { return Serialize.BrushToString(CorFeixePrincipal); }
+            set { CorFeixePrincipal = Serialize.StringToBrush(value); }
+        }
+        #endregion
+
+        protected override void OnStateChange()
+        {
+            if (State == State.SetDefaults)
+            {
+                Description = "Feixes de Luz Lilas Dark Pool 1m (SEC/FINRA) correlacionados automaticamente a Futuros, Bonds, Metais e Acoes.";
+                Name = "VeltrixQuant - DarkPoolBeamsPro";
+                Calculate = Calculate.OnEachTick;
+                IsOverlay = true;
+                IsAutoScale = false;
+                DisplayInDataBox = false;
+                DrawOnPricePanel = true;
+                PaintPriceMarkers = false;
+                IsSuspendedWhileInactive = true;
+
+                DashboardUrl = "AUTO";
+                AtualizarSegundos = 20;
+                MaxFeixesVisiveis = 8;
+                LarguraFeixeBarras = 42;
+                NotionalMinMilhoes = 0.0;
+                AtivarFeixePiscante = true;
+                DistanciaPulsoTicks = 48;
+                MostrarBarraFinra = true;
+                CorFeixePrincipal = Brushes.MediumOrchid;
+            }
+            else if (State == State.DataLoaded)
+            {
+                ResolveTargetBasket();
+                resolvedUrlInUse = ResolveDashboardBaseUrl();
+                StartPolling();
+                StartPulseTimer();
+            }
+            else if (State == State.Terminated)
+            {
+                StopTimers();
+                LimparRecursosRender();
+            }
+        }
+
+        protected override void OnBarUpdate()
+        {
+        }
+
+        private void ResolveTargetBasket()
+        {
+            string raw = (Instrument != null && Instrument.MasterInstrument != null && !string.IsNullOrEmpty(Instrument.MasterInstrument.Name))
+                ? Instrument.MasterInstrument.Name.Trim().ToUpperInvariant()
+                : "ES";
+            string[] parts = raw.Split(new char[] { ' ', '-', '.', '/' }, StringSplitOptions.RemoveEmptyEntries);
+            chartRoot = (parts.Length > 0) ? parts[0] : raw;
+
+            isEtfDirectChart = false;
+            if (chartRoot == "ES" || chartRoot == "MES" || chartRoot == "SPX" || chartRoot == "SPY")
+            {
+                targetEtf = "SPY"; targetDisplay = "S&P 500"; isEtfDirectChart = (chartRoot == "SPY");
+            }
+            else if (chartRoot == "NQ" || chartRoot == "MNQ" || chartRoot == "NDX" || chartRoot == "QQQ")
+            {
+                targetEtf = "QQQ"; targetDisplay = "Nasdaq 100"; isEtfDirectChart = (chartRoot == "QQQ");
+            }
+            else if (chartRoot == "RTY" || chartRoot == "M2K" || chartRoot == "RUT" || chartRoot == "IWM")
+            {
+                targetEtf = "IWM"; targetDisplay = "Russell 2000"; isEtfDirectChart = (chartRoot == "IWM");
+            }
+            else if (chartRoot == "YM" || chartRoot == "MYM" || chartRoot == "DJI" || chartRoot == "DIA")
+            {
+                targetEtf = "DIA"; targetDisplay = "Dow Jones"; isEtfDirectChart = (chartRoot == "DIA");
+            }
+            else if (chartRoot == "GC" || chartRoot == "MGC" || chartRoot == "XAU" || chartRoot == "GLD")
+            {
+                targetEtf = "GLD"; targetDisplay = "Ouro (GC)"; isEtfDirectChart = (chartRoot == "GLD");
+            }
+            else if (chartRoot == "ZB" || chartRoot == "UB" || chartRoot == "TLT")
+            {
+                targetEtf = "TLT"; targetDisplay = "Bonds 20Y (ZB)"; isEtfDirectChart = (chartRoot == "TLT");
+            }
+            else if (chartRoot == "ZN" || chartRoot == "ZF" || chartRoot == "ZT" || chartRoot == "IEF")
+            {
+                targetEtf = "IEF"; targetDisplay = "Notes 7-10Y (ZN)"; isEtfDirectChart = (chartRoot == "IEF");
+            }
+            else if (chartRoot == "CL" || chartRoot == "MCL" || chartRoot == "USO")
+            {
+                targetEtf = "USO"; targetDisplay = "WTI Crude (CL)"; isEtfDirectChart = (chartRoot == "USO");
+            }
+            else
+            {
+                targetEtf = chartRoot; targetDisplay = chartRoot; isEtfDirectChart = true;
+            }
+        }
+
+        private string ResolveDashboardBaseUrl()
+        {
+            string manual = (DashboardUrl ?? string.Empty).Trim();
+            if (!string.IsNullOrEmpty(manual) && !string.Equals(manual, "AUTO", StringComparison.OrdinalIgnoreCase))
+                return manual.TrimEnd('/');
+
+            try
+            {
+                string envUrl = Environment.GetEnvironmentVariable("VELTRIX_DASHBOARD_URL");
+                if (!string.IsNullOrEmpty(envUrl)) return envUrl.Trim().TrimEnd('/');
+
+                string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                string[] cfgPaths = new string[]
+                {
+                    Path.Combine(docs, "NinjaTrader 8", "bin", "Custom", "Indicators", "VeltrixQuant", "VeltrixQuant_URL.txt"),
+                    Path.Combine(docs, "NinjaTrader 8", "VeltrixQuant_URL.txt"),
+                    Path.Combine(docs, "VeltrixQuant_URL.txt")
+                };
+                for (int i = 0; i < cfgPaths.Length; i++)
+                {
+                    if (File.Exists(cfgPaths[i]))
+                    {
+                        string fileUrl = File.ReadAllText(cfgPaths[i]).Trim();
+                        if (!string.IsNullOrEmpty(fileUrl) && fileUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                            return fileUrl.TrimEnd('/');
+                    }
+                }
+            }
+            catch { }
+            return "http://localhost:3000";
+        }
+
+        private void StartPolling()
+        {
+            int intervalMs = Math.Max(5000, AtualizarSegundos * 1000);
+            pollTimer = new Timer(_ => FetchDarkPoolAsync(), null, 350, intervalMs);
+        }
+
+        private void StartPulseTimer()
+        {
+            if (!AtivarFeixePiscante || ChartControl == null) return;
+            ChartControl.Dispatcher.InvokeAsync(new Action(() =>
+            {
+                if (State == State.Terminated || ChartControl == null) return;
+                pulseTimer = new DispatcherTimer(DispatcherPriority.Render, ChartControl.Dispatcher);
+                pulseTimer.Interval = TimeSpan.FromMilliseconds(220);
+                pulseTimer.Tick += (s, ev) =>
+                {
+                    if (ChartControl == null || State != State.Realtime) return;
+                    bool hasBeams;
+                    lock (dataLock) { hasBeams = activeBeams.Count > 0; }
+                    if (hasBeams) ChartControl.InvalidateVisual();
+                };
+                pulseTimer.Start();
+            }));
+        }
+
+        private void StopTimers()
+        {
+            try
+            {
+                if (pollTimer != null) { pollTimer.Dispose(); pollTimer = null; }
+            }
+            catch { }
+
+            if (pulseTimer != null && ChartControl != null)
+            {
+                try
+                {
+                    ChartControl.Dispatcher.InvokeAsync(new Action(() =>
+                    {
+                        if (pulseTimer != null)
+                        {
+                            pulseTimer.Stop();
+                            pulseTimer = null;
+                        }
+                    }));
+                }
+                catch { }
+            }
+        }
+
+        private void FetchDarkPoolAsync()
+        {
+            if (State == State.Terminated) return;
+            if (Interlocked.CompareExchange(ref isFetchingFlag, 1, 0) != 0) return;
+
+            try
+            {
+                string baseUrl = ResolveDashboardBaseUrl();
+                string endpoint = baseUrl + "/api/macro-darkpool";
+                string payload;
+                using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(7000))
+                {
+                    wc.Encoding = Encoding.UTF8;
+                    payload = wc.DownloadString(endpoint);
+                }
+
+                Dictionary<string, object> root = VeltrixJsonParser.AsDict(VeltrixJsonParser.Parse(payload));
+                Dictionary<string, object> dpObj = (root != null) ? VeltrixJsonParser.AsDict(root.ContainsKey("darkPool") ? root["darkPool"] : null) : null;
+                if (dpObj == null)
+                {
+                    lock (dataLock)
+                    {
+                        apiOnline = false;
+                        resolvedUrlInUse = baseUrl;
+                        feedStatusMsg = "RESPOSTA SEM DARKPOOL";
+                    }
+                    return;
+                }
+
+                List<object> rawBlocks = VeltrixJsonParser.AsList(dpObj.ContainsKey("proxyBlocks") ? dpObj["proxyBlocks"] : null);
+                Dictionary<string, object> finraObj = VeltrixJsonParser.AsDict(dpObj.ContainsKey("finra") ? dpObj["finra"] : null);
+                List<object> finraRows = (finraObj != null) ? VeltrixJsonParser.AsList(finraObj.ContainsKey("rows") ? finraObj["rows"] : null) : null;
+                string finraDate = VeltrixJsonParser.Str(finraObj, "date", string.Empty);
+
+                List<DpBeam> matchedBeams = new List<DpBeam>();
+                List<DpBeam> fallbackTltForZn = new List<DpBeam>();
+                double foundEtfPrice = 0;
+
+                if (rawBlocks != null)
+                {
+                    for (int i = 0; i < rawBlocks.Count; i++)
+                    {
+                        Dictionary<string, object> b = VeltrixJsonParser.AsDict(rawBlocks[i]);
+                        if (b == null) continue;
+                        string etf = VeltrixJsonParser.Str(b, "etf", string.Empty).ToUpperInvariant();
+                        string fut = VeltrixJsonParser.Str(b, "futureTarget", string.Empty).ToUpperInvariant();
+                        double notional = VeltrixJsonParser.Num(b, "notionalUsdMillions", 0.0);
+                        if (notional < NotionalMinMilhoes) continue;
+
+                        DpBeam item = new DpBeam
+                        {
+                            Etf = etf,
+                            FutureTarget = fut,
+                            TimeEt = VeltrixJsonParser.Str(b, "timeEt", string.Empty),
+                            TimeBrt = VeltrixJsonParser.Str(b, "timeBrt", string.Empty),
+                            DateLabel = VeltrixJsonParser.Str(b, "dateLabel", string.Empty),
+                            IsToday = VeltrixJsonParser.Bool(b, "isTodaySession", false),
+                            EtfPrice = VeltrixJsonParser.Num(b, "etfPrice", 0.0),
+                            ProjectedFuture = VeltrixJsonParser.Num(b, "projectedFutureLevel", 0.0),
+                            BarVolume = VeltrixJsonParser.Num(b, "barVolume", 0.0),
+                            NotionalM = notional,
+                            RvolBar = VeltrixJsonParser.Num(b, "rvolBar", 1.0),
+                            AbsorptionScore = VeltrixJsonParser.Num(b, "absorptionScore", 50.0),
+                            SideBias = VeltrixJsonParser.Str(b, "sideBias", "NEUTRAL CLUSTER").ToUpperInvariant(),
+                            Classification = VeltrixJsonParser.Str(b, "classification", string.Empty)
+                        };
+
+                        bool exactEtfMatch = (etf == targetEtf);
+                        bool targetContainsRoot = (!string.IsNullOrEmpty(fut) && (fut == chartRoot || fut.Contains(chartRoot + " ") || fut.Contains("(" + chartRoot + ")")));
+
+                        if (exactEtfMatch || targetContainsRoot)
+                        {
+                            matchedBeams.Add(item);
+                            if (foundEtfPrice <= 0 && item.EtfPrice > 0) foundEtfPrice = item.EtfPrice;
+                        }
+                        else if (targetEtf == "IEF" && etf == "TLT")
+                        {
+                            fallbackTltForZn.Add(item);
+                        }
+                    }
+                }
+
+                if (matchedBeams.Count == 0 && targetEtf == "IEF" && fallbackTltForZn.Count > 0)
+                    matchedBeams.AddRange(fallbackTltForZn);
+
+                matchedBeams.Sort((a, b) =>
+                {
+                    int c = b.AbsorptionScore.CompareTo(a.AbsorptionScore);
+                    return (c != 0) ? c : b.NotionalM.CompareTo(a.NotionalM);
+                });
+                if (matchedBeams.Count > MaxFeixesVisiveis)
+                    matchedBeams.RemoveRange(MaxFeixesVisiveis, matchedBeams.Count - MaxFeixesVisiveis);
+
+                FinraSummary summary = new FinraSummary { HasData = false, Date = finraDate };
+                if (finraRows != null)
+                {
+                    for (int i = 0; i < finraRows.Count; i++)
+                    {
+                        Dictionary<string, object> r = VeltrixJsonParser.AsDict(finraRows[i]);
+                        if (r == null) continue;
+                        string sym = VeltrixJsonParser.Str(r, "symbol", string.Empty).ToUpperInvariant();
+                        string fut = VeltrixJsonParser.Str(r, "futureTarget", string.Empty).ToUpperInvariant();
+                        if (sym == targetEtf || fut == chartRoot || (targetEtf == "IEF" && sym == "TLT" && !summary.HasData))
+                        {
+                            summary.HasData = true;
+                            summary.Symbol = sym;
+                            summary.FutureTarget = fut;
+                            summary.Date = VeltrixJsonParser.Str(r, "date", finraDate);
+                            summary.TotalVol = VeltrixJsonParser.Num(r, "totalVolume", 0.0);
+                            summary.ShortVol = VeltrixJsonParser.Num(r, "shortVolume", 0.0);
+                            summary.NonShortVol = VeltrixJsonParser.Num(r, "nonShortVolume", 0.0);
+                            summary.ShortPct = VeltrixJsonParser.Num(r, "shortPct", 50.0);
+                            summary.NonShortPct = VeltrixJsonParser.Num(r, "nonShortPct", 50.0);
+                            summary.Price = VeltrixJsonParser.Num(r, "price", 0.0);
+                            summary.NotionalM = VeltrixJsonParser.Num(r, "notionalUsdMillions", 0.0);
+                            summary.FlowTag = VeltrixJsonParser.Str(r, "flowTag", "NEUTRAL").ToUpperInvariant();
+                            summary.Signal = VeltrixJsonParser.Str(r, "signal", string.Empty);
+                            if (foundEtfPrice <= 0 && summary.Price > 0) foundEtfPrice = summary.Price;
+                            if (sym == targetEtf) break;
+                        }
+                    }
+                }
+
+                lock (dataLock)
+                {
+                    activeBeams = matchedBeams;
+                    finraSummary = summary;
+                    latestEtfRefPrice = foundEtfPrice;
+                    resolvedUrlInUse = baseUrl;
+                    apiOnline = true;
+                    lastSyncLocal = DateTime.Now;
+                    feedStatusMsg = (matchedBeams.Count > 0)
+                        ? ("ON · " + matchedBeams.Count + " FEIXES")
+                        : ("ON · SEM BLOCO (" + targetEtf + ")");
+                }
+
+                if (ChartControl != null)
+                {
+                    ChartControl.Dispatcher.InvokeAsync(new Action(() =>
+                    {
+                        if (ChartControl != null && State != State.Terminated)
+                            ChartControl.InvalidateVisual();
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (dataLock)
+                {
+                    apiOnline = false;
+                    string msg = ex.Message ?? "Erro HTTP";
+                    if (msg.Length > 34) msg = msg.Substring(0, 34);
+                    feedStatusMsg = "OFFLINE (" + msg + ")";
+                }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref isFetchingFlag, 0);
+            }
+        }
+
+        private double ResolveChartLevel(DpBeam beam, double currentClose)
+        {
+            if (isEtfDirectChart && beam.EtfPrice > 0)
+                return beam.EtfPrice;
+            if (!isEtfDirectChart && beam.Etf == targetEtf && beam.ProjectedFuture > 0)
+                return beam.ProjectedFuture;
+            if (beam.EtfPrice > 0 && currentClose > 0 && latestEtfRefPrice > 0)
+                return beam.EtfPrice * (currentClose / latestEtfRefPrice);
+            return (beam.ProjectedFuture > 0) ? beam.ProjectedFuture : beam.EtfPrice;
+        }
+
+        private void EnsureRenderResources()
+        {
+            if (RenderTarget == null) return;
+
+            if (dxDwFactory == null) dxDwFactory = new SharpDX.DirectWrite.Factory();
+            if (dxFontMain == null) dxFontMain = new SharpDX.DirectWrite.TextFormat(dxDwFactory, "Segoe UI", SharpDX.DirectWrite.FontWeight.SemiBold, SharpDX.DirectWrite.FontStyle.Normal, 10.5f);
+            if (dxFontSmall == null) dxFontSmall = new SharpDX.DirectWrite.TextFormat(dxDwFactory, "Segoe UI", SharpDX.DirectWrite.FontWeight.Normal, SharpDX.DirectWrite.FontStyle.Normal, 9.5f);
+            if (dxFontTitle == null) dxFontTitle = new SharpDX.DirectWrite.TextFormat(dxDwFactory, "Segoe UI", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 11.0f);
+
+            if (dxGradLilac == null)
+            {
+                SharpDX.Color baseCol = ToSharpColor(CorFeixePrincipal, 1.0f);
+                SharpDX.Direct2D1.GradientStop[] stopsLilac = new SharpDX.Direct2D1.GradientStop[]
+                {
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.00f, Color = new SharpDX.Color4(baseCol.R / 255f, baseCol.G / 255f, baseCol.B / 255f, 0.02f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.50f, Color = new SharpDX.Color4(baseCol.R / 255f, baseCol.G / 255f, baseCol.B / 255f, 0.28f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.90f, Color = new SharpDX.Color4(0.86f, 0.56f, 1.00f, 0.60f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 1.00f, Color = new SharpDX.Color4(0.97f, 0.85f, 1.00f, 0.78f) }
+                };
+                dxStopsLilac = new SharpDX.Direct2D1.GradientStopCollection(RenderTarget, stopsLilac);
+                dxGradLilac = new SharpDX.Direct2D1.LinearGradientBrush(RenderTarget, new SharpDX.Direct2D1.LinearGradientBrushProperties
+                {
+                    StartPoint = new SharpDX.Vector2(0f, 0f),
+                    EndPoint = new SharpDX.Vector2(200f, 0f)
+                }, dxStopsLilac);
+
+                SharpDX.Direct2D1.GradientStop[] stopsBid = new SharpDX.Direct2D1.GradientStop[]
+                {
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.00f, Color = new SharpDX.Color4(0.45f, 0.25f, 0.90f, 0.02f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.55f, Color = new SharpDX.Color4(0.64f, 0.44f, 0.98f, 0.26f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 1.00f, Color = new SharpDX.Color4(0.16f, 0.92f, 0.64f, 0.65f) }
+                };
+                dxStopsBid = new SharpDX.Direct2D1.GradientStopCollection(RenderTarget, stopsBid);
+                dxGradBid = new SharpDX.Direct2D1.LinearGradientBrush(RenderTarget, new SharpDX.Direct2D1.LinearGradientBrushProperties
+                {
+                    StartPoint = new SharpDX.Vector2(0f, 0f),
+                    EndPoint = new SharpDX.Vector2(200f, 0f)
+                }, dxStopsBid);
+
+                SharpDX.Direct2D1.GradientStop[] stopsAsk = new SharpDX.Direct2D1.GradientStop[]
+                {
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.00f, Color = new SharpDX.Color4(0.60f, 0.16f, 0.88f, 0.02f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 0.55f, Color = new SharpDX.Color4(0.84f, 0.26f, 0.95f, 0.28f) },
+                    new SharpDX.Direct2D1.GradientStop { Position = 1.00f, Color = new SharpDX.Color4(0.98f, 0.30f, 0.55f, 0.66f) }
+                };
+                dxStopsAsk = new SharpDX.Direct2D1.GradientStopCollection(RenderTarget, stopsAsk);
+                dxGradAsk = new SharpDX.Direct2D1.LinearGradientBrush(RenderTarget, new SharpDX.Direct2D1.LinearGradientBrushProperties
+                {
+                    StartPoint = new SharpDX.Vector2(0f, 0f),
+                    EndPoint = new SharpDX.Vector2(200f, 0f)
+                }, dxStopsAsk);
+            }
+
+            if (dxAuraLilac == null) dxAuraLilac = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.76f, 0.44f, 1.00f, 0.14f));
+            if (dxAuraBid == null) dxAuraBid = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.20f, 0.90f, 0.62f, 0.14f));
+            if (dxAuraAsk == null) dxAuraAsk = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.96f, 0.30f, 0.62f, 0.14f));
+
+            if (dxCoreLilac == null) dxCoreLilac = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.90f, 0.68f, 1.00f, 0.92f));
+            if (dxCoreBid == null) dxCoreBid = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.24f, 0.95f, 0.68f, 0.92f));
+            if (dxCoreAsk == null) dxCoreAsk = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.98f, 0.34f, 0.60f, 0.92f));
+
+            if (dxPillBg == null) dxPillBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.06f, 0.04f, 0.12f, 0.88f));
+            if (dxPillBorder == null) dxPillBorder = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.70f, 0.42f, 0.96f, 0.72f));
+            if (dxTextBright == null) dxTextBright = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.97f, 0.95f, 1.00f, 0.98f));
+            if (dxTextMuted == null) dxTextMuted = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.76f, 0.74f, 0.86f, 0.88f));
+            if (dxBarTrack == null) dxBarTrack = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.18f, 0.16f, 0.28f, 0.85f));
+            if (dxFinraCardBg == null) dxFinraCardBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.04f, 0.04f, 0.09f, 0.90f));
+            if (dxLeader == null) dxLeader = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.78f, 0.56f, 1.00f, 0.55f));
+        }
+
+        private static SharpDX.Color ToSharpColor(Brush wpfBrush, float alphaScale)
+        {
+            SolidColorBrush scb = wpfBrush as SolidColorBrush;
+            if (scb == null) return new SharpDX.Color((byte)186, (byte)85, (byte)211, (byte)(255 * alphaScale));
+            System.Windows.Media.Color c = scb.Color;
+            return new SharpDX.Color(c.R, c.G, c.B, (byte)Math.Max(0, Math.Min(255, c.A * alphaScale)));
+        }
+
+        private static string FormatNotional(double m)
+        {
+            if (m >= 1000.0) return "$" + (m / 1000.0).ToString("0.00", CultureInfo.InvariantCulture) + "B";
+            if (m >= 1.0) return "$" + m.ToString("0.0", CultureInfo.InvariantCulture) + "M";
+            return "$" + (m * 1000.0).ToString("0", CultureInfo.InvariantCulture) + "K";
+        }
+
+        private static string FormatVolShort(double vol)
+        {
+            if (vol >= 1000000.0) return (vol / 1000000.0).ToString("0.00", CultureInfo.InvariantCulture) + "M";
+            if (vol >= 1000.0) return (vol / 1000.0).ToString("0.0", CultureInfo.InvariantCulture) + "K";
+            return vol.ToString("0", CultureInfo.InvariantCulture);
+        }
+
+        private float ResolveNonCollidingTop(float left, float desiredTop, float w, float h, float panelTop, float panelBottom)
+        {
+            float baseTop = Math.Max(panelTop + 4f, Math.Min(panelBottom - h - 4f, desiredTop - h * 0.5f));
+            float[] offsets = new float[] { 0f, -18f, 18f, -36f, 36f, -54f, 54f };
+            for (int i = 0; i < offsets.Length; i++)
+            {
+                float candTop = Math.Max(panelTop + 4f, Math.Min(panelBottom - h - 4f, baseTop + offsets[i]));
+                bool collides = false;
+                for (int j = 0; j < usedTagsScratch.Count; j++)
+                {
+                    SharpDX.RectangleF u = usedTagsScratch[j];
+                    if (left - 2f < u.Right && left + w + 2f > u.Left && candTop - 1f < u.Bottom && candTop + h + 1f > u.Top)
+                    {
+                        collides = true;
+                        break;
+                    }
+                }
+                if (!collides)
+                {
+                    usedTagsScratch.Add(new SharpDX.RectangleF(left - 2f, candTop - 1f, w + 4f, h + 2f));
+                    return candTop;
+                }
+            }
+            usedTagsScratch.Add(new SharpDX.RectangleF(left - 2f, baseTop - 1f, w + 4f, h + 2f));
+            return baseTop;
+        }
+
+        protected override void OnRender(ChartControl chartControl, ChartScale chartScale)
+        {
+            if (chartControl == null || chartScale == null || ChartBars == null || ChartPanel == null || RenderTarget == null)
+                return;
+
+            EnsureRenderResources();
+
+            List<DpBeam> beamsSnapshot;
+            FinraSummary finraSnap;
+            string statusSnap;
+            bool isOnSnap;
+            lock (dataLock)
+            {
+                beamsSnapshot = new List<DpBeam>(activeBeams);
+                finraSnap = finraSummary;
+                statusSnap = feedStatusMsg;
+                isOnSnap = apiOnline;
+            }
+
+            float panelLeft = (float)ChartPanel.X;
+            float panelTop = (float)ChartPanel.Y;
+            float panelRight = (float)(ChartPanel.X + ChartPanel.W);
+            float panelBottom = (float)(ChartPanel.Y + ChartPanel.H);
+
+            double currentPrice = (CurrentBar >= 0 && Close.Count > 0) ? Close[0] : 0.0;
+            double tickSz = (TickSize > 0) ? TickSize : 0.25;
+
+            int toIdx = ChartBars.ToIndex;
+            float lastBarX = (toIdx >= 0) ? (float)chartControl.GetXByBarIndex(ChartBars, toIdx) : (panelRight - 90f);
+            float barDist = (float)Math.Max(3.0, chartControl.Properties.BarDistance);
+            float xEnd = Math.Max(panelLeft + 140f, Math.Min(panelRight - 10f, lastBarX + 26f));
+            float xStart = Math.Max(panelLeft + 8f, xEnd - LarguraFeixeBarras * barDist);
+
+            usedTagsScratch.Clear();
+            int offscreenAbove = 0;
+            int offscreenBelow = 0;
+
+            AntialiasMode prevAa = RenderTarget.AntialiasMode;
+            RenderTarget.AntialiasMode = AntialiasMode.PerPrimitive;
+
+            for (int i = 0; i < beamsSnapshot.Count; i++)
+            {
+                DpBeam beam = beamsSnapshot[i];
+                double levelPrice = ResolveChartLevel(beam, currentPrice);
+                if (levelPrice <= 0) continue;
+
+                float y = (float)chartScale.GetYByValue(levelPrice);
+                if (y < panelTop + 8f) { offscreenAbove++; continue; }
+                if (y > panelBottom - 8f) { offscreenBelow++; continue; }
+
+                bool isBid = beam.SideBias.Contains("BID") || beam.SideBias.Contains("SUPPORT");
+                bool isAsk = beam.SideBias.Contains("ASK") || beam.SideBias.Contains("RESIST");
+
+                double scoreNorm = Math.Max(0.15, Math.Min(1.0, beam.AbsorptionScore / 100.0));
+                bool isNear = (currentPrice > 0 && Math.Abs(levelPrice - currentPrice) <= DistanciaPulsoTicks * tickSz);
+                bool shouldPulse = AtivarFeixePiscante && (isNear || beam.RvolBar >= 2.2 || beam.IsToday);
+                float pulse = shouldPulse
+                    ? (0.48f + 0.52f * (float)(0.5 + 0.5 * Math.Sin(Environment.TickCount * 0.0058 + i * 1.15)))
+                    : 0.74f;
+
+                SharpDX.Direct2D1.LinearGradientBrush gradBrush = isBid ? dxGradBid : (isAsk ? dxGradAsk : dxGradLilac);
+                SharpDX.Direct2D1.SolidColorBrush auraBrush = isBid ? dxAuraBid : (isAsk ? dxAuraAsk : dxAuraLilac);
+                SharpDX.Direct2D1.SolidColorBrush coreBrush = isBid ? dxCoreBid : (isAsk ? dxCoreAsk : dxCoreLilac);
+
+                float auraHalfH = 5.5f + (float)(scoreNorm * 6.5) + (shouldPulse ? pulse * 1.8f : 0f);
+                float bodyHalfH = 2.0f + (float)(scoreNorm * 2.2);
+
+                // Camada 1: Feixe luminoso externo (Aura)
+                auraBrush.Opacity = 0.25f * pulse;
+                RenderTarget.FillRectangle(new SharpDX.RectangleF(xStart + 25f, y - auraHalfH, Math.Max(10f, xEnd - xStart - 25f), auraHalfH * 2f), auraBrush);
+
+                // Camada 2: Degrade horizontal lilas (cauda suave -> ponta radiante)
+                gradBrush.StartPoint = new SharpDX.Vector2(xStart, y);
+                gradBrush.EndPoint = new SharpDX.Vector2(xEnd, y);
+                gradBrush.Opacity = pulse;
+                RenderTarget.FillRectangle(new SharpDX.RectangleF(xStart, y - bodyHalfH, Math.Max(10f, xEnd - xStart), bodyHalfH * 2f), gradBrush);
+
+                // Camada 3: Filamento laser central + no radiante na ponta
+                coreBrush.Opacity = Math.Min(1.0f, 0.65f + 0.35f * pulse);
+                RenderTarget.DrawLine(new SharpDX.Vector2(xStart + 18f, y), new SharpDX.Vector2(xEnd, y), coreBrush, shouldPulse ? 1.65f : 1.15f);
+                RenderTarget.FillEllipse(new SharpDX.Direct2D1.Ellipse(new SharpDX.Vector2(xEnd, y), 3.4f + pulse * 1.4f, 3.4f + pulse * 1.4f), coreBrush);
+
+                // Camada 4: Etiqueta Dark Pool + Barra de Forca embutida
+                string sideShort = isBid ? "BID SUP" : (isAsk ? "ASK ABS" : "CLUSTER");
+                string timeTag = !string.IsNullOrEmpty(beam.TimeBrt) ? beam.TimeBrt : beam.TimeEt;
+                string tagText = "DP " + beam.Etf + " " + FormatNotional(beam.NotionalM) + " · " + FormatVolShort(beam.BarVolume) + " · " + sideShort;
+                if (!string.IsNullOrEmpty(timeTag)) tagText += " · " + timeTag;
+
+                float pillW = Math.Max(160f, tagText.Length * 5.65f + 22f);
+                float pillH = 20f;
+                float pillLeft = Math.Max(panelLeft + 6f, Math.Min(panelRight - pillW - 10f, xEnd - pillW - 10f));
+                float pillTop = ResolveNonCollidingTop(pillLeft, y, pillW, pillH, panelTop, panelBottom);
+
+                float midY = pillTop + pillH * 0.5f;
+                if (Math.Abs(midY - y) > 3f)
+                    RenderTarget.DrawLine(new SharpDX.Vector2(pillLeft + pillW, midY), new SharpDX.Vector2(xEnd, y), dxLeader, 0.85f);
+
+                SharpDX.RectangleF tagRect = new SharpDX.RectangleF(pillLeft, pillTop, pillW, pillH);
+                SharpDX.Direct2D1.RoundedRectangle roundedPill = new SharpDX.Direct2D1.RoundedRectangle { Rect = tagRect, RadiusX = 4f, RadiusY = 4f };
+                RenderTarget.FillRoundedRectangle(roundedPill, dxPillBg);
+                RenderTarget.DrawRoundedRectangle(roundedPill, coreBrush, shouldPulse ? 1.1f : 0.7f);
+
+                // Faixa lateral + Barra de Forca no rodape da pilula
+                RenderTarget.FillRectangle(new SharpDX.RectangleF(pillLeft + 2.5f, pillTop + 3f, 3f, pillH - 6f), coreBrush);
+                RenderTarget.DrawText(tagText, dxFontSmall, new SharpDX.RectangleF(pillLeft + 9f, pillTop + 1.5f, pillW - 14f, 13f), dxTextBright);
+
+                float barTrackW = pillW - 14f;
+                float barFillW = Math.Max(4f, barTrackW * (float)scoreNorm);
+                RenderTarget.FillRectangle(new SharpDX.RectangleF(pillLeft + 9f, pillTop + pillH - 4.5f, barTrackW, 2.2f), dxBarTrack);
+                RenderTarget.FillRectangle(new SharpDX.RectangleF(pillLeft + 9f, pillTop + pillH - 4.5f, barFillW, 2.2f), coreBrush);
+            }
+
+            // Card Resumo FINRA + Barra de Forca Dark Pool (canto inferior esquerdo)
+            if (MostrarBarraFinra)
+            {
+                float cardW = 310f;
+                float cardH = finraSnap.HasData ? 76f : 48f;
+                float cardLeft = panelLeft + 10f;
+                float cardTop = Math.Max(panelTop + 10f, panelBottom - cardH - 12f);
+
+                SharpDX.RectangleF cardRect = new SharpDX.RectangleF(cardLeft, cardTop, cardW, cardH);
+                SharpDX.Direct2D1.RoundedRectangle rrCard = new SharpDX.Direct2D1.RoundedRectangle { Rect = cardRect, RadiusX = 6f, RadiusY = 6f };
+                RenderTarget.FillRoundedRectangle(rrCard, dxFinraCardBg);
+                RenderTarget.DrawRoundedRectangle(rrCard, dxPillBorder, 1.0f);
+
+                string dot = isOnSnap ? "ON" : "OFF";
+                string titleLine = "VELTRIX DARK POOL · " + targetDisplay + " (" + targetEtf + ") [" + dot + "]";
+                RenderTarget.DrawText(titleLine, dxFontTitle, new SharpDX.RectangleF(cardLeft + 10f, cardTop + 6f, cardW - 20f, 16f), isOnSnap ? dxTextBright : dxCoreAsk);
+
+                if (finraSnap.HasData)
+                {
+                    double buyPct = Math.Max(0.0, Math.Min(100.0, finraSnap.NonShortPct));
+                    double sellPct = Math.Max(0.0, Math.Min(100.0, finraSnap.ShortPct));
+                    string finraInfo = "FINRA " + finraSnap.Date + " · " + FormatNotional(finraSnap.NotionalM) + " · " + finraSnap.FlowTag;
+                    RenderTarget.DrawText(finraInfo, dxFontSmall, new SharpDX.RectangleF(cardLeft + 10f, cardTop + 23f, cardW - 20f, 14f), dxTextMuted);
+
+                    float meterX = cardLeft + 10f;
+                    float meterY = cardTop + 40f;
+                    float meterW = cardW - 20f;
+                    float buyW = (float)(meterW * (buyPct / 100.0));
+                    RenderTarget.FillRectangle(new SharpDX.RectangleF(meterX, meterY, meterW, 7f), dxCoreAsk);
+                    RenderTarget.FillRectangle(new SharpDX.RectangleF(meterX, meterY, buyW, 7f), dxCoreBid);
+
+                    string meterText = "COMPRA/NON-SHORT: " + buyPct.ToString("0.0", CultureInfo.InvariantCulture) + "%   |   SHORT: " + sellPct.ToString("0.0", CultureInfo.InvariantCulture) + "%";
+                    if (offscreenAbove > 0 || offscreenBelow > 0)
+                        meterText += "   (+" + offscreenAbove + "^ / -" + offscreenBelow + "v)";
+                    RenderTarget.DrawText(meterText, dxFontSmall, new SharpDX.RectangleF(cardLeft + 10f, cardTop + 52f, cardW - 20f, 15f), dxTextBright);
+                }
+                else
+                {
+                    string sub = statusSnap + " · " + resolvedUrlInUse;
+                    RenderTarget.DrawText(sub, dxFontSmall, new SharpDX.RectangleF(cardLeft + 10f, cardTop + 25f, cardW - 20f, 15f), dxTextMuted);
+                }
+            }
+
+            RenderTarget.AntialiasMode = prevAa;
+        }
+
+        private void LimparRecursosRender()
+        {
+            if (dxGradLilac != null) { dxGradLilac.Dispose(); dxGradLilac = null; }
+            if (dxGradBid != null) { dxGradBid.Dispose(); dxGradBid = null; }
+            if (dxGradAsk != null) { dxGradAsk.Dispose(); dxGradAsk = null; }
+            if (dxStopsLilac != null) { dxStopsLilac.Dispose(); dxStopsLilac = null; }
+            if (dxStopsBid != null) { dxStopsBid.Dispose(); dxStopsBid = null; }
+            if (dxStopsAsk != null) { dxStopsAsk.Dispose(); dxStopsAsk = null; }
+
+            if (dxAuraLilac != null) { dxAuraLilac.Dispose(); dxAuraLilac = null; }
+            if (dxAuraBid != null) { dxAuraBid.Dispose(); dxAuraBid = null; }
+            if (dxAuraAsk != null) { dxAuraAsk.Dispose(); dxAuraAsk = null; }
+            if (dxCoreLilac != null) { dxCoreLilac.Dispose(); dxCoreLilac = null; }
+            if (dxCoreBid != null) { dxCoreBid.Dispose(); dxCoreBid = null; }
+            if (dxCoreAsk != null) { dxCoreAsk.Dispose(); dxCoreAsk = null; }
+            if (dxPillBg != null) { dxPillBg.Dispose(); dxPillBg = null; }
+            if (dxPillBorder != null) { dxPillBorder.Dispose(); dxPillBorder = null; }
+            if (dxTextBright != null) { dxTextBright.Dispose(); dxTextBright = null; }
+            if (dxTextMuted != null) { dxTextMuted.Dispose(); dxTextMuted = null; }
+            if (dxBarTrack != null) { dxBarTrack.Dispose(); dxBarTrack = null; }
+            if (dxFinraCardBg != null) { dxFinraCardBg.Dispose(); dxFinraCardBg = null; }
+            if (dxLeader != null) { dxLeader.Dispose(); dxLeader = null; }
+            if (dxFontMain != null) { dxFontMain.Dispose(); dxFontMain = null; }
+            if (dxFontSmall != null) { dxFontSmall.Dispose(); dxFontSmall = null; }
+            if (dxFontTitle != null) { dxFontTitle.Dispose(); dxFontTitle = null; }
+            if (dxDwFactory != null) { dxDwFactory.Dispose(); dxDwFactory = null; }
+        }
+
+        public override void OnRenderTargetChanged()
+        {
+            LimparRecursosRender();
+        }
+    }
+}
+'''
+
+# ==============================================================================
+# 12. NYSE TICK BREADTH PRO (MODO A AUTOMATICO: FEED NATIVO + PROXY CESTA ~15s)
+# ==============================================================================
+CODE_NYSE_TICK_BREADTH = r'''using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.IO;
+using System.Net;
+using System.Reflection;
+using System.Text;
+using System.Threading;
+using System.Windows.Media;
+using System.Xml.Serialization;
+using NinjaTrader.Cbi;
+using NinjaTrader.Data;
+using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.NinjaScript;
+using SharpDX;
+using SharpDX.Direct2D1;
+using SharpDX.DirectWrite;
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+    public class NyseTickBreadthPro : Indicator
+    {
+        private class MacroCorrItem
+        {
+            public string Id;
+            public double Price;
+            public double ChangePct;
+            public double CorrEs;
+            public double CorrNq;
+            public string CorrelationType;
+        }
+
+        private sealed class VeltrixTimeoutWebClient : WebClient
+        {
+            private readonly int timeoutMs;
+            public VeltrixTimeoutWebClient(int timeoutMs) { this.timeoutMs = timeoutMs; }
+
+            protected override WebRequest GetWebRequest(Uri address)
+            {
+                ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072 | (SecurityProtocolType)768 | SecurityProtocolType.Tls;
+                WebRequest req = base.GetWebRequest(address);
+                if (req != null) req.Timeout = timeoutMs;
+                HttpWebRequest http = req as HttpWebRequest;
+                if (http != null)
+                {
+                    http.UserAgent = "VeltrixQuant-NT8/1.0";
+                    http.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+                }
+                return req;
+            }
+        }
+
+        private sealed class VeltrixJsonParser
+        {
+            private readonly string json;
+            private int idx;
+            private VeltrixJsonParser(string src) { json = src ?? ""; idx = 0; }
+
+            public static object Parse(string src)
+            {
+                if (string.IsNullOrEmpty(src)) return null;
+                VeltrixJsonParser p = new VeltrixJsonParser(src);
+                return p.ParseValue();
+            }
+
+            private void SkipWs() { while (idx < json.Length && char.IsWhiteSpace(json[idx])) idx++; }
+
+            private object ParseValue()
+            {
+                SkipWs();
+                if (idx >= json.Length) return null;
+                char c = json[idx];
+                if (c == '{') return ParseObject();
+                if (c == '[') return ParseArray();
+                if (c == '"') return ParseString();
+                if (c == 't') { idx += 4; return true; }
+                if (c == 'f') { idx += 5; return false; }
+                if (c == 'n') { idx += 4; return null; }
+                return ParseNumber();
+            }
+
+            private Dictionary<string, object> ParseObject()
+            {
+                Dictionary<string, object> map = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                idx++;
+                while (idx < json.Length)
+                {
+                    SkipWs();
+                    if (idx >= json.Length) break;
+                    if (json[idx] == '}') { idx++; break; }
+                    if (json[idx] == ',') { idx++; continue; }
+                    string key = ParseString();
+                    SkipWs();
+                    if (idx < json.Length && json[idx] == ':') idx++;
+                    object val = ParseValue();
+                    if (key != null) map[key] = val;
+                }
+                return map;
+            }
+
+            private List<object> ParseArray()
+            {
+                List<object> list = new List<object>();
+                idx++;
+                while (idx < json.Length)
+                {
+                    SkipWs();
+                    if (idx >= json.Length) break;
+                    if (json[idx] == ']') { idx++; break; }
+                    if (json[idx] == ',') { idx++; continue; }
+                    list.Add(ParseValue());
+                }
+                return list;
+            }
+
+            private string ParseString()
+            {
+                if (idx >= json.Length || json[idx] != '"') return string.Empty;
+                idx++;
+                StringBuilder sb = new StringBuilder();
+                while (idx < json.Length)
+                {
+                    char c = json[idx++];
+                    if (c == '"') break;
+                    if (c == '\\' && idx < json.Length)
+                    {
+                        char esc = json[idx++];
+                        switch (esc)
+                        {
+                            case '"': sb.Append('"'); break;
+                            case '\\': sb.Append('\\'); break;
+                            case '/': sb.Append('/'); break;
+                            case 'b': sb.Append('\b'); break;
+                            case 'f': sb.Append('\f'); break;
+                            case 'n': sb.Append('\n'); break;
+                            case 'r': sb.Append('\r'); break;
+                            case 't': sb.Append('\t'); break;
+                            case 'u':
+                                if (idx + 4 <= json.Length)
+                                {
+                                    int hex;
+                                    if (int.TryParse(json.Substring(idx, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out hex))
+                                        sb.Append((char)hex);
+                                    idx += 4;
+                                }
+                                break;
+                            default: sb.Append(esc); break;
+                        }
+                    }
+                    else sb.Append(c);
+                }
+                return sb.ToString();
+            }
+
+            private object ParseNumber()
+            {
+                int start = idx;
+                while (idx < json.Length)
+                {
+                    char c = json[idx];
+                    if ((c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.' || c == 'e' || c == 'E') idx++;
+                    else break;
+                }
+                string token = json.Substring(start, Math.Max(0, idx - start));
+                double num;
+                if (double.TryParse(token, NumberStyles.Any, CultureInfo.InvariantCulture, out num)) return num;
+                return 0.0;
+            }
+
+            public static Dictionary<string, object> AsDict(object obj) { return obj as Dictionary<string, object>; }
+            public static List<object> AsList(object obj) { return obj as List<object>; }
+
+            public static string Str(Dictionary<string, object> d, string key, string defVal)
+            {
+                if (d == null) return defVal;
+                object v;
+                if (!d.TryGetValue(key, out v) || v == null) return defVal;
+                return Convert.ToString(v, CultureInfo.InvariantCulture) ?? defVal;
+            }
+
+            public static double Num(Dictionary<string, object> d, string key, double defVal)
+            {
+                if (d == null) return defVal;
+                object v;
+                if (!d.TryGetValue(key, out v) || v == null) return defVal;
+                if (v is double) return (double)v;
+                if (v is int) return (int)v;
+                double parsed;
+                if (double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out parsed))
+                    return parsed;
+                return defVal;
+            }
+
+            public static bool Bool(Dictionary<string, object> d, string key, bool defVal)
+            {
+                if (d == null) return defVal;
+                object v;
+                if (!d.TryGetValue(key, out v) || v == null) return defVal;
+                if (v is bool) return (bool)v;
+                return defVal;
+            }
+        }
+
+        private readonly object syncLock = new object();
+        private int nativeSeriesIndex = -1;
+        private string nativeSymbol = string.Empty;
+        private double lastNativeTick = 0.0;
+        private DateTime lastNativeUtc = DateTime.MinValue;
+
+        private double apiTickValue = 0.0;
+        private double apiTickqValue = 0.0;
+        private double apiAddValue = 0.0;
+        private double apiVixValue = 0.0;
+        private double apiVixChg = 0.0;
+        private bool apiOnline = false;
+        private string apiFeedLabel = "MODO B PENDENTE";
+        private List<MacroCorrItem> macroCorrList = new List<MacroCorrItem>();
+        private string chartRoot = "ES";
+
+        private Timer pollTimer;
+        private int isFetching = 0;
+
+        private SharpDX.Direct2D1.SolidColorBrush dxZoneBull;
+        private SharpDX.Direct2D1.SolidColorBrush dxZoneBear;
+        private SharpDX.Direct2D1.SolidColorBrush dxBandBg;
+        private SharpDX.Direct2D1.SolidColorBrush dxBorder;
+        private SharpDX.Direct2D1.SolidColorBrush dxTextLight;
+        private SharpDX.Direct2D1.SolidColorBrush dxTextMuted;
+        private SharpDX.Direct2D1.SolidColorBrush dxBullBrush;
+        private SharpDX.Direct2D1.SolidColorBrush dxBearBrush;
+        private SharpDX.Direct2D1.SolidColorBrush dxModoABrush;
+        private SharpDX.Direct2D1.SolidColorBrush dxModoBBrush;
+        private SharpDX.DirectWrite.Factory dxDwFactory;
+        private SharpDX.DirectWrite.TextFormat dxFontTitle;
+        private SharpDX.DirectWrite.TextFormat dxFontSmall;
+
+        #region Propriedades
+        [NinjaScriptProperty]
+        [Display(Name = "URL Dashboard (AUTO ou URL)", Order = 1, GroupName = "01. Modo A Automatico")]
+        public string DashboardUrl { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(5, 180)]
+        [Display(Name = "Atualizar Modo B (Segundos)", Order = 2, GroupName = "01. Modo A Automatico")]
+        public int AtualizarSegundos { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Modo A: Preferir Feed Nativo NT8", Description = "Usa $TICK/^TICK/TICK.Z automaticamente se disponivel; senao usa API Proxy.", Order = 3, GroupName = "01. Modo A Automatico")]
+        public bool PreferirFeedNativo { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(200, 1500)]
+        [Display(Name = "Nivel Alerta Alto (+ / -)", Order = 4, GroupName = "02. Limiares Breadth")]
+        public double NivelAlertaAlto { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(500, 2200)]
+        [Display(Name = "Nivel Climax Extremo (+ / -)", Order = 5, GroupName = "02. Limiares Breadth")]
+        public double NivelClimax { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Mostrar Correlacao do Ativo no Painel", Order = 6, GroupName = "03. Visual")]
+        public bool MostrarCorrelacaoAtivo { get; set; }
+
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "Cor Compra Forte", Order = 7, GroupName = "03. Visual")]
+        public Brush CorCompraForte { get; set; }
+
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "Cor Compra Climax", Order = 8, GroupName = "03. Visual")]
+        public Brush CorCompraExtrema { get; set; }
+
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "Cor Venda Forte", Order = 9, GroupName = "03. Visual")]
+        public Brush CorVendaForte { get; set; }
+
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "Cor Venda Climax", Order = 10, GroupName = "03. Visual")]
+        public Brush CorVendaExtrema { get; set; }
+
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "Cor Neutra", Order = 11, GroupName = "03. Visual")]
+        public Brush CorNeutra { get; set; }
+
+        [Browsable(false)] public string CorCompraForteS { get { return Serialize.BrushToString(CorCompraForte); } set { CorCompraForte = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string CorCompraExtremaS { get { return Serialize.BrushToString(CorCompraExtrema); } set { CorCompraExtrema = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string CorVendaForteS { get { return Serialize.BrushToString(CorVendaForte); } set { CorVendaForte = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string CorVendaExtremaS { get { return Serialize.BrushToString(CorVendaExtrema); } set { CorVendaExtrema = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string CorNeutraS { get { return Serialize.BrushToString(CorNeutra); } set { CorNeutra = Serialize.StringToBrush(value); } }
+        #endregion
+
+        protected override void OnStateChange()
+        {
+            if (State == State.SetDefaults)
+            {
+                Description = "NYSE $TICK Hibrido Modo A Automatico: detecta IQFeed/Kinetick nativo no NT8 e alterna sem falhas para API Proxy + Correlacao.";
+                Name = "VeltrixQuant - NyseTickBreadthPro";
+                Calculate = Calculate.OnEachTick;
+                IsOverlay = false;
+                DrawOnPricePanel = false;
+                IsAutoScale = true;
+                IsSuspendedWhileInactive = true;
+
+                DashboardUrl = "AUTO";
+                AtualizarSegundos = 15;
+                PreferirFeedNativo = true;
+                NivelAlertaAlto = 800;
+                NivelClimax = 1000;
+                MostrarCorrelacaoAtivo = true;
+
+                CorCompraForte = Brushes.LimeGreen;
+                CorCompraExtrema = Brushes.SpringGreen;
+                CorVendaForte = Brushes.Crimson;
+                CorVendaExtrema = Brushes.Magenta;
+                CorNeutra = Brushes.SlateGray;
+
+                AddPlot(new Stroke(Brushes.DeepSkyBlue, 2), PlotStyle.Bar, "NyseTickValue");
+                AddLine(new Stroke(Brushes.DimGray, DashStyleHelper.Dot, 1), 0, "Zero");
+                AddLine(new Stroke(Brushes.ForestGreen, DashStyleHelper.Dash, 1), 800, "ExtremeHigh");
+                AddLine(new Stroke(Brushes.Firebrick, DashStyleHelper.Dash, 1), -800, "ExtremeLow");
+            }
+            else if (State == State.Configure)
+            {
+                if (PreferirFeedNativo)
+                {
+                    bool hasIqFeed = DetectIqFeedConnection();
+                    string[] candidates = hasIqFeed
+                        ? new string[] { "TICK.Z", "^TICK", "$TICK", "TICK-NYSE" }
+                        : new string[] { "^TICK", "$TICK", "TICK.Z", "TICK-NYSE" };
+
+                    for (int i = 0; i < candidates.Length; i++)
+                    {
+                        try
+                        {
+                            NinjaTrader.Cbi.Instrument inst = NinjaTrader.Cbi.Instrument.GetInstrument(candidates[i]);
+                            if (inst != null)
+                            {
+                                AddDataSeries(candidates[i], BarsPeriodType.Minute, 1);
+                                nativeSeriesIndex = 1;
+                                nativeSymbol = candidates[i];
+                                break;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+            else if (State == State.DataLoaded)
+            {
+                string raw = (Instrument != null && Instrument.MasterInstrument != null && !string.IsNullOrEmpty(Instrument.MasterInstrument.Name))
+                    ? Instrument.MasterInstrument.Name.Trim().ToUpperInvariant() : "ES";
+                string[] parts = raw.Split(new char[] { ' ', '-', '.', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                chartRoot = (parts.Length > 0) ? parts[0] : raw;
+
+                int ms = Math.Max(5000, AtualizarSegundos * 1000);
+                pollTimer = new Timer(_ => PollMarketContext(), null, 300, ms);
+            }
+            else if (State == State.Terminated)
+            {
+                try { if (pollTimer != null) { pollTimer.Dispose(); pollTimer = null; } } catch { }
+                LimparRecursosRender();
+            }
+        }
+
+        private bool DetectIqFeedConnection()
+        {
+            try
+            {
+                Type connType = typeof(NinjaTrader.Cbi.Connection);
+                PropertyInfo connsProp = connType.GetProperty("Connections", BindingFlags.Public | BindingFlags.Static);
+                if (connsProp == null) return false;
+                IEnumerable conns = connsProp.GetValue(null, null) as IEnumerable;
+                if (conns == null) return false;
+                foreach (object c in conns)
+                {
+                    if (c == null) continue;
+                    string s = c.ToString();
+                    if (s.IndexOf("IQFeed", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                    PropertyInfo optProp = c.GetType().GetProperty("Options");
+                    if (optProp != null)
+                    {
+                        object opt = optProp.GetValue(c, null);
+                        if (opt != null && opt.ToString().IndexOf("IQFeed", StringComparison.OrdinalIgnoreCase) >= 0)
+                            return true;
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private string ResolveDashboardBaseUrl()
+        {
+            string manual = (DashboardUrl ?? string.Empty).Trim();
+            if (!string.IsNullOrEmpty(manual) && !string.Equals(manual, "AUTO", StringComparison.OrdinalIgnoreCase))
+                return manual.TrimEnd('/');
+            try
+            {
+                string envUrl = Environment.GetEnvironmentVariable("VELTRIX_DASHBOARD_URL");
+                if (!string.IsNullOrEmpty(envUrl)) return envUrl.Trim().TrimEnd('/');
+                string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                string[] cfgPaths = new string[]
+                {
+                    Path.Combine(docs, "NinjaTrader 8", "bin", "Custom", "Indicators", "VeltrixQuant", "VeltrixQuant_URL.txt"),
+                    Path.Combine(docs, "NinjaTrader 8", "VeltrixQuant_URL.txt"),
+                    Path.Combine(docs, "VeltrixQuant_URL.txt")
+                };
+                for (int i = 0; i < cfgPaths.Length; i++)
+                {
+                    if (File.Exists(cfgPaths[i]))
+                    {
+                        string fileUrl = File.ReadAllText(cfgPaths[i]).Trim();
+                        if (!string.IsNullOrEmpty(fileUrl) && fileUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                            return fileUrl.TrimEnd('/');
+                    }
+                }
+            }
+            catch { }
+            return "http://localhost:3000";
+        }
+
+        private void PollMarketContext()
+        {
+            if (State == State.Terminated) return;
+            if (Interlocked.CompareExchange(ref isFetching, 1, 0) != 0) return;
+            try
+            {
+                string url = ResolveDashboardBaseUrl() + "/api/market-context";
+                string payload;
+                using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(7000))
+                {
+                    wc.Encoding = Encoding.UTF8;
+                    payload = wc.DownloadString(url);
+                }
+
+                Dictionary<string, object> root = VeltrixJsonParser.AsDict(VeltrixJsonParser.Parse(payload));
+                List<object> assets = (root != null) ? VeltrixJsonParser.AsList(root.ContainsKey("assets") ? root["assets"] : null) : null;
+                if (assets == null) return;
+
+                double tickP = 0, tickqP = 0, addP = 0, vixP = 0, vixC = 0;
+                List<MacroCorrItem> list = new List<MacroCorrItem>();
+                for (int i = 0; i < assets.Count; i++)
+                {
+                    Dictionary<string, object> a = VeltrixJsonParser.AsDict(assets[i]);
+                    if (a == null) continue;
+                    string id = VeltrixJsonParser.Str(a, "id", string.Empty).ToUpperInvariant();
+                    double price = VeltrixJsonParser.Num(a, "price", 0.0);
+                    double chg = VeltrixJsonParser.Num(a, "changePct", 0.0);
+                    double corrEs = VeltrixJsonParser.Num(a, "realizedCorrES", VeltrixJsonParser.Num(a, "expectedCorrES", 0.0));
+                    double corrNq = VeltrixJsonParser.Num(a, "realizedCorrNQ", VeltrixJsonParser.Num(a, "expectedCorrNQ", 0.0));
+                    string cType = VeltrixJsonParser.Str(a, "correlationType", string.Empty);
+
+                    if (id == "TICK") tickP = price;
+                    else if (id == "TICKQ") tickqP = price;
+                    else if (id == "ADD") addP = price;
+                    else if (id == "VIX") { vixP = price; vixC = chg; }
+
+                    if (id == "VIX" || id == "ZN" || id == "ZB" || id == "DXY" || id == "HYG" || id == "GC" || id == "CL" || id == "ES" || id == "NQ")
+                    {
+                        list.Add(new MacroCorrItem { Id = id, Price = price, ChangePct = chg, CorrEs = corrEs, CorrNq = corrNq, CorrelationType = cType });
+                    }
+                }
+
+                lock (syncLock)
+                {
+                    apiTickValue = tickP;
+                    apiTickqValue = tickqP;
+                    apiAddValue = addP;
+                    apiVixValue = vixP;
+                    apiVixChg = vixC;
+                    macroCorrList = list;
+                    apiOnline = true;
+                    apiFeedLabel = VeltrixJsonParser.Str(root, "feedStatus", "PROXY WEB");
+                }
+
+                if (ChartControl != null)
+                {
+                    ChartControl.Dispatcher.InvokeAsync(new Action(() =>
+                    {
+                        if (ChartControl != null && State != State.Terminated) ChartControl.InvalidateVisual();
+                    }));
+                }
+            }
+            catch
+            {
+                lock (syncLock) { apiOnline = false; }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref isFetching, 0);
+            }
+        }
+
+        private bool IsModoAActiveNow()
+        {
+            if (!PreferirFeedNativo || nativeSeriesIndex <= 0) return false;
+            if (CurrentBars.Length <= nativeSeriesIndex || CurrentBars[nativeSeriesIndex] < 0) return false;
+            if (lastNativeTick == 0.0) return false;
+            if (State == State.Realtime && apiOnline && lastNativeUtc != DateTime.MinValue)
+            {
+                if ((DateTime.UtcNow - lastNativeUtc).TotalMinutes > 12.0 && apiTickValue != 0.0)
+                    return false;
+            }
+            return true;
+        }
+
+        protected override void OnBarUpdate()
+        {
+            if (nativeSeriesIndex > 0 && BarsInProgress == nativeSeriesIndex)
+            {
+                if (CurrentBars[nativeSeriesIndex] >= 0)
+                {
+                    lastNativeTick = Closes[nativeSeriesIndex][0];
+                    if (State == State.Realtime) lastNativeUtc = DateTime.UtcNow;
+                }
+                return;
+            }
+
+            if (BarsInProgress != 0 || CurrentBar < 0) return;
+
+            double val;
+            lock (syncLock)
+            {
+                val = IsModoAActiveNow() ? lastNativeTick : apiTickValue;
+            }
+
+            if (val > 3000.0) val = 3000.0;
+            if (val < -3000.0) val = -3000.0;
+            Values[0][0] = val;
+
+            if (val >= NivelClimax) PlotBrushes[0][0] = CorCompraExtrema;
+            else if (val >= NivelAlertaAlto) PlotBrushes[0][0] = CorCompraForte;
+            else if (val <= -NivelClimax) PlotBrushes[0][0] = CorVendaExtrema;
+            else if (val <= -NivelAlertaAlto) PlotBrushes[0][0] = CorVendaForte;
+            else if (val > 200) PlotBrushes[0][0] = Brushes.MediumAquamarine;
+            else if (val < -200) PlotBrushes[0][0] = Brushes.IndianRed;
+            else PlotBrushes[0][0] = CorNeutra;
+        }
+
+        private void EnsureRenderResources()
+        {
+            if (RenderTarget == null) return;
+            if (dxDwFactory == null) dxDwFactory = new SharpDX.DirectWrite.Factory();
+            if (dxFontTitle == null) dxFontTitle = new SharpDX.DirectWrite.TextFormat(dxDwFactory, "Segoe UI", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 11.0f);
+            if (dxFontSmall == null) dxFontSmall = new SharpDX.DirectWrite.TextFormat(dxDwFactory, "Segoe UI", SharpDX.DirectWrite.FontWeight.Normal, SharpDX.DirectWrite.FontStyle.Normal, 9.5f);
+
+            if (dxZoneBull == null) dxZoneBull = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.10f, 0.85f, 0.45f, 0.08f));
+            if (dxZoneBear == null) dxZoneBear = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.95f, 0.22f, 0.38f, 0.08f));
+            if (dxBandBg == null) dxBandBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.05f, 0.05f, 0.11f, 0.86f));
+            if (dxBorder == null) dxBorder = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.32f, 0.45f, 0.72f, 0.65f));
+            if (dxTextLight == null) dxTextLight = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.96f, 0.97f, 1.00f, 0.96f));
+            if (dxTextMuted == null) dxTextMuted = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.70f, 0.76f, 0.88f, 0.90f));
+            if (dxBullBrush == null) dxBullBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.22f, 0.95f, 0.56f, 0.95f));
+            if (dxBearBrush == null) dxBearBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.98f, 0.30f, 0.48f, 0.95f));
+            if (dxModoABrush == null) dxModoABrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.20f, 0.92f, 0.65f, 0.96f));
+            if (dxModoBBrush == null) dxModoBBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.78f, 0.52f, 1.00f, 0.96f));
+        }
+
+        protected override void OnRender(ChartControl chartControl, ChartScale chartScale)
+        {
+            base.OnRender(chartControl, chartScale);
+            if (chartControl == null || chartScale == null || ChartPanel == null || RenderTarget == null) return;
+            EnsureRenderResources();
+
+            float panelLeft = (float)ChartPanel.X;
+            float panelTop = (float)ChartPanel.Y;
+            float panelRight = (float)(ChartPanel.X + ChartPanel.W);
+            float panelBottom = (float)(ChartPanel.Y + ChartPanel.H);
+
+            // Faixas visuais de Climax (+1000 / -1000)
+            float yPlus = (float)chartScale.GetYByValue(NivelClimax);
+            float yMinus = (float)chartScale.GetYByValue(-NivelClimax);
+            if (yPlus > panelTop && yPlus < panelBottom)
+                RenderTarget.FillRectangle(new SharpDX.RectangleF(panelLeft, panelTop, panelRight - panelLeft, yPlus - panelTop), dxZoneBull);
+            if (yMinus > panelTop && yMinus < panelBottom)
+                RenderTarget.FillRectangle(new SharpDX.RectangleF(panelLeft, yMinus, panelRight - panelLeft, panelBottom - yMinus), dxZoneBear);
+
+            bool modoA;
+            double curTick, tq, addV, vixV, vixC;
+            bool isOn;
+            List<MacroCorrItem> corrSnap;
+            lock (syncLock)
+            {
+                modoA = IsModoAActiveNow();
+                curTick = modoA ? lastNativeTick : apiTickValue;
+                tq = apiTickqValue;
+                addV = apiAddValue;
+                vixV = apiVixValue;
+                vixC = apiVixChg;
+                isOn = apiOnline;
+                corrSnap = new List<MacroCorrItem>(macroCorrList);
+            }
+
+            float hudW = Math.Min(panelRight - panelLeft - 16f, 520f);
+            float hudH = MostrarCorrelacaoAtivo ? 42f : 24f;
+            SharpDX.RectangleF hudRect = new SharpDX.RectangleF(panelLeft + 8f, panelTop + 6f, hudW, hudH);
+            SharpDX.Direct2D1.RoundedRectangle rr = new SharpDX.Direct2D1.RoundedRectangle { Rect = hudRect, RadiusX = 4f, RadiusY = 4f };
+            RenderTarget.FillRoundedRectangle(rr, dxBandBg);
+            RenderTarget.DrawRoundedRectangle(rr, dxBorder, 0.8f);
+
+            string modeTag = modoA
+                ? ("MODO A · FEED NATIVO (" + nativeSymbol + ")")
+                : (isOn ? ("MODO B · PROXY WEB (~" + AtualizarSegundos + "s)") : "MODO B · AGUARDANDO API");
+
+            string tickSign = (curTick >= 0) ? ("+" + curTick.ToString("0", CultureInfo.InvariantCulture)) : curTick.ToString("0", CultureInfo.InvariantCulture);
+            string topTxt = "NYSE $TICK: " + tickSign + "   [" + modeTag + "]";
+            SharpDX.Direct2D1.SolidColorBrush valBrush = (curTick >= 200) ? dxBullBrush : ((curTick <= -200) ? dxBearBrush : dxTextLight);
+            RenderTarget.DrawText(topTxt, dxFontTitle, new SharpDX.RectangleF(panelLeft + 16f, panelTop + 8f, hudW - 16f, 16f), modoA ? dxModoABrush : valBrush);
+
+            if (MostrarCorrelacaoAtivo)
+            {
+                bool useNqCorr = (chartRoot == "NQ" || chartRoot == "MNQ" || chartRoot == "QQQ");
+                StringBuilder sb = new StringBuilder();
+                sb.Append("TICKQ: ").Append(tq.ToString("+0;-0;0", CultureInfo.InvariantCulture));
+                sb.Append(" | ADD: ").Append(addV.ToString("+0;-0;0", CultureInfo.InvariantCulture));
+                sb.Append(" | VIX: ").Append(vixV.ToString("0.00", CultureInfo.InvariantCulture)).Append(" (").Append(vixC.ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture)).Append("%)");
+
+                sb.Append(" | CORR [").Append(chartRoot).Append("]:");
+                int added = 0;
+                for (int i = 0; i < corrSnap.Count && added < 3; i++)
+                {
+                    MacroCorrItem item = corrSnap[i];
+                    if (item.Id == chartRoot || item.Id == "ES" || item.Id == "NQ") continue;
+                    double c = useNqCorr ? item.CorrNq : item.CorrEs;
+                    sb.Append(" ").Append(item.Id).Append(" ").Append(c.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture));
+                    added++;
+                }
+                RenderTarget.DrawText(sb.ToString(), dxFontSmall, new SharpDX.RectangleF(panelLeft + 16f, panelTop + 25f, hudW - 16f, 15f), dxTextMuted);
+            }
+        }
+
+        private void LimparRecursosRender()
+        {
+            if (dxZoneBull != null) { dxZoneBull.Dispose(); dxZoneBull = null; }
+            if (dxZoneBear != null) { dxZoneBear.Dispose(); dxZoneBear = null; }
+            if (dxBandBg != null) { dxBandBg.Dispose(); dxBandBg = null; }
+            if (dxBorder != null) { dxBorder.Dispose(); dxBorder = null; }
+            if (dxTextLight != null) { dxTextLight.Dispose(); dxTextLight = null; }
+            if (dxTextMuted != null) { dxTextMuted.Dispose(); dxTextMuted = null; }
+            if (dxBullBrush != null) { dxBullBrush.Dispose(); dxBullBrush = null; }
+            if (dxBearBrush != null) { dxBearBrush.Dispose(); dxBearBrush = null; }
+            if (dxModoABrush != null) { dxModoABrush.Dispose(); dxModoABrush = null; }
+            if (dxModoBBrush != null) { dxModoBBrush.Dispose(); dxModoBBrush = null; }
+            if (dxFontTitle != null) { dxFontTitle.Dispose(); dxFontTitle = null; }
+            if (dxFontSmall != null) { dxFontSmall.Dispose(); dxFontSmall = null; }
+            if (dxDwFactory != null) { dxDwFactory.Dispose(); dxDwFactory = null; }
+        }
+
+        public override void OnRenderTargetChanged()
+        {
+            LimparRecursosRender();
+        }
+    }
+}
+'''
+
+# ==============================================================================
+# 13. ORDERFLOW IMBALANCE FLASH (ESTILO BOOKMAP MARKET PULSE + SONS NAO-VOCAIS)
+# ==============================================================================
+CODE_ORDERFLOW_IMBALANCE_FLASH = r'''using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Media;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
+using System.Xml.Serialization;
+using NinjaTrader.Cbi;
+using NinjaTrader.Data;
+using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.NinjaScript;
+using SharpDX;
+using SharpDX.Direct2D1;
+using SharpDX.DirectWrite;
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+    public class OrderFlowImbalanceFlash : Indicator
+    {
+        private struct TradeSample
+        {
+            public DateTime Time;
+            public double Price;
+            public long Volume;
+            public bool IsBuy;
+        }
+
+        private class LevelFlow
+        {
+            public long BuyVol;
+            public long SellVol;
+        }
+
+        private class FlashPriceZone
+        {
+            public double Price;
+            public bool IsBuyDominant;
+            public long NetVol;
+            public long PeakVol;
+            public long LastTouchMs;
+        }
+
+        private class TopPriceItem
+        {
+            public double Price;
+            public long Delta;
+        }
+
+        private static class PcmToneSynthesizer
+        {
+            public static MemoryStream BuildChimeStream(double startHz, double endHz, double harmHz, int durationMs, double ampScale)
+            {
+                int sampleRate = 22050;
+                int numSamples = Math.Max(400, (sampleRate * durationMs) / 1000);
+                int dataBytes = numSamples * 2;
+                byte[] wav = new byte[44 + dataBytes];
+
+                // RIFF header
+                wav[0] = (byte)'R'; wav[1] = (byte)'I'; wav[2] = (byte)'F'; wav[3] = (byte)'F';
+                WriteInt32(wav, 4, 36 + dataBytes);
+                wav[8] = (byte)'W'; wav[9] = (byte)'A'; wav[10] = (byte)'V'; wav[11] = (byte)'E';
+                // fmt chunk
+                wav[12] = (byte)'f'; wav[13] = (byte)'m'; wav[14] = (byte)'t'; wav[15] = (byte)' ';
+                WriteInt32(wav, 16, 16);
+                WriteInt16(wav, 20, 1); // PCM
+                WriteInt16(wav, 22, 1); // Mono
+                WriteInt32(wav, 24, sampleRate);
+                WriteInt32(wav, 28, sampleRate * 2);
+                WriteInt16(wav, 32, 2);
+                WriteInt16(wav, 34, 16);
+                // data chunk
+                wav[36] = (byte)'d'; wav[37] = (byte)'a'; wav[38] = (byte)'t'; wav[39] = (byte)'a';
+                WriteInt32(wav, 40, dataBytes);
+
+                double phase = 0.0;
+                double phase2 = 0.0;
+                double amp = Math.Max(0.05, Math.Min(0.95, ampScale));
+
+                for (int i = 0; i < numSamples; i++)
+                {
+                    double t = (double)i / (numSamples - 1);
+                    double envIn = (i < 220) ? (0.5 - 0.5 * Math.Cos(Math.PI * i / 220.0)) : 1.0;
+                    double envOut = Math.Pow(1.0 - t, 1.35);
+                    double freq = startHz + (endHz - startHz) * t;
+                    phase += 2.0 * Math.PI * freq / sampleRate;
+                    phase2 += 2.0 * Math.PI * harmHz / sampleRate;
+
+                    double sig = 0.72 * Math.Sin(phase) + (harmHz > 0 ? 0.28 * Math.Sin(phase2) : 0.0);
+                    double sVal = sig * envIn * envOut * amp * 26000.0;
+                    short pcm = (short)Math.Max(-32760, Math.Min(32760, (int)Math.Round(sVal)));
+                    WriteInt16(wav, 44 + i * 2, pcm);
+                }
+                return new MemoryStream(wav, false);
+            }
+
+            private static void WriteInt32(byte[] buf, int offset, int value)
+            {
+                buf[offset] = (byte)(value & 0xFF);
+                buf[offset + 1] = (byte)((value >> 8) & 0xFF);
+                buf[offset + 2] = (byte)((value >> 16) & 0xFF);
+                buf[offset + 3] = (byte)((value >> 24) & 0xFF);
+            }
+
+            private static void WriteInt16(byte[] buf, int offset, short value)
+            {
+                buf[offset] = (byte)(value & 0xFF);
+                buf[offset + 1] = (byte)((value >> 8) & 0xFF);
+            }
+        }
+
+        private readonly object flowLock = new object();
+        private readonly Queue<TradeSample> windowQueue = new Queue<TradeSample>();
+        private readonly Dictionary<double, LevelFlow> windowLevels = new Dictionary<double, LevelFlow>();
+        private readonly Dictionary<double, FlashPriceZone> flashZones = new Dictionary<double, FlashPriceZone>();
+
+        private long winBuyVol = 0;
+        private long winSellVol = 0;
+        private int winBuyTrades = 0;
+        private int winSellTrades = 0;
+        private double lastTradePrice = 0.0;
+        private bool lastTradeWasBuy = true;
+
+        private readonly Stopwatch clockSw = Stopwatch.StartNew();
+        private long lastSoundPlayMs = -99999;
+        private long lastFlashImpulseMs = -99999;
+        private int currentStateDir = 0; // 1 = buy imbalance, -1 = sell imbalance, 0 = neutral
+        private int currentLevelIntensity = 0; // 0,1,2,3
+
+        private SoundPlayer spBuy1, spBuy2, spBuy3;
+        private SoundPlayer spSell1, spSell2, spSell3;
+        private MemoryStream msBuy1, msBuy2, msBuy3;
+        private MemoryStream msSell1, msSell2, msSell3;
+
+        private bool somAtivoRuntime = true;
+        private bool mouseHooked = false;
+        private SharpDX.RectangleF soundBtnRect = new SharpDX.RectangleF(0, 0, 0, 0);
+        private DispatcherTimer flashUiTimer;
+
+        private SharpDX.Direct2D1.SolidColorBrush dxCardBg;
+        private SharpDX.Direct2D1.SolidColorBrush dxCardBorder;
+        private SharpDX.Direct2D1.SolidColorBrush dxBuyStrong;
+        private SharpDX.Direct2D1.SolidColorBrush dxBuyGlow;
+        private SharpDX.Direct2D1.SolidColorBrush dxSellStrong;
+        private SharpDX.Direct2D1.SolidColorBrush dxSellGlow;
+        private SharpDX.Direct2D1.SolidColorBrush dxNeutralBrush;
+        private SharpDX.Direct2D1.SolidColorBrush dxTextLight;
+        private SharpDX.Direct2D1.SolidColorBrush dxTextMuted;
+        private SharpDX.Direct2D1.SolidColorBrush dxBtnBg;
+        private SharpDX.DirectWrite.Factory dxDwFactory;
+        private SharpDX.DirectWrite.TextFormat dxFontTitle;
+        private SharpDX.DirectWrite.TextFormat dxFontBig;
+        private SharpDX.DirectWrite.TextFormat dxFontSmall;
+
+        #region Propriedades
+        [NinjaScriptProperty]
+        [Range(0.5, 30.0)]
+        [Display(Name = "Janela Deslizante (Segundos)", Order = 1, GroupName = "01. Market Pulse Motor")]
+        public double JanelaSegundos { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 50000)]
+        [Display(Name = "Volume Minimo na Janela", Order = 2, GroupName = "01. Market Pulse Motor")]
+        public int VolumeMinimoJanela { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1.1, 20.0)]
+        [Display(Name = "Ratio Desequilibrio (ex: 2.2x)", Order = 3, GroupName = "01. Market Pulse Motor")]
+        public double RatioDesequilibrio { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1.0, 20.0)]
+        [Display(Name = "Decaimento Flash no Preco (Seg)", Order = 4, GroupName = "02. Visual e Faixas")]
+        public double BrilhoDecaimentoSeg { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Mostrar Faixas Piscantes nos Niveis", Order = 5, GroupName = "02. Visual e Faixas")]
+        public bool MostrarFaixasNoPreco { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Mostrar Caixinha Pulse Box", Order = 6, GroupName = "02. Visual e Faixas")]
+        public bool MostrarPainelPulse { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Canto (SuperiorDireito/Esquerdo/Inferior...)", Order = 7, GroupName = "02. Visual e Faixas")]
+        public string CantoPainel { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Ativar Sons Nao-Vocais Progressivos", Order = 8, GroupName = "03. Sons PCM (Zero Voz)")]
+        public bool AtivarSom { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(5, 100)]
+        [Display(Name = "Volume Audio (%)", Order = 9, GroupName = "03. Sons PCM (Zero Voz)")]
+        public int VolumeAudioPct { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(150, 5000)]
+        [Display(Name = "Cooldown Som Nivel 1 (ms)", Order = 10, GroupName = "03. Sons PCM (Zero Voz)")]
+        public int CooldownNivel1Ms { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(120, 3000)]
+        [Display(Name = "Cooldown Som Nivel 2 (ms)", Order = 11, GroupName = "03. Sons PCM (Zero Voz)")]
+        public int CooldownNivel2Ms { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(80, 2000)]
+        [Display(Name = "Cooldown Som Nivel 3 Climax (ms)", Order = 12, GroupName = "03. Sons PCM (Zero Voz)")]
+        public int CooldownNivel3Ms { get; set; }
+        #endregion
+
+        protected override void OnStateChange()
+        {
+            if (State == State.SetDefaults)
+            {
+                Description = "Caixinha piscante estilo Bookmap Market Pulse (0ms OnMarketData), faixas de desequilibrio no preco e sons nao-vocais progressivos.";
+                Name = "VeltrixQuant - OrderFlowImbalanceFlash";
+                Calculate = Calculate.OnEachTick;
+                IsOverlay = true;
+                IsAutoScale = false;
+                DisplayInDataBox = false;
+                DrawOnPricePanel = true;
+                PaintPriceMarkers = false;
+                IsSuspendedWhileInactive = true;
+
+                JanelaSegundos = 3.0;
+                VolumeMinimoJanela = 45;
+                RatioDesequilibrio = 2.2;
+                BrilhoDecaimentoSeg = 4.5;
+                MostrarFaixasNoPreco = true;
+                MostrarPainelPulse = true;
+                CantoPainel = "SuperiorDireito";
+                AtivarSom = true;
+                VolumeAudioPct = 65;
+                CooldownNivel1Ms = 700;
+                CooldownNivel2Ms = 360;
+                CooldownNivel3Ms = 210;
+            }
+            else if (State == State.DataLoaded)
+            {
+                somAtivoRuntime = AtivarSom;
+                InitAudioPlayers();
+                HookMouseAndTimer();
+            }
+            else if (State == State.Terminated)
+            {
+                UnhookMouseAndTimer();
+                DisposeAudioPlayers();
+                LimparRecursosRender();
+            }
+        }
+
+        private void InitAudioPlayers()
+        {
+            DisposeAudioPlayers();
+            try
+            {
+                double amp = VolumeAudioPct / 100.0;
+                msBuy1 = PcmToneSynthesizer.BuildChimeStream(784.0, 880.0, 1568.0, 95, amp * 0.72);
+                msBuy2 = PcmToneSynthesizer.BuildChimeStream(988.0, 1244.0, 1975.0, 105, amp * 0.85);
+                msBuy3 = PcmToneSynthesizer.BuildChimeStream(1175.0, 1568.0, 2349.0, 120, amp * 1.00);
+
+                msSell1 = PcmToneSynthesizer.BuildChimeStream(349.0, 311.0, 0.0, 95, amp * 0.74);
+                msSell2 = PcmToneSynthesizer.BuildChimeStream(294.0, 220.0, 147.0, 110, amp * 0.88);
+                msSell3 = PcmToneSynthesizer.BuildChimeStream(220.0, 146.8, 110.0, 125, amp * 1.00);
+
+                spBuy1 = new SoundPlayer(msBuy1); spBuy1.Load();
+                spBuy2 = new SoundPlayer(msBuy2); spBuy2.Load();
+                spBuy3 = new SoundPlayer(msBuy3); spBuy3.Load();
+                spSell1 = new SoundPlayer(msSell1); spSell1.Load();
+                spSell2 = new SoundPlayer(msSell2); spSell2.Load();
+                spSell3 = new SoundPlayer(msSell3); spSell3.Load();
+            }
+            catch { }
+        }
+
+        private void DisposeAudioPlayers()
+        {
+            SoundPlayer[] pls = new SoundPlayer[] { spBuy1, spBuy2, spBuy3, spSell1, spSell2, spSell3 };
+            for (int i = 0; i < pls.Length; i++)
+            {
+                if (pls[i] != null) { try { pls[i].Stop(); pls[i].Dispose(); } catch { } }
+            }
+            spBuy1 = spBuy2 = spBuy3 = spSell1 = spSell2 = spSell3 = null;
+
+            MemoryStream[] mss = new MemoryStream[] { msBuy1, msBuy2, msBuy3, msSell1, msSell2, msSell3 };
+            for (int i = 0; i < mss.Length; i++)
+            {
+                if (mss[i] != null) { try { mss[i].Dispose(); } catch { } }
+            }
+            msBuy1 = msBuy2 = msBuy3 = msSell1 = msSell2 = msSell3 = null;
+        }
+
+        private void HookMouseAndTimer()
+        {
+            if (ChartControl == null) return;
+            ChartControl.Dispatcher.InvokeAsync(new Action(() =>
+            {
+                if (State == State.Terminated || ChartControl == null) return;
+                if (!mouseHooked)
+                {
+                    ChartControl.MouseDown += OnChartMouseDown;
+                    mouseHooked = true;
+                }
+                if (flashUiTimer == null)
+                {
+                    flashUiTimer = new DispatcherTimer(DispatcherPriority.Render, ChartControl.Dispatcher);
+                    flashUiTimer.Interval = TimeSpan.FromMilliseconds(150);
+                    flashUiTimer.Tick += (s, ev) =>
+                    {
+                        if (ChartControl == null || State != State.Realtime) return;
+                        long nowMs = clockSw.ElapsedMilliseconds;
+                        if (nowMs - lastFlashImpulseMs <= (long)(BrilhoDecaimentoSeg * 1000.0) + 400)
+                            ChartControl.InvalidateVisual();
+                    };
+                    flashUiTimer.Start();
+                }
+            }));
+        }
+
+        private void UnhookMouseAndTimer()
+        {
+            if (ChartControl == null) return;
+            try
+            {
+                ChartControl.Dispatcher.InvokeAsync(new Action(() =>
+                {
+                    if (ChartControl != null && mouseHooked)
+                    {
+                        ChartControl.MouseDown -= OnChartMouseDown;
+                        mouseHooked = false;
+                    }
+                    if (flashUiTimer != null)
+                    {
+                        flashUiTimer.Stop();
+                        flashUiTimer = null;
+                    }
+                }));
+            }
+            catch { }
+        }
+
+        private void OnChartMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (ChartControl == null || ChartControl.PresentationSource == null || !MostrarPainelPulse) return;
+            System.Windows.Point p = e.GetPosition(ChartControl);
+            float px = (float)ChartingExtensions.ConvertToHorizontalPixels(p.X, ChartControl.PresentationSource);
+            float py = (float)ChartingExtensions.ConvertToVerticalPixels(p.Y, ChartControl.PresentationSource);
+
+            if (soundBtnRect.Width > 0 && soundBtnRect.Contains(px, py))
+            {
+                somAtivoRuntime = !somAtivoRuntime;
+                e.Handled = true;
+                ChartControl.InvalidateVisual();
+            }
+        }
+
+        protected override void OnBarUpdate()
+        {
+        }
+
+        protected override void OnMarketData(MarketDataEventArgs e)
+        {
+            if (BarsInProgress != 0 || e == null || e.MarketDataType != MarketDataType.Last || e.Volume <= 0 || e.Price <= 0)
+                return;
+
+            double ask = (e.Ask > 0) ? e.Ask : GetCurrentAsk();
+            double bid = (e.Bid > 0) ? e.Bid : GetCurrentBid();
+            bool isBuy;
+
+            if (ask > 0 && e.Price >= ask) isBuy = true;
+            else if (bid > 0 && e.Price <= bid) isBuy = false;
+            else if (lastTradePrice > 0)
+            {
+                if (e.Price > lastTradePrice) isBuy = true;
+                else if (e.Price < lastTradePrice) isBuy = false;
+                else isBuy = lastTradeWasBuy;
+            }
+            else isBuy = true;
+
+            lastTradePrice = e.Price;
+            lastTradeWasBuy = isBuy;
+
+            DateTime nowRef = (e.Time != DateTime.MinValue) ? e.Time : DateTime.Now;
+            long nowMonoMs = clockSw.ElapsedMilliseconds;
+
+            int trigDir = 0;
+            int trigLevel = 0;
+
+            lock (flowLock)
+            {
+                windowQueue.Enqueue(new TradeSample { Time = nowRef, Price = e.Price, Volume = e.Volume, IsBuy = isBuy });
+                if (isBuy) { winBuyVol += e.Volume; winBuyTrades++; }
+                else { winSellVol += e.Volume; winSellTrades++; }
+
+                LevelFlow lf;
+                if (!windowLevels.TryGetValue(e.Price, out lf))
+                {
+                    lf = new LevelFlow();
+                    windowLevels[e.Price] = lf;
+                }
+                if (isBuy) lf.BuyVol += e.Volume;
+                else lf.SellVol += e.Volume;
+
+                DateTime cutoff = nowRef.AddSeconds(-JanelaSegundos);
+                while (windowQueue.Count > 0 && windowQueue.Peek().Time < cutoff)
+                {
+                    TradeSample old = windowQueue.Dequeue();
+                    if (old.IsBuy) { winBuyVol -= old.Volume; winBuyTrades--; }
+                    else { winSellVol -= old.Volume; winSellTrades--; }
+
+                    LevelFlow oldLf;
+                    if (windowLevels.TryGetValue(old.Price, out oldLf))
+                    {
+                        if (old.IsBuy) oldLf.BuyVol = Math.Max(0, oldLf.BuyVol - old.Volume);
+                        else oldLf.SellVol = Math.Max(0, oldLf.SellVol - old.Volume);
+                        if (oldLf.BuyVol == 0 && oldLf.SellVol == 0) windowLevels.Remove(old.Price);
+                    }
+                }
+                if (winBuyVol < 0) winBuyVol = 0;
+                if (winSellVol < 0) winSellVol = 0;
+
+                // Atualiza zonas piscantes por nivel de preco
+                long lvlNet = lf.BuyVol - lf.SellVol;
+                long minLevelBurst = Math.Max(6, VolumeMinimoJanela / 3);
+                if (Math.Abs(lvlNet) >= minLevelBurst)
+                {
+                    FlashPriceZone zone;
+                    if (!flashZones.TryGetValue(e.Price, out zone))
+                    {
+                        zone = new FlashPriceZone { Price = e.Price };
+                        flashZones[e.Price] = zone;
+                    }
+                    zone.IsBuyDominant = (lvlNet >= 0);
+                    zone.NetVol = Math.Abs(lvlNet);
+                    if (zone.NetVol > zone.PeakVol) zone.PeakVol = zone.NetVol;
+                    zone.LastTouchMs = nowMonoMs;
+                    lastFlashImpulseMs = nowMonoMs;
+                }
+
+                // Avalia desequilibrio global da janela
+                double buyRatio = (winSellVol > 0) ? ((double)winBuyVol / winSellVol) : (winBuyVol > 0 ? 9.9 : 1.0);
+                double sellRatio = (winBuyVol > 0) ? ((double)winSellVol / winBuyVol) : (winSellVol > 0 ? 9.9 : 1.0);
+
+                if (winBuyVol >= VolumeMinimoJanela && buyRatio >= RatioDesequilibrio)
+                {
+                    trigDir = 1;
+                    trigLevel = (winBuyVol >= VolumeMinimoJanela * 4.5) ? 3 : ((winBuyVol >= VolumeMinimoJanela * 2.2) ? 2 : 1);
+                    lastFlashImpulseMs = nowMonoMs;
+                }
+                else if (winSellVol >= VolumeMinimoJanela && sellRatio >= RatioDesequilibrio)
+                {
+                    trigDir = -1;
+                    trigLevel = (winSellVol >= VolumeMinimoJanela * 4.5) ? 3 : ((winSellVol >= VolumeMinimoJanela * 2.2) ? 2 : 1);
+                    lastFlashImpulseMs = nowMonoMs;
+                }
+                currentStateDir = trigDir;
+                currentLevelIntensity = trigLevel;
+
+                // Limpa zonas expiradas
+                long decayMs = (long)(BrilhoDecaimentoSeg * 1000.0);
+                if (flashZones.Count > 24)
+                {
+                    List<double> stale = new List<double>();
+                    foreach (KeyValuePair<double, FlashPriceZone> kv in flashZones)
+                    {
+                        if (nowMonoMs - kv.Value.LastTouchMs > decayMs) stale.Add(kv.Key);
+                    }
+                    for (int i = 0; i < stale.Count; i++) flashZones.Remove(stale[i]);
+                }
+            }
+
+            if (State == State.Realtime && somAtivoRuntime && trigDir != 0 && trigLevel > 0)
+            {
+                int cooldown = (trigLevel == 3) ? CooldownNivel3Ms : ((trigLevel == 2) ? CooldownNivel2Ms : CooldownNivel1Ms);
+                if (nowMonoMs - lastSoundPlayMs >= cooldown)
+                {
+                    lastSoundPlayMs = nowMonoMs;
+                    SoundPlayer targetSp = (trigDir > 0)
+                        ? (trigLevel == 3 ? spBuy3 : (trigLevel == 2 ? spBuy2 : spBuy1))
+                        : (trigLevel == 3 ? spSell3 : (trigLevel == 2 ? spSell2 : spSell1));
+                    if (targetSp != null)
+                    {
+                        try { targetSp.Play(); } catch { }
+                    }
+                }
+            }
+        }
+
+        private void EnsureRenderResources()
+        {
+            if (RenderTarget == null) return;
+            if (dxDwFactory == null) dxDwFactory = new SharpDX.DirectWrite.Factory();
+            if (dxFontTitle == null) dxFontTitle = new SharpDX.DirectWrite.TextFormat(dxDwFactory, "Segoe UI", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 10.5f);
+            if (dxFontBig == null) dxFontBig = new SharpDX.DirectWrite.TextFormat(dxDwFactory, "Segoe UI", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 12.5f);
+            if (dxFontSmall == null) dxFontSmall = new SharpDX.DirectWrite.TextFormat(dxDwFactory, "Segoe UI", SharpDX.DirectWrite.FontWeight.Normal, SharpDX.DirectWrite.FontStyle.Normal, 9.5f);
+
+            if (dxCardBg == null) dxCardBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.05f, 0.06f, 0.11f, 0.91f));
+            if (dxCardBorder == null) dxCardBorder = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.34f, 0.42f, 0.62f, 0.72f));
+            if (dxBuyStrong == null) dxBuyStrong = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.10f, 0.92f, 0.56f, 0.95f));
+            if (dxBuyGlow == null) dxBuyGlow = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.10f, 0.90f, 0.54f, 0.25f));
+            if (dxSellStrong == null) dxSellStrong = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.98f, 0.22f, 0.36f, 0.95f));
+            if (dxSellGlow == null) dxSellGlow = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.96f, 0.20f, 0.34f, 0.25f));
+            if (dxNeutralBrush == null) dxNeutralBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.55f, 0.62f, 0.76f, 0.85f));
+            if (dxTextLight == null) dxTextLight = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.96f, 0.97f, 1.00f, 0.98f));
+            if (dxTextMuted == null) dxTextMuted = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.70f, 0.76f, 0.88f, 0.90f));
+            if (dxBtnBg == null) dxBtnBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.14f, 0.17f, 0.26f, 0.95f));
+        }
+
+        protected override void OnRender(ChartControl chartControl, ChartScale chartScale)
+        {
+            if (chartControl == null || chartScale == null || ChartBars == null || ChartPanel == null || RenderTarget == null) return;
+            EnsureRenderResources();
+
+            float panelLeft = (float)ChartPanel.X;
+            float panelTop = (float)ChartPanel.Y;
+            float panelRight = (float)(ChartPanel.X + ChartPanel.W);
+            float panelBottom = (float)(ChartPanel.Y + ChartPanel.H);
+            long nowMonoMs = clockSw.ElapsedMilliseconds;
+            long decayMs = (long)(BrilhoDecaimentoSeg * 1000.0);
+
+            long buyV, sellV;
+            int buyT, sellT, dirSnap, intSnap;
+            List<FlashPriceZone> zoneSnap = new List<FlashPriceZone>();
+            List<TopPriceItem> topLvls = new List<TopPriceItem>();
+
+            lock (flowLock)
+            {
+                buyV = winBuyVol;
+                sellV = winSellVol;
+                buyT = winBuyTrades;
+                sellT = winSellTrades;
+                dirSnap = currentStateDir;
+                intSnap = currentLevelIntensity;
+
+                foreach (KeyValuePair<double, FlashPriceZone> kv in flashZones)
+                {
+                    if (nowMonoMs - kv.Value.LastTouchMs <= decayMs)
+                        zoneSnap.Add(kv.Value);
+                }
+
+                foreach (KeyValuePair<double, LevelFlow> kv in windowLevels)
+                {
+                    long delta = kv.Value.BuyVol - kv.Value.SellVol;
+                    if (delta != 0) topLvls.Add(new TopPriceItem { Price = kv.Key, Delta = delta });
+                }
+            }
+
+            topLvls.Sort((a, b) => Math.Abs(b.Delta).CompareTo(Math.Abs(a.Delta)));
+
+            // Passo 1: Faixas piscantes nos niveis de preco com desequilibrio
+            if (MostrarFaixasNoPreco && zoneSnap.Count > 0)
+            {
+                int toIdx = ChartBars.ToIndex;
+                float lastX = (toIdx >= 0) ? (float)chartControl.GetXByBarIndex(ChartBars, toIdx) : (panelRight - 90f);
+                float xLeftZone = Math.Max(panelLeft + 20f, lastX - 180f);
+                float xRightZone = Math.Min(panelRight - 14f, lastX + 28f);
+
+                for (int i = 0; i < zoneSnap.Count; i++)
+                {
+                    FlashPriceZone z = zoneSnap[i];
+                    float y = (float)chartScale.GetYByValue(z.Price);
+                    if (y < panelTop + 6f || y > panelBottom - 6f) continue;
+
+                    double ageFrac = Math.Max(0.0, 1.0 - ((double)(nowMonoMs - z.LastTouchMs) / Math.Max(500.0, decayMs)));
+                    float blink = (float)(0.55 + 0.45 * Math.Sin(nowMonoMs * 0.014 + i));
+                    float alphaFactor = (float)ageFrac * blink;
+
+                    SharpDX.Direct2D1.SolidColorBrush glow = z.IsBuyDominant ? dxBuyGlow : dxSellGlow;
+                    SharpDX.Direct2D1.SolidColorBrush line = z.IsBuyDominant ? dxBuyStrong : dxSellStrong;
+
+                    glow.Opacity = Math.Max(0.05f, 0.42f * alphaFactor);
+                    RenderTarget.FillRectangle(new SharpDX.RectangleF(xLeftZone, y - 5.5f, Math.Max(20f, xRightZone - xLeftZone), 11f), glow);
+                    line.Opacity = Math.Max(0.15f, 0.95f * alphaFactor);
+                    RenderTarget.DrawLine(new SharpDX.Vector2(xLeftZone, y), new SharpDX.Vector2(xRightZone, y), line, 1.4f);
+
+                    string lbl = (z.IsBuyDominant ? "+" : "-") + z.NetVol.ToString(CultureInfo.InvariantCulture);
+                    RenderTarget.DrawText(lbl, dxFontSmall, new SharpDX.RectangleF(xRightZone + 4f, y - 7f, 52f, 14f), line);
+                }
+                dxBuyStrong.Opacity = 0.95f;
+                dxSellStrong.Opacity = 0.95f;
+                dxBuyGlow.Opacity = 0.25f;
+                dxSellGlow.Opacity = 0.25f;
+            }
+
+            // Passo 2: Caixinha Piscante Market Pulse + Botao Clicavel [SOM]
+            if (!MostrarPainelPulse) return;
+
+            float boxW = 262f;
+            float boxH = 122f;
+            string corner = (CantoPainel ?? "SuperiorDireito").ToLowerInvariant();
+            float boxLeft = corner.Contains("esquerdo") ? (panelLeft + 12f) : (panelRight - boxW - 14f);
+            float boxTop = corner.Contains("inferior") ? (panelBottom - boxH - 14f) : (panelTop + 12f);
+
+            float pulseFlash = (dirSnap != 0)
+                ? (float)(0.55 + 0.45 * Math.Sin(nowMonoMs * (intSnap >= 3 ? 0.022 : 0.012)))
+                : 0.20f;
+
+            SharpDX.Direct2D1.SolidColorBrush stateBrush = (dirSnap > 0) ? dxBuyStrong : ((dirSnap < 0) ? dxSellStrong : dxNeutralBrush);
+            SharpDX.RectangleF cardRect = new SharpDX.RectangleF(boxLeft, boxTop, boxW, boxH);
+            SharpDX.Direct2D1.RoundedRectangle rrCard = new SharpDX.Direct2D1.RoundedRectangle { Rect = cardRect, RadiusX = 6f, RadiusY = 6f };
+            RenderTarget.FillRoundedRectangle(rrCard, dxCardBg);
+
+            if (dirSnap != 0)
+            {
+                SharpDX.Direct2D1.SolidColorBrush flashGlow = (dirSnap > 0) ? dxBuyGlow : dxSellGlow;
+                flashGlow.Opacity = 0.45f * pulseFlash;
+                RenderTarget.FillRoundedRectangle(rrCard, flashGlow);
+                flashGlow.Opacity = 0.25f;
+            }
+
+            stateBrush.Opacity = (dirSnap != 0) ? (0.55f + 0.45f * pulseFlash) : 0.65f;
+            RenderTarget.DrawRoundedRectangle(rrCard, stateBrush, (dirSnap != 0) ? 1.8f : 0.9f);
+            stateBrush.Opacity = 0.95f;
+
+            string instName = (Instrument != null && Instrument.MasterInstrument != null) ? Instrument.MasterInstrument.Name : "ATIVO";
+            RenderTarget.DrawText("MARKET PULSE · " + instName, dxFontTitle, new SharpDX.RectangleF(boxLeft + 10f, boxTop + 7f, 165f, 16f), dxTextLight);
+
+            soundBtnRect = new SharpDX.RectangleF(boxLeft + boxW - 76f, boxTop + 6f, 66f, 17f);
+            SharpDX.Direct2D1.RoundedRectangle rrBtn = new SharpDX.Direct2D1.RoundedRectangle { Rect = soundBtnRect, RadiusX = 3.5f, RadiusY = 3.5f };
+            RenderTarget.FillRoundedRectangle(rrBtn, dxBtnBg);
+            RenderTarget.DrawRoundedRectangle(rrBtn, somAtivoRuntime ? dxBuyStrong : dxSellStrong, 0.9f);
+            RenderTarget.DrawText(somAtivoRuntime ? "SOM: ON" : "SOM: MUTE", dxFontSmall, new SharpDX.RectangleF(soundBtnRect.Left + 7f, soundBtnRect.Top + 1.5f, 56f, 14f), somAtivoRuntime ? dxBuyStrong : dxTextMuted);
+
+            long totalV = buyV + sellV;
+            double ratioShow = (dirSnap > 0)
+                ? ((sellV > 0) ? (double)buyV / sellV : buyV)
+                : ((dirSnap < 0) ? ((buyV > 0) ? (double)sellV / buyV : sellV) : 1.0);
+
+            string headStatus = (dirSnap > 0)
+                ? ("IMPULSO COMPRA (" + ratioShow.ToString("0.1", CultureInfo.InvariantCulture) + "x · L" + intSnap + ")")
+                : ((dirSnap < 0)
+                    ? ("PRESSAO VENDA (" + ratioShow.ToString("0.1", CultureInfo.InvariantCulture) + "x · L" + intSnap + ")")
+                    : "EQUILIBRIO DE FLUXO");
+
+            RenderTarget.DrawText(headStatus, dxFontBig, new SharpDX.RectangleF(boxLeft + 10f, boxTop + 26f, boxW - 20f, 18f), stateBrush);
+
+            // Barra dividida % Compra vs % Venda
+            float barX = boxLeft + 10f;
+            float barY = boxTop + 48f;
+            float barW = boxW - 20f;
+            float buyFrac = (totalV > 0) ? ((float)buyV / totalV) : 0.5f;
+            RenderTarget.FillRectangle(new SharpDX.RectangleF(barX, barY, barW, 8f), dxSellStrong);
+            RenderTarget.FillRectangle(new SharpDX.RectangleF(barX, barY, barW * buyFrac, 8f), dxBuyStrong);
+
+            double speedTradesSec = (JanelaSegundos > 0) ? ((buyT + sellT) / JanelaSegundos) : 0.0;
+            long netDelta = buyV - sellV;
+            string statsLine = "C: " + buyV + "  |  V: " + sellV + "  |  Δ: " + netDelta.ToString("+0;-0;0", CultureInfo.InvariantCulture) + "  |  " + speedTradesSec.ToString("0.0", CultureInfo.InvariantCulture) + " tr/s";
+            RenderTarget.DrawText(statsLine, dxFontSmall, new SharpDX.RectangleF(boxLeft + 10f, boxTop + 60f, boxW - 20f, 14f), dxTextLight);
+
+            string top1 = (topLvls.Count > 0) ? ("Top1 @ " + topLvls[0].Price.ToString("0.##", CultureInfo.InvariantCulture) + " (" + topLvls[0].Delta.ToString("+0;-0;0", CultureInfo.InvariantCulture) + ")") : "Aguardando lotes no Tape...";
+            string top2 = (topLvls.Count > 1) ? ("Top2 @ " + topLvls[1].Price.ToString("0.##", CultureInfo.InvariantCulture) + " (" + topLvls[1].Delta.ToString("+0;-0;0", CultureInfo.InvariantCulture) + ")") : ("Janela " + JanelaSegundos.ToString("0.0", CultureInfo.InvariantCulture) + "s · Min " + VolumeMinimoJanela);
+            RenderTarget.DrawText(top1, dxFontSmall, new SharpDX.RectangleF(boxLeft + 10f, boxTop + 80f, boxW - 20f, 14f), dxTextMuted);
+            RenderTarget.DrawText(top2, dxFontSmall, new SharpDX.RectangleF(boxLeft + 10f, boxTop + 96f, boxW - 20f, 14f), dxTextMuted);
+        }
+
+        private void LimparRecursosRender()
+        {
+            if (dxCardBg != null) { dxCardBg.Dispose(); dxCardBg = null; }
+            if (dxCardBorder != null) { dxCardBorder.Dispose(); dxCardBorder = null; }
+            if (dxBuyStrong != null) { dxBuyStrong.Dispose(); dxBuyStrong = null; }
+            if (dxBuyGlow != null) { dxBuyGlow.Dispose(); dxBuyGlow = null; }
+            if (dxSellStrong != null) { dxSellStrong.Dispose(); dxSellStrong = null; }
+            if (dxSellGlow != null) { dxSellGlow.Dispose(); dxSellGlow = null; }
+            if (dxNeutralBrush != null) { dxNeutralBrush.Dispose(); dxNeutralBrush = null; }
+            if (dxTextLight != null) { dxTextLight.Dispose(); dxTextLight = null; }
+            if (dxTextMuted != null) { dxTextMuted.Dispose(); dxTextMuted = null; }
+            if (dxBtnBg != null) { dxBtnBg.Dispose(); dxBtnBg = null; }
+            if (dxFontTitle != null) { dxFontTitle.Dispose(); dxFontTitle = null; }
+            if (dxFontBig != null) { dxFontBig.Dispose(); dxFontBig = null; }
+            if (dxFontSmall != null) { dxFontSmall.Dispose(); dxFontSmall = null; }
+            if (dxDwFactory != null) { dxDwFactory.Dispose(); dxDwFactory = null; }
+        }
+
+        public override void OnRenderTargetChanged()
+        {
+            LimparRecursosRender();
+        }
+    }
+}
+'''
+
+# ==============================================================================
+# ESCREVENDO E ORGANIZANDO TUDO NA PASTA DA MARCA (VeltrixQuant)
+# ==============================================================================
+pasta_marca = os.path.join(pasta_destino, MARCA_PASTA)
+os.makedirs(pasta_marca, exist_ok=True)
+
 arquivos_para_instalar = {
     "NiveisEstruturaPro.cs": CODE_ESTRUTURA,
     "NiveisGammaPro.cs": CODE_GAMMA,
@@ -3326,38 +5698,97 @@ arquivos_para_instalar = {
     "FluentliExpectedMove.cs": CODE_EXPECTED_MOVE,
     "VWAPInstitucionalPro.cs": CODE_VWAP,
     "DeltaCumulativePro.cs": CODE_DELTA,
-    "FluentliWatchdog.cs": CODE_WATCHDOG
+    "FluentliWatchdog.cs": CODE_WATCHDOG,
+    "DarkPoolBeamsPro.cs": CODE_DARKPOOL_BEAMS,
+    "NyseTickBreadthPro.cs": CODE_NYSE_TICK_BREADTH,
+    "OrderFlowImbalanceFlash.cs": CODE_ORDERFLOW_IMBALANCE_FLASH,
 }
 
-print("\n--- INICIANDO GRAVAÇÃO ---")
+PREFIXOS_ECOSISTEMA = (
+    "Fluentli",
+    "Veltrix",
+    "GexProfile",
+    "NiveisEstrutura",
+    "NiveisGamma",
+    "MoneyRisk",
+    "DailyOHLC",
+    "GlobexRange",
+    "VolatilidadeImplicita",
+    "VWAPInstitucional",
+    "DeltaCumulative",
+    "DarkPoolBeams",
+    "NyseTickBreadth",
+    "OrderFlowImbalance",
+)
+
+print(f"\n--- ORGANIZANDO PASTA DA MARCA: {pasta_marca} ---")
 try:
+    realocados = []
+    duplicatas_raiz_removidas = []
+
+    for item in os.listdir(pasta_destino):
+        origem_raiz = os.path.join(pasta_destino, item)
+        if not os.path.isfile(origem_raiz):
+            continue
+        if item.startswith("@") or not item.lower().endswith(".cs"):
+            continue
+
+        if item in arquivos_para_instalar:
+            try:
+                os.remove(origem_raiz)
+                duplicatas_raiz_removidas.append(item)
+                print(f"🧹 DUPLICATA NA RAIZ REMOVIDA (sera instalada em {MARCA_PASTA}): {item}")
+            except Exception as exc_rm:
+                print(f"⚠️ Nao foi possivel remover {item} da raiz: {exc_rm}")
+        elif item.startswith(PREFIXOS_ECOSISTEMA):
+            destino_marca = os.path.join(pasta_marca, item)
+            if not os.path.exists(destino_marca):
+                try:
+                    shutil.move(origem_raiz, destino_marca)
+                    realocados.append(item)
+                    print(f"📦 REALOCADO PARA {MARCA_PASTA}: {item}")
+                except Exception as exc_mv:
+                    print(f"⚠️ Nao foi possivel mover {item}: {exc_mv}")
+
     for nome_arquivo, conteudo in arquivos_para_instalar.items():
-        caminho_completo = os.path.join(pasta_destino, nome_arquivo)
-        
+        caminho_completo = os.path.join(pasta_marca, nome_arquivo)
         if os.path.exists(caminho_completo):
             try:
                 os.remove(caminho_completo)
-            except:
-                pass 
-                
+            except Exception:
+                pass
         with open(caminho_completo, "w", encoding="utf-8") as f:
             f.write(conteudo)
-        print(f"✅ SUCESSO: {nome_arquivo} atualizado para versão PREMIUM.")
+        print(f"✅ SUCESSO: {MARCA_PASTA}/{nome_arquivo} instalado/atualizado.")
 
-    messagebox.showinfo("Instalação MESTRE Concluída", 
-                        "✅ SUCESSO TOTAL!\n\n"
-                        f"Foram instalados {len(arquivos_para_instalar)} Indicadores:\n"
-                        "1. NiveisEstruturaPro (Gamma Histograma)\n"
-                        "2. NiveisGammaPro (Linhas e Dashboard)\n"
-                        "3. MoneyRiskPro (Versão V76 - ATR Inteligente)\n"
-                        "4. DailyOHLCPro (Faixa Vertical RTH)\n"
-                        "5. GlobexRangePro (Apenas Linhas)\n"
-                        "6. VolatilidadeImplicitaPro (Bandas 1, 2 e 3 SD da IV)\n"
-                        "7. FluentliExpectedMove (Nuvens de Expected Move)\n"
-                        "8. VWAPInstitucionalPro (VWAP + 4 Desvios SD)\n"
-                        "9. DeltaCumulativePro (Fluxo de Agressão v2.0)\n"
-                        "10. FluentliWatchdog (Icebergs Dinâmicos/Sintéticos, Cores & Rastreio)\n\n"
-                        "👉 AGORA: Abra o NinjaTrader e aperte F5 (ou reinicie).")
+    caminho_url_cfg = os.path.join(pasta_marca, "VeltrixQuant_URL.txt")
+    if not os.path.exists(caminho_url_cfg):
+        with open(caminho_url_cfg, "w", encoding="utf-8") as f:
+            f.write(DASHBOARD_URL_PADRAO + "\n")
+        print(f"🌐 ARQUIVO DE CONFIGURACAO CRIADO: {caminho_url_cfg} ({DASHBOARD_URL_PADRAO})")
+
+    resumo_movidos = f"\n🧹 Duplicatas removidas da raiz: {len(duplicatas_raiz_removidas)} | Extras movidos: {len(realocados)}"
+    messagebox.showinfo(
+        f"Instalação MESTRE {MARCA_PASTA} Concluída",
+        "✅ SUCESSO TOTAL!\n\n"
+        f"📂 Pasta criada/organizada:\n{pasta_marca}\n"
+        f"{resumo_movidos}\n\n"
+        f"Foram instalados {len(arquivos_para_instalar)} Indicadores ({MARCA_PASTA} - ...):\n"
+        "1. NiveisEstruturaPro (Gamma Histograma)\n"
+        "2. NiveisGammaPro (Linhas e Dashboard)\n"
+        "3. MoneyRiskPro (Versão V76 - ATR Inteligente)\n"
+        "4. DailyOHLCPro (Faixa Vertical RTH)\n"
+        "5. GlobexRangePro (Apenas Linhas)\n"
+        "6. VolatilidadeImplicitaPro (Bandas 1, 2 e 3 SD da IV)\n"
+        "7. FluentliExpectedMove (Nuvens de Expected Move)\n"
+        "8. VWAPInstitucionalPro (VWAP + 4 Desvios SD)\n"
+        "9. DeltaCumulativePro (Fluxo de Agressão v2.0)\n"
+        "10. FluentliWatchdog (Icebergs Dinâmicos/Sintéticos & Rastreio)\n"
+        "11. DarkPoolBeamsPro (Feixes Lilás SEC/FINRA + Barra de Força)\n"
+        "12. NyseTickBreadthPro (Modo A Automático + Proxy Web + Correlação)\n"
+        "13. OrderFlowImbalanceFlash (Market Pulse Bookmap + Sons Não-Vocais)\n\n"
+        "👉 AGORA: Abra o NinjaTrader, abra o NinjaScript Editor e aperte F5 (Compile).",
+    )
 
 except Exception as e:
     messagebox.showerror("Erro Fatal", f"Não foi possível gravar os arquivos:\n{e}")

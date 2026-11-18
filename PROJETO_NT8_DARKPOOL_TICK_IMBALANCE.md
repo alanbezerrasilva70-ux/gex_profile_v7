@@ -111,3 +111,7 @@ Assim como o **Market Pulse do Bookmap**, você identifica explosões de compra 
    - **`DarkPoolBeamsPro`**: consome `/api/macro-darkpool`, filtra automaticamente pelo contrato ativo no gráfico do NinjaTrader e renderiza feixes lilás pulsantes + barra de força FINRA + tags `$M`/`Short Exempt`.
    - **`NyseTickBreadthPro`**: lê `$TICK` nativo (se disponível no feed do usuário) ou consome `/api/market-context` para painel de correlação adaptativa por ativo + `Breadth Tick Proxy`.
    - **`OrderFlowImbalanceFlash`**: lê `OnMarketData` tick-a-tick real no NinjaTrader 8 e acende a caixinha piscante verde/vermelha com volumes Compra/Venda e marcações de níveis de preço com desequilíbrio diagonal.
+
+---
+
+> **[IMPLEMENTADO EM `18/11/2026`]:** Os 3 indicadores SharpDX/PCM (`DarkPoolBeamsPro`, `NyseTickBreadthPro` em Modo A Automático e `OrderFlowImbalanceFlash` com 6 tons WAV binários) foram implementados em `instalador_cloud2.0.py` dentro da pasta da marca **`VeltrixQuant`**, com cobertura `1m` ampliada em `/api/macro-darkpool` (`IEF` e `USO`). Confira os detalhes didáticos em [GUIA_DIDATICO_VELTRIXQUANT_E_DASHBOARD.md](file:///C:/Users/alanb/source/gex_profile_v7/gex_profile_v7/GUIA_DIDATICO_VELTRIXQUANT_E_DASHBOARD.md).
