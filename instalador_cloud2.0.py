@@ -3,7 +3,7 @@ import shutil
 import tkinter.messagebox as messagebox
 
 MARCA_PASTA = "VeltrixQuant"
-DASHBOARD_URL_PADRAO = os.environ.get("VELTRIX_DASHBOARD_URL", "http://localhost:3000").strip() or "http://localhost:3000"
+DASHBOARD_URL_PADRAO = os.environ.get("VELTRIX_DASHBOARD_URL", "https://gex-dashboard-git-master-gex-cloud.vercel.app").strip() or "https://gex-dashboard-git-master-gex-cloud.vercel.app"
 
 # ==============================================================================
 # 1. LOCALIZADOR INTELIGENTE DE PASTA (NinjaTrader 8)
@@ -3617,7 +3617,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         #region Propriedades
         [NinjaScriptProperty]
-        [Display(Name = "URL Dashboard (AUTO ou URL)", Description = "AUTO le VeltrixQuant_URL.txt ou localhost:3000", Order = 1, GroupName = "01. Conexao API")]
+        [Display(Name = "URL Dashboard (AUTO ou URL)", Description = "AUTO le VeltrixQuant_URL.txt ou Vercel Cloud (gex-dashboard)", Order = 1, GroupName = "01. Conexao API")]
         public string DashboardUrl { get; set; }
 
         [NinjaScriptProperty]
@@ -3784,7 +3784,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
             }
             catch { }
-            return "http://localhost:3000";
+            return "https://gex-dashboard-git-master-gex-cloud.vercel.app";
         }
 
         private void StartPolling()
@@ -4752,7 +4752,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
             }
             catch { }
-            return "http://localhost:3000";
+            return "https://gex-dashboard-git-master-gex-cloud.vercel.app";
         }
 
         private void PollMarketContext()
@@ -5762,10 +5762,17 @@ try:
         print(f"✅ SUCESSO: {MARCA_PASTA}/{nome_arquivo} instalado/atualizado.")
 
     caminho_url_cfg = os.path.join(pasta_marca, "VeltrixQuant_URL.txt")
-    if not os.path.exists(caminho_url_cfg):
+    url_atual_cfg = ""
+    if os.path.exists(caminho_url_cfg):
+        try:
+            with open(caminho_url_cfg, "r", encoding="utf-8") as f_old:
+                url_atual_cfg = f_old.read().strip()
+        except Exception:
+            url_atual_cfg = ""
+    if (not url_atual_cfg) or (url_atual_cfg == "http://localhost:3000"):
         with open(caminho_url_cfg, "w", encoding="utf-8") as f:
             f.write(DASHBOARD_URL_PADRAO + "\n")
-        print(f"🌐 ARQUIVO DE CONFIGURACAO CRIADO: {caminho_url_cfg} ({DASHBOARD_URL_PADRAO})")
+        print(f"🌐 URL NUVEM CONFIGURADA EM: {caminho_url_cfg} -> {DASHBOARD_URL_PADRAO}")
 
     resumo_movidos = f"\n🧹 Duplicatas removidas da raiz: {len(duplicatas_raiz_removidas)} | Extras movidos: {len(realocados)}"
     messagebox.showinfo(

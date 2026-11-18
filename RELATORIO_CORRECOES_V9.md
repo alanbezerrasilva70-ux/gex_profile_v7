@@ -457,3 +457,13 @@ git push origin main
   - **Feeds Baixa Latência + Aba `TradingView Oficial` ([TradingViewOfficialWidget.tsx](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/components/TradingViewOfficialWidget.tsx)):** Stream SSE reduzido para `2s` em `app/api/candles/stream/route.ts`, **WebSocket Binance 0ms** automático em `BTC-USD`/`ETH-USD`, suporte opcional a chave gratuita permanente **Finnhub WS (`$0/mês`)** para ETFs/Ações dos EUA, botão 1-clique **`Operar s/ Delay`** em futuros CME para o ETF correspondente e aba comparativa com o widget oficial do `TradingView.com`.
 - **Relatório Profissional de Performance (`usePaperAccount.ts` + `PaperPerformanceModal.tsx`):**
   - Simulador Paper Account `$50.000` local no `localStorage` (transparente: não loga em corretora externa), expandido para 500 trades com cálculo de Risco Planejado e `R:R` Realizado, **Profit Factor**, **Win Rate**, **Expectancy**, **Max Drawdown ($ e %)**, **Take Profits vs Stop Losses vs Trailing**, **Curva de Equity em SVG** e **Exportação CSV**.
+
+---
+
+## 31. URL de Produção da Vercel Embutida por Padrão no Instalador NT8 & Expansão da Pasta `Cursos` (`18/11/2026 16:39`)
+
+- **`instalador_cloud2.0.py` (`DarkPoolBeamsPro`, `NyseTickBreadthPro` e `DASHBOARD_URL_PADRAO`):**
+  - Identificada via prints do navegador a URL permanente da branch `master` na Vercel (`https://gex-dashboard-git-master-gex-cloud.vercel.app`, onde `/correlacao` e `/macro` com `USO`/`IEF` já respondem direto da nuvem).
+  - Atualizado `DASHBOARD_URL_PADRAO`, o fallback padrão de `ResolveDashboardBaseUrl()` em `DarkPoolBeamsPro` e `NyseTickBreadthPro`, e a lógica de criação/atualização do arquivo `VeltrixQuant_URL.txt` (agora promove automaticamente de `http://localhost:3000` antigo para a URL da Vercel ao rodar Play, preservando eventuais URLs customizadas).
+- **`C:\Users\alanb\Desktop\Cursos\` (Educação Quant & Engenharia Full-Stack):**
+  - Auditada a pasta `01_Programacao_Engenharia_e_Tecnologia/`, criados os novos arquivos [04_Cursos_Adicionais_APIs_Sockets_Estatistica_e_Canvas.md](file:///C:/Users/alanb/Desktop/Cursos/01_Programacao_Engenharia_e_Tecnologia/04_Cursos_Adicionais_APIs_Sockets_Estatistica_e_Canvas.md) e [05_Como_Construir_DOM_Footprint_VolumeProfile_TPO_e_TradingViewStudio.md](file:///C:/Users/alanb/Desktop/Cursos/01_Programacao_Engenharia_e_Tecnologia/05_Como_Construir_DOM_Footprint_VolumeProfile_TPO_e_TradingViewStudio.md) (trilhas gratuitas americanas sem Coursera + legendas PT-BR + engenharia completa de APIs, Sockets, Canvas, Drag & Drop, Volume Profile, TPO, Footprint e DOM) e atualizado [00_GUIA_MESTRE_E_MAPA_DA_JORNADA.md](file:///C:/Users/alanb/Desktop/Cursos/00_GUIA_MESTRE_E_MAPA_DA_JORNADA.md).
