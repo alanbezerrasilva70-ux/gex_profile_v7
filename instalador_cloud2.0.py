@@ -3846,25 +3846,30 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 string primaryUrl = ResolveDashboardBaseUrl();
                 string baseUrl = primaryUrl;
-                string endpoint = baseUrl + "/api/macro-darkpool";
+                string endpoint = baseUrl + "/api/macro-darkpool?only=darkpool";
                 string payload = null;
                 bool htmlBlocked = false;
                 Exception lastEx = null;
 
-                string[] candidates = string.Equals(primaryUrl, "http://localhost:3000", StringComparison.OrdinalIgnoreCase)
-                    ? new string[] { primaryUrl }
-                    : new string[] { primaryUrl, "http://localhost:3000" };
+                List<string> candList = new List<string>();
+                candList.Add(primaryUrl);
+                if (!candList.Exists(u => string.Equals(u, "http://localhost:3000", StringComparison.OrdinalIgnoreCase)))
+                    candList.Add("http://localhost:3000");
+                if (!candList.Exists(u => string.Equals(u, "http://127.0.0.1:3000", StringComparison.OrdinalIgnoreCase)))
+                    candList.Add("http://127.0.0.1:3000");
+
+                try { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12; } catch { }
 
                 Dictionary<string, object> root = null;
                 Dictionary<string, object> dpObj = null;
 
-                for (int c = 0; c < candidates.Length; c++)
+                for (int c = 0; c < candList.Count; c++)
                 {
-                    baseUrl = candidates[c];
-                    endpoint = baseUrl + "/api/macro-darkpool";
+                    baseUrl = candList[c];
+                    endpoint = baseUrl + "/api/macro-darkpool?only=darkpool";
                     try
                     {
-                        using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(7000))
+                        using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(20000))
                         {
                             wc.Encoding = Encoding.UTF8;
                             payload = wc.DownloadString(endpoint);
@@ -3906,6 +3911,14 @@ namespace NinjaTrader.NinjaScript.Indicators
                         }
                         else
                             feedStatusMsg = "RESPOSTA SEM DARKPOOL";
+                    }
+                    if (ChartControl != null)
+                    {
+                        ChartControl.Dispatcher.InvokeAsync(new Action(() =>
+                        {
+                            if (ChartControl != null && State != State.Terminated)
+                                ChartControl.InvalidateVisual();
+                        }));
                     }
                     return;
                 }
@@ -4806,22 +4819,27 @@ namespace NinjaTrader.NinjaScript.Indicators
             try
             {
                 string primaryUrl = ResolveDashboardBaseUrl();
-                string[] candidates = string.Equals(primaryUrl, "http://localhost:3000", StringComparison.OrdinalIgnoreCase)
-                    ? new string[] { primaryUrl }
-                    : new string[] { primaryUrl, "http://localhost:3000" };
+                List<string> candList = new List<string>();
+                candList.Add(primaryUrl);
+                if (!candList.Exists(u => string.Equals(u, "http://localhost:3000", StringComparison.OrdinalIgnoreCase)))
+                    candList.Add("http://localhost:3000");
+                if (!candList.Exists(u => string.Equals(u, "http://127.0.0.1:3000", StringComparison.OrdinalIgnoreCase)))
+                    candList.Add("http://127.0.0.1:3000");
+
+                try { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12; } catch { }
 
                 Dictionary<string, object> root = null;
                 List<object> assets = null;
                 bool htmlBlocked = false;
                 Exception lastEx = null;
 
-                for (int c = 0; c < candidates.Length; c++)
+                for (int c = 0; c < candList.Count; c++)
                 {
-                    string url = candidates[c] + "/api/market-context";
+                    string url = candList[c] + "/api/market-context";
                     try
                     {
                         string payload;
-                        using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(7000))
+                        using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(20000))
                         {
                             wc.Encoding = Encoding.UTF8;
                             payload = wc.DownloadString(url);

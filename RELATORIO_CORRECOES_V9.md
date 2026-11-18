@@ -497,3 +497,24 @@ git push origin main
 - **Novos E-Books & Documentação de Configuração (`Tick Replay`) em `gex-dashboard`:**
   - Criados os 3 novos módulos completos (`teoria.md` + `pratica.md`) e registrados em [books.ts](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/lib/i18n/books.ts): `darkpoolbeamspro`, `nysetickbreadthpro` (explicando inclusive `#FF00BFFF` em `NyseTickValue`, barras verdes/vermelhas e leitura entre Índices/Bonds/Ouro/Petróleo) e `orderflowimbalanceflash` (explicando fita `OnMarketData` dos futuros vs opções, `C/V/Δ`, `tr/s`, `Top1/Top2`, faixas e sons PCM L1/L2/L3).
   - Atualizados `deltacumulativepro/pratica.md` e `fluentliwatchdog/pratica.md` com orientações de **Tick Replay** (desnecessário ao vivo) e `Days to load` (`3–5` dias para evitar `(Calculating...)` longo no `DeltaCumulativePro`).
+
+---
+
+## 35. Matriz Completa de Compatibilidade Tradovate Demo (`My NinjaTrader`) × 13 Indicadores × Ativos (`18/11/2026 19:50`)
+
+- **Auditoria linha a linha no código dos 13 indicadores ([instalador_cloud2.0.py](file:///C:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py) + `macro-darkpool/route.ts` + `gex_profile_v7_cloud.py`):** Confirmado que todos os 13 funcionam na conta **Tradovate Demo (`My NinjaTrader`)**, separando exatamente os **7 universais** (`DailyOHLCPro`, `GlobexRangePro`, `VWAPInstitucionalPro`, `DeltaCumulativePro`, `OrderFlowImbalanceFlash`, `FluentliWatchdog` com L1 Sintético/blocos e L2 opcional, `MoneyRiskPro` com IV nos 9 e ATR/Fixo nos demais), os **4 de GEX/IV via Dropbox** (`9 Futuros + Micros`, com modo manual extra em `VolatilidadeImplicitaPro` e `FluentliExpectedMove`), **`DarkPoolBeamsPro`** (`8 Futuros + Micros`, excluindo `NG`, além de `25` ETFs/Ações fora da Tradovate) e **`NyseTickBreadthPro`** (`$TICK` universal com `^TICK` nativo Modo A funcionando na Tradovate Demo + `CORR` macro).
+- **Arquivos criados e registrados na Biblioteca (`/biblioteca` — 27 módulos / 54 ebooks):**
+  - [TABELA_ATIVOS_TRADOVATE_13_INDICADORES.md](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/public/ebooks/TABELA_ATIVOS_TRADOVATE_13_INDICADORES.md)
+  - `public/ebooks/compatibilidade_tradovate_ativos/` ([teoria.md](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/public/ebooks/compatibilidade_tradovate_ativos/teoria.md) + [pratica.md](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/public/ebooks/compatibilidade_tradovate_ativos/pratica.md))
+  - Registrado em [books.ts](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/lib/i18n/books.ts), [ptBR.ts](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/lib/i18n/dict/ptBR.ts) e [enUS.ts](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/lib/i18n/dict/enUS.ts).
+
+---
+
+## 36. Otimização `?only=darkpool`, Timeout 20s + `127.0.0.1` Failover e Diagnóstico DLL/Vercel (`18/11/2026 20:26`)
+
+- **Diagnóstico ao vivo na máquina do usuário (`Documents\NinjaTrader 8\bin\Custom`):**
+  - Verificado que `DarkPoolBeamsPro.cs` e `NyseTickBreadthPro.cs` tinham sido gravados no disco às `19:13:14`, porém `NinjaTrader.Custom.dll` ainda era de `18:10:29` (não recompilado com `F5` no NinjaScript Editor após a atualização), mantendo na tela o código antigo (`RESPOSTA SEM DARKPOOL`) sem tentativas para `localhost:3000`.
+  - Confirmado ainda que `/api/macro-darkpool` completo em `npm run dev` levava ~`4s–7s` (no limite do timeout antigo de `7000ms`), enquanto `VeltrixJsonParser` em C# (compilado contra o JSON real via `csc.exe`) decodificou todos os `24` blocos e `25` linhas FINRA sem erro (`ROOT_NULL=False`).
+- **Melhorias aplicadas em [route.ts](file:///c:/Users/alanb/source/gex-dashboard/gex-dashboard/app/api/macro-darkpool/route.ts) e [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):**
+  - Adicionado suporte a `?only=darkpool` no backend (retorna apenas `finra` + `proxyBlocks` sem esperar FRED, Calendário USD e Finviz).
+  - Elevado `VeltrixTimeoutWebClient` para `20000ms` (`20s`), adicionado fallback `http://127.0.0.1:3000` junto a `http://localhost:3000`, `ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12` e `ChartControl.InvalidateVisual()` no retorno de falha em `DarkPoolBeamsPro`.
