@@ -1067,6 +1067,58 @@ def select_walls(df):
     return df.loc[cw_index], df.loc[pw_index]
 
 
+# [CORREÇÃO 8] Limites de sanidade para razão dinâmica spot_futuro / spot_proxy.
+# Impede que uma cotação anômala do Barchart distorça o multiplicador do proxy.
+DYNAMIC_PROXY_RATIO_BOUNDS = (0.85, 1.15)
+
+
+def calibrate_proxy_strike_mult(base_strike_mult, proxy_spot, reference_spot):
+    """Calcula a razão real do pregão (`reference_spot / proxy_spot`).
+
+    ETFs como QQQ, SPY, DIA e IWM acumulam defasagem ao longo do tempo frente aos
+    futuros (dividendos, taxa de administração e carry/juros embutidos no futuro).
+    Quando disponível e dentro dos limites de sanidade (±15% do multiplicador
+    estático), usa a razão viva para alinhar os strikes do proxy ao futuro.
+    """
+    try:
+        base_mult = float(base_strike_mult)
+        p_spot = float(proxy_spot)
+        r_spot = float(reference_spot)
+    except (TypeError, ValueError):
+        return base_strike_mult
+    if (
+        not (math.isfinite(base_mult) and math.isfinite(p_spot) and math.isfinite(r_spot))
+        or base_mult <= 0
+        or p_spot <= 0
+        or r_spot <= 0
+    ):
+        return base_mult
+    dynamic_mult = r_spot / p_spot
+    drift = dynamic_mult / base_mult
+    low_bound, high_bound = DYNAMIC_PROXY_RATIO_BOUNDS
+    if low_bound <= drift <= high_bound:
+        return dynamic_mult
+    return base_mult
+
+
+def fetch_reference_spot(driver, symbol, url):
+    """Lê apenas o preço spot atual do contrato futuro de referência (ex.: RTY*0)."""
+    if not driver or not url:
+        return 0.0
+    try:
+        driver.get(url)
+        time.sleep(4)
+        spot = get_price(driver, symbol)
+        if spot == 0:
+            driver.refresh()
+            time.sleep(5)
+            spot = get_price(driver, symbol)
+        return float(spot) if spot and math.isfinite(spot) and spot > 0 else 0.0
+    except Exception as exc:
+        print(f" ⚠️ Falha ao ler spot futuro de referência {symbol} ({url}): {exc}")
+        return 0.0
+
+
 def apply_proxy_scaling(df, strike_mult, gex_correction):
     """[CORREÇÃO 6] Converte uma cadeia de proxy (ex.: IWM -> RTY) para a escala do futuro.
 
@@ -1683,9 +1735,20 @@ def process_group(driver, symbol, asset_list):
     df_master = pd.DataFrame()
     spot_master = 0
     rounding_step = STRIKE_ROUNDING.get(symbol)
+    reference_spot = 0.0
+    calibrated_base_mult = None
+
+    ref_url_cfg = next(
+        (asset.get("spot_ref_url") for asset in asset_list if asset.get("spot_ref_url")),
+        None,
+    )
+    if ref_url_cfg:
+        reference_spot = fetch_reference_spot(driver, symbol, ref_url_cfg)
+        if reference_spot > 0:
+            print(f" 🎯 Spot futuro de referência ({symbol}): {reference_spot:.2f}")
     
     # --- PASSO 1: RASPAR TODOS OS VENCIMENTOS (MACRO) ---
-    for asset in asset_list:
+    for idx, asset in enumerate(asset_list):
         try:
             res, df = process(driver, symbol, asset["url"])
         except Exception as e:
@@ -1694,11 +1757,37 @@ def process_group(driver, symbol, asset_list):
         if res is None or df is None or df.empty:
             registrar_erro(f"Falha ao extrair a cadeia de opções de {symbol}: {asset['url']}")
             continue
+
+        raw_asset_spot = (
+            float(df["spot"].iloc[0])
+            if "spot" in df.columns and not df.empty
+            else 0.0
+        )
         strike_mult = asset["strike_mult"]
         gex_correction = asset["gex_correcao"]
-        # [CORREÇÃO 5 e 6] Escala de proxy centralizada e arredondamento de 5 pts
-        # restrito aos índices de pontuação alta (ES, NQ, YM, RTY). CL, GC, ZB,
-        # ZN e NG preservam sua grade natural de strikes.
+
+        if not asset.get("align_to_ref"):
+            if reference_spot <= 0 and raw_asset_spot > 0:
+                reference_spot = raw_asset_spot * strike_mult
+        elif reference_spot > 0 and raw_asset_spot > 0:
+            calibrated = calibrate_proxy_strike_mult(
+                strike_mult, raw_asset_spot, reference_spot
+            )
+            if abs(calibrated - strike_mult) > 1e-6:
+                print(
+                    f" ⚖️ Calibrando proxy {symbol}: spot ref {reference_spot:.2f} "
+                    f"/ proxy {raw_asset_spot:.2f} -> mult {calibrated:.4f} "
+                    f"(antes {strike_mult:g})"
+                )
+            strike_mult = calibrated
+        elif reference_spot <= 0 and raw_asset_spot > 0:
+            reference_spot = raw_asset_spot * strike_mult
+
+        if idx == 0:
+            calibrated_base_mult = strike_mult
+
+        # [CORREÇÃO 5, 6 e 8] Escala dinâmica calibrada contra o futuro real e
+        # arredondamento de 5 pts restrito aos índices (ES, NQ, YM, RTY).
         df = apply_proxy_scaling(df, strike_mult, gex_correction)
         if rounding_step:
             df["strike"] = (df["strike"] / rounding_step).round() * rounding_step
@@ -1706,7 +1795,10 @@ def process_group(driver, symbol, asset_list):
         df_master = pd.concat([df_master, df], ignore_index=True)
 
         if spot_master == 0:
-            spot_master = float(df["spot"].iloc[0])
+            spot_master = reference_spot if reference_spot > 0 else float(df["spot"].iloc[0])
+
+    if reference_spot > 0:
+        spot_master = reference_spot
 
     if df_master.empty: 
         return None, None
@@ -1731,7 +1823,11 @@ def process_group(driver, symbol, asset_list):
     print(" 🕵️ Iniciando Time Travel para fatias DTE...")
     base_asset = asset_list[0]
     base_url = base_asset["url"]
-    dte_strike_mult = base_asset.get("strike_mult", 1)
+    dte_strike_mult = (
+        calibrated_base_mult
+        if calibrated_base_mult is not None
+        else base_asset.get("strike_mult", 1)
+    )
     dte_gex_correction = base_asset.get("gex_correcao", 1)
     
     now_new_york = datetime.now(ZoneInfo("America/New_York"))
@@ -1850,13 +1946,13 @@ if __name__ == "__main__":
     ATIVOS_AGREGADOS = {
         "ES": [
             {"url": "https://www.barchart.com/futures/quotes/ES*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
-            {"url": "https://www.barchart.com/stocks/quotes/$SPX/options?view=split", "strike_mult": 1, "gex_correcao": 2},
-            {"url": "https://www.barchart.com/etfs-funds/quotes/SPY/options?view=split", "strike_mult": 10, "gex_correcao": 2}
+            {"url": "https://www.barchart.com/stocks/quotes/$SPX/options?view=split", "strike_mult": 1, "gex_correcao": 2, "align_to_ref": True},
+            {"url": "https://www.barchart.com/etfs-funds/quotes/SPY/options?view=split", "strike_mult": 10, "gex_correcao": 2, "align_to_ref": True}
         ],
         "NQ": [
             {"url": "https://www.barchart.com/futures/quotes/NQ*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
-            {"url": "https://www.barchart.com/stocks/quotes/$NDX/options?view=split", "strike_mult": 1, "gex_correcao": 5},
-            {"url": "https://www.barchart.com/etfs-funds/quotes/QQQ/options?view=split", "strike_mult": 40, "gex_correcao": 5}
+            {"url": "https://www.barchart.com/stocks/quotes/$NDX/options?view=split", "strike_mult": 1, "gex_correcao": 5, "align_to_ref": True},
+            {"url": "https://www.barchart.com/etfs-funds/quotes/QQQ/options?view=split", "strike_mult": 40, "gex_correcao": 5, "align_to_ref": True}
         ],
         "GC": [
             {"url": "https://www.barchart.com/futures/quotes/GC*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1}
@@ -1872,13 +1968,15 @@ if __name__ == "__main__":
         ],
         "YM": [
             {"url": "https://www.barchart.com/futures/quotes/YM*0/options?futuresOptionsView=split", "strike_mult": 1, "gex_correcao": 1},
-            {"url": "https://www.barchart.com/etfs-funds/quotes/DIA/options?view=split", "strike_mult": 100, "gex_correcao": 1}
+            {"url": "https://www.barchart.com/etfs-funds/quotes/DIA/options?view=split", "strike_mult": 100, "gex_correcao": 1, "align_to_ref": True}
         ],
         "RTY": [
             {
                 "url": "https://www.barchart.com/etfs-funds/quotes/IWM/options?view=split",
                 "strike_mult": 10,
                 "gex_correcao": 5,
+                "align_to_ref": True,
+                "spot_ref_url": "https://www.barchart.com/futures/quotes/RTY*0/options?futuresOptionsView=split",
                 "source_label": "IWM proxy for RTY",
             }
         ],

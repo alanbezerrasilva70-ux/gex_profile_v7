@@ -421,3 +421,14 @@ git push origin main
   - Parametrizável via `AtivarLinhaRastreio` (`true`), `RastreioLoteMinimo` (`100` contratos), `ToleranciaRastreioTicks` (`8` ticks) e `MaxLinhasRastreio` (`6` linhas simultâneas).
   - **Transparência técnica sobre CME/NT8:** Como o feed público da CME não transmite CNPJ nem ID de corretora/player após a execução, o rastreio acompanha a **zona de preço da defesa passiva** — estendendo linha tracejada enquanto o preço respeitar o nível (`DEF C` / `DEF V`, contabilizando reforços do mesmo lado `(+N)` dentro da zona), e encerrando com marcação discreta caso o preço rompa além da tolerância.
 - **Sincronização com `instalador_cloud2.0.py`:** `CODE_WATCHDOG` atualizado com o novo código completo.
+
+---
+
+## 29. Calibração Dinâmica de Proxies (`NQ ← QQQ/$NDX`, `ES ← SPY/$SPX`, `YM ← DIA`, `RTY ← IWM/RTY*0`) (`17/11/2026 23:36`)
+
+- **Problema diagnosticado nos CSVs do Dropbox (`17/11`):**
+  - A razão fixa `QQQ × 40` no `NQ` ficou defasada (`NQ / QQQ ≈ 41,4` por dividendos, taxa ETF e juros embutidos no futuro `NQ DEC26`), deslocando strikes do `QQQ` cerca de **`~900` pontos abaixo** do futuro real (`PW = 26320`, `CW/MP = 26760` vs. spot `27241`).
+- **Correção aplicada em `gex_profile_v7_cloud.py` (`calibrate_proxy_strike_mult`, `fetch_reference_spot`, `process_group`, `ATIVOS_AGREGADOS`):**
+  - Proxies de índices com `"align_to_ref": True` (`$SPX`/`SPY` para `ES`, `$NDX`/`QQQ` para `NQ`, `DIA` para `YM`, `IWM` para `RTY` usando `spot_ref_url = RTY*0`) passaram a calcular a razão real do pregão (`spot_futuro / spot_proxy`, com trava de sanidade `0.85x–1.15x` sobre o multiplicador estático).
+  - Para `RTY`, `dte_strike_mult` no Time Travel também herda o multiplicador calibrado contra `RTY*0`, alinhando Macro e fatias `_0DTE`/`_1DTE`/`_2DTE`/`_7DTE` na grade do contrato futuro.
+  - Refletido automaticamente no NinjaTrader 8 e no Dashboard Web via CSVs do Dropbox (zero alteração necessária no `gex-dashboard`).

@@ -24,6 +24,7 @@ from gex_profile_v7_cloud import (
     apply_proxy_scaling,
     black_scholes_gamma,
     calculate_max_pain,
+    calibrate_proxy_strike_mult,
     effective_session_date,
     extract_equity_expiration_options,
     find_gex_flip,
@@ -1396,6 +1397,134 @@ class GammaCalculationTests(unittest.TestCase):
         cw, pw = select_walls(df)
         self.assertEqual(cw["strike"], 7545.0)
         self.assertEqual(pw["strike"], 7550.0)
+
+    def test_calibrate_proxy_strike_mult_uses_live_ratio_and_enforces_bounds(self):
+        # Caso real NQ/QQQ: QQQ = 658 e NQ = 27241 => ~41.3997 em vez de 40 fixo.
+        calibrated = calibrate_proxy_strike_mult(40, proxy_spot=658.0, reference_spot=27241.0)
+        self.assertAlmostEqual(calibrated, 27241.0 / 658.0, places=6)
+
+        # Cotação anômala (>15% fora do multiplicador base) cai com segurança no fallback estático.
+        self.assertEqual(calibrate_proxy_strike_mult(40, proxy_spot=100.0, reference_spot=27241.0), 40.0)
+        self.assertEqual(calibrate_proxy_strike_mult(40, proxy_spot=0.0, reference_spot=27241.0), 40)
+
+    def test_process_group_dynamically_calibrates_nq_es_ym_proxies_to_futures_spot(self):
+        def _fake_df(strikes, spot, ng_vals):
+            n = len(strikes)
+            return pd.DataFrame({
+                "strike": strikes,
+                "ng": ng_vals,
+                "nf": [0.0] * n,
+                "coi": [100.0 if v >= 0 else 10.0 for v in ng_vals],
+                "poi": [10.0 if v >= 0 else 100.0 for v in ng_vals],
+                "cgex": [max(v, 0.0) for v in ng_vals],
+                "pgex": [abs(min(v, 0.0)) for v in ng_vals],
+                "c_vol": [50.0] * n,
+                "p_vol": [20.0] * n,
+                "vol": [70.0] * n,
+                "toi": [110.0] * n,
+                "spot": [spot] * n,
+                "base_strike": strikes,
+                "time_to_expiry": [5 / 365] * n,
+                "iv": [0.20] * n,
+                "iv_call": [0.20] * n,
+                "iv_put": [0.20] * n,
+                "iv_real_call": [True] * n,
+                "iv_real_put": [True] * n,
+                "contract_mult": [20.0] * n,
+                "strike_mult": [1.0] * n,
+                "expiration_date": ["2026-11-20"] * n,
+            })
+
+        nq_fut = _fake_df([27200.0, 27240.0], 27241.0, [-1000.0, 1000.0])
+        ndx_idx = _fake_df([27000.0, 27150.0], 27150.0, [-500.0, 500.0])
+        # QQQ a $658 com Call Wall em $669 e Put Wall em $658: sem calibração x40
+        # cairia em 26320/26760 (~920 pts abaixo); calibrado cai perto de 27240/27695!
+        qqq_etf = _fake_df([658.0, 669.0], 658.0, [-5_000_000.0, 800_000.0])
+
+        assets = [
+            {"url": "https://www.barchart.com/futures/quotes/NQ*0/options", "strike_mult": 1, "gex_correcao": 1},
+            {"url": "https://www.barchart.com/stocks/quotes/$NDX/options", "strike_mult": 1, "gex_correcao": 5, "align_to_ref": True},
+            {"url": "https://www.barchart.com/etfs-funds/quotes/QQQ/options", "strike_mult": 40, "gex_correcao": 5, "align_to_ref": True},
+        ]
+
+        with (
+            patch("gex_profile_v7_cloud.datetime") as datetime_mock,
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch("gex_profile_v7_cloud.extract_futures_expiration_options", return_value=[]),
+            patch("gex_profile_v7_cloud.process", side_effect=[({}, nq_fut), ({}, ndx_idx), ({}, qqq_etf)]),
+        ):
+            datetime_mock.now.return_value = datetime(2026, 11, 17, 12, 0)
+            result, agg = process_group(object(), "NQ", assets)
+
+        self.assertEqual(result["PW"], 27240.0)
+        self.assertEqual(result["CW"], 27695.0)
+        self.assertGreater(result["ZG"], 27200.0)
+        self.assertIn(27240.0, agg["strike"].tolist())
+
+    def test_process_group_rty_calibrates_iwm_macro_and_dtes_via_future_spot_ref(self):
+        def _iwm_df(exp_iso):
+            return pd.DataFrame({
+                "strike": [269.0, 275.0],
+                "ng": [-2000.0, 3000.0],
+                "nf": [0.0, 10.0],
+                "coi": [10.0, 100.0],
+                "poi": [100.0, 10.0],
+                "cgex": [200.0, 3200.0],
+                "pgex": [2200.0, 200.0],
+                "c_vol": [50.0, 90.0],
+                "p_vol": [90.0, 20.0],
+                "vol": [140.0, 110.0],
+                "toi": [110.0, 110.0],
+                "spot": [269.0, 269.0],
+                "base_strike": [269.0, 275.0],
+                "time_to_expiry": [2 / 365, 2 / 365],
+                "iv": [0.20, 0.20],
+                "contract_mult": [50.0, 50.0],
+                "strike_mult": [1.0, 1.0],
+                "expiration_date": [exp_iso, exp_iso],
+            })
+
+        expirations = [
+            {"date": date(2026, 11, 18), "url": "iwm-1dte"},
+            {"date": date(2026, 11, 19), "url": "iwm-2dte"},
+            {"date": date(2026, 11, 24), "url": "iwm-7dte"},
+        ]
+        rty_asset = {
+            "url": "https://www.barchart.com/etfs-funds/quotes/IWM/options?view=split",
+            "strike_mult": 10,
+            "gex_correcao": 5,
+            "align_to_ref": True,
+            "spot_ref_url": "https://www.barchart.com/futures/quotes/RTY*0/options?futuresOptionsView=split",
+            "source_label": "IWM proxy for RTY",
+        }
+        # RTY*0 futuro em 2715 vs IWM em 269 => razão real ~10.0929 (269 -> 2715; 275 -> 2775)
+        with (
+            patch("gex_profile_v7_cloud.datetime") as datetime_mock,
+            patch("gex_profile_v7_cloud.time.sleep"),
+            patch("gex_profile_v7_cloud.fetch_reference_spot", return_value=2715.0) as ref_mock,
+            patch("gex_profile_v7_cloud.extract_equity_expiration_options", return_value=expirations),
+            patch(
+                "gex_profile_v7_cloud.process",
+                side_effect=[
+                    ({}, _iwm_df("2026-11-18")),
+                    ({}, _iwm_df("2026-11-18")),
+                    ({}, _iwm_df("2026-11-19")),
+                    ({}, _iwm_df("2026-11-24")),
+                ],
+            ),
+            patch("gex_profile_v7_cloud.save") as save_mock,
+        ):
+            datetime_mock.now.return_value = datetime(2026, 11, 17, 12, 0)
+            result, agg = process_group(object(), "RTY", [rty_asset])
+
+        ref_mock.assert_called_once()
+        self.assertEqual(result["Source"], "IWM proxy for RTY")
+        self.assertEqual(result["PW"], 2715.0)
+        self.assertEqual(result["CW"], 2775.0)
+        self.assertEqual(agg["strike"].tolist(), [2715.0, 2775.0])
+        self.assertEqual(len(save_mock.call_args_list), 3)
+        self.assertEqual(save_mock.call_args_list[0].args[1]["PW"], 2715.0)
+        self.assertEqual(save_mock.call_args_list[0].args[1]["CW"], 2775.0)
 
 
 if __name__ == "__main__":
