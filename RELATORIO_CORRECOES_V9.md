@@ -397,5 +397,15 @@ git push origin main
   - **Segurança & Leveza para 8GB RAM:** Acesso protegido por `lock (syncLock)`, lista limitada a `400` eventos, cooldown de `4s` no `SpeechSynthesizer` e `.Dispose()` limpo em `State.Terminated` e `OnRenderTargetChanged()`.
 
 ### 26.3. Validações & Commits (`17/11/2026 20:30`)
-- **`gex-dashboard` (`master`):** `eslint app/biblioteca/page.tsx` -> **`0 erros`** (`1` aviso pré-existente linha 919); `tsc --noEmit` -> **`0 erros`**; regex Markdown validado (`broken_asterisks=0` em `teoria.md` e `pratica.md`); commits `9c7e3b2` e commit de `/biblioteca` CSS/Markdown/`SOFR`.
-- **`gex_profile_v7` (`main`):** `FluentliWatchdog.cs` (`601` linhas, `{=97 }=97 diff=0`, APIs `MarketDataEventArgs` e `MarketDepthEventArgs` validadas na doc oficial NT8); commit desta atualização com `FluentliWatchdog.cs` e `RELATORIO_CORRECOES_V9.md`. *(Lembrete: copiar `FluentliWatchdog.cs` para a pasta `Documents\NinjaTrader 8\bin\Custom\Indicators\` se ele não for copiado pelo `instalador_cloud2.0.py`, pressionar **F5** no NinjaScript Editor do NinjaTrader 8 e fazer `git push` nos dois repositórios.)*
+- **`gex-dashboard` (`master`):** `eslint app/biblioteca/page.tsx` -> **`0 erros`** (`1` aviso pré-existente linha 919); `tsc --noEmit` -> **`0 erros`**; regex Markdown validado (`broken_asterisks=0` em `teoria.md` e `pratica.md`); commits `9c7e3b2` e `74a7c19`.
+- **`gex_profile_v7` (`main`):** `FluentliWatchdog.cs` & `RELATORIO_CORRECOES_V9.md` (`d1d080d`).
+
+---
+
+## 27. Correção NinjaTrader 8 de `FluentliWatchdog.cs` (`Operation` / `#region` / Áudio Zero-DLL) & Inclusão no `instalador_cloud2.0.py` (`17/11/2026 20:58`)
+
+- **Erro `CS0234` em `OnMarketDepth` (`Operation`):** No NinjaTrader 8, o enum `Operation` (`Add / Update / Remove`) de `MarketDepthEventArgs.Operation` pertence a **`NinjaTrader.Cbi.Operation`** (e não a `NinjaTrader.Data.Operation`). Adicionado `using NinjaTrader.Cbi;` e qualificado explicitamente `NinjaTrader.Cbi.Operation.Remove` e `NinjaTrader.Cbi.Operation.Update`.
+- **Erro `CS0102` / `CS0111` / `CS0121` / `CS0229` (`cacheFluentliWatchdog` duplicado):** Removido o bloco `#region NinjaScript generated code` manual (mesmo padrão dos outros 7 indicadores SharpDX do instalador), eliminando qualquer colisão ao colar/compilar no NinjaScript Editor.
+- **Zero dependência de `System.Speech.dll` em tempo de compilação:** Substituído `using System.Speech.Synthesis;` por carregamento em runtime (`Assembly.Load("System.Speech, ...")` + fallback automático para COM nativo `SAPI.SpVoice`), garantindo compilação no **F5** mesmo sem referenciar manualmente `System.Speech.dll` no NinjaScript Editor.
+- **Antialiasing SharpDX:** Ativado `RenderTarget.AntialiasMode = SharpDX.Direct2D1.AntialiasMode.PerPrimitive` (com restauração garantida em todos os caminhos de `OnRender`).
+- **`instalador_cloud2.0.py` (`10` indicadores):** Adicionado `CODE_WATCHDOG` e `"FluentliWatchdog.cs": CODE_WATCHDOG` em `arquivos_para_instalar`, atualizando o instalador para gravar todos os `10` indicadores diretamente na pasta `Indicators` do NinjaTrader 8.

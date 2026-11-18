@@ -3,8 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Speech.Synthesis;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows.Media;
+using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
 using NinjaTrader.Data;
@@ -67,7 +69,9 @@ namespace NinjaTrader.NinjaScript.Indicators
         private double lastBid = 0;
         private double lastAsk = 0;
         private DateTime lastMarketTime = DateTime.MinValue;
-        private SpeechSynthesizer synthesizer;
+        private object speechEngine;
+        private Type speechType;
+        private bool speechIsManaged;
         private DateTime lastVoiceTime = DateTime.MinValue;
 
         private SharpDX.DirectWrite.Factory dxFactory;
@@ -125,25 +129,85 @@ namespace NinjaTrader.NinjaScript.Indicators
                 AtivarVoz = true;
                 JanelaSinteticoSeg = 15;
             }
-            else if (State == State.Configure)
+            else if (State == State.DataLoaded)
             {
-                try
-                {
-                    synthesizer = new SpeechSynthesizer();
-                    synthesizer.SetOutputToDefaultAudioDevice();
-                    synthesizer.Volume = 100;
-                }
-                catch { }
+                InitSpeech();
             }
             else if (State == State.Terminated)
             {
                 LimparRecursosRender();
-                if (synthesizer != null)
+                DisposeSpeech();
+            }
+        }
+
+        private void InitSpeech()
+        {
+            if (speechEngine != null) return;
+            try
+            {
+                Assembly asm = Assembly.Load("System.Speech, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35");
+                Type t = (asm != null) ? asm.GetType("System.Speech.Synthesis.SpeechSynthesizer") : null;
+                if (t != null)
                 {
-                    try { synthesizer.SpeakAsyncCancelAll(); synthesizer.Dispose(); } catch { }
-                    synthesizer = null;
+                    object eng = Activator.CreateInstance(t);
+                    t.InvokeMember("SetOutputToDefaultAudioDevice", BindingFlags.InvokeMethod, null, eng, null);
+                    t.InvokeMember("Volume", BindingFlags.SetProperty, null, eng, new object[] { 100 });
+                    speechType = t;
+                    speechEngine = eng;
+                    speechIsManaged = true;
+                    return;
                 }
             }
+            catch { }
+
+            try
+            {
+                Type comType = Type.GetTypeFromProgID("SAPI.SpVoice");
+                if (comType != null)
+                {
+                    object comVoice = Activator.CreateInstance(comType);
+                    comType.InvokeMember("Volume", BindingFlags.SetProperty, null, comVoice, new object[] { 100 });
+                    speechType = comType;
+                    speechEngine = comVoice;
+                    speechIsManaged = false;
+                }
+            }
+            catch { }
+        }
+
+        private void SpeakAlertAsync(string msg)
+        {
+            if (string.IsNullOrEmpty(msg)) return;
+            if (speechEngine == null) InitSpeech();
+            if (speechEngine == null || speechType == null) return;
+            try
+            {
+                if (speechIsManaged)
+                    speechType.InvokeMember("SpeakAsync", BindingFlags.InvokeMethod, null, speechEngine, new object[] { msg });
+                else
+                    speechType.InvokeMember("Speak", BindingFlags.InvokeMethod, null, speechEngine, new object[] { msg, 3 });
+            }
+            catch { }
+        }
+
+        private void DisposeSpeech()
+        {
+            if (speechEngine == null) return;
+            try
+            {
+                if (speechIsManaged && speechType != null)
+                {
+                    try { speechType.InvokeMember("SpeakAsyncCancelAll", BindingFlags.InvokeMethod, null, speechEngine, null); } catch { }
+                    try { speechType.InvokeMember("Dispose", BindingFlags.InvokeMethod, null, speechEngine, null); } catch { }
+                }
+                else if (Marshal.IsComObject(speechEngine))
+                {
+                    Marshal.ReleaseComObject(speechEngine);
+                }
+            }
+            catch { }
+            speechEngine = null;
+            speechType = null;
         }
 
         protected override void OnBarUpdate()
@@ -169,7 +233,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
             }
 
-            if (e.Operation == NinjaTrader.Data.Operation.Remove)
+            if (e.Operation == NinjaTrader.Cbi.Operation.Remove)
             {
                 if (hadPrev) slots.Remove(e.Position);
                 return;
@@ -188,7 +252,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             depthMap[e.Price] = cur + e.Volume;
 
             // Recarregamento passivo no DOM: mesma posição e preço subiu de lote durante agressões (compatível com Live e Market Replay)
-            if (e.Operation == NinjaTrader.Data.Operation.Update && hadPrev && Math.Abs(oldPrice - e.Price) < 1e-9 && e.Volume > oldVol)
+            if (e.Operation == NinjaTrader.Cbi.Operation.Update && hadPrev && Math.Abs(oldPrice - e.Price) < 1e-9 && e.Volume > oldVol)
             {
                 string key = (isSellSide ? "S_" : "B_") + e.Price.ToString("G17", System.Globalization.CultureInfo.InvariantCulture);
                 PriceCluster cl;
@@ -338,12 +402,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
             }
 
-            if (voiceMsg != null && AtivarVoz && synthesizer != null)
+            if (voiceMsg != null && AtivarVoz)
             {
                 if ((DateTime.Now - lastVoiceTime).TotalSeconds >= 4.0)
                 {
                     lastVoiceTime = DateTime.Now;
-                    try { synthesizer.SpeakAsync(voiceMsg); } catch { }
+                    SpeakAlertAsync(voiceMsg);
                 }
             }
         }
@@ -410,6 +474,8 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             EnsureRenderResources();
             usedLabelRects.Clear();
+            SharpDX.Direct2D1.AntialiasMode prevAa = RenderTarget.AntialiasMode;
+            RenderTarget.AntialiasMode = SharpDX.Direct2D1.AntialiasMode.PerPrimitive;
 
             float panelLeft = (float)ChartPanel.X;
             float panelTop = (float)ChartPanel.Y;
@@ -447,7 +513,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
             }
 
-            if (!MostrarNumeros) return;
+            if (!MostrarNumeros)
+            {
+                RenderTarget.AntialiasMode = prevAa;
+                return;
+            }
 
             // Passo 2: Desenha todas as etiquetas SEMPRE fora da borda da bolinha (nunca em cima do círculo!)
             for (int i = 0; i < visibleScratch.Count; i++)
@@ -502,6 +572,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 RenderTarget.DrawRoundedRectangle(pill, borderBrush, 0.9f);
                 RenderTarget.DrawText(txt, dxFont, new SharpDX.RectangleF(boxLeft + 5f, chosenTop + 1.5f, pillW - 6f, pillH - 1f), borderBrush);
             }
+
+            RenderTarget.AntialiasMode = prevAa;
         }
 
         private void LimparRecursosRender()
@@ -531,71 +603,3 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
     }
 }
-
-#region NinjaScript generated code. Neither change nor remove.
-
-namespace NinjaTrader.NinjaScript.Indicators
-{
-    public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
-    {
-        private FluentliWatchdog[] cacheFluentliWatchdog;
-
-        public FluentliWatchdog FluentliWatchdog(int lotePequeno, int loteMedio, int loteGigante, bool mostrarNumeros, bool ativarVoz)
-        {
-            return FluentliWatchdog(Input, lotePequeno, loteMedio, loteGigante, mostrarNumeros, ativarVoz, 15);
-        }
-
-        public FluentliWatchdog FluentliWatchdog(int lotePequeno, int loteMedio, int loteGigante, bool mostrarNumeros, bool ativarVoz, int janelaSinteticoSeg)
-        {
-            return FluentliWatchdog(Input, lotePequeno, loteMedio, loteGigante, mostrarNumeros, ativarVoz, janelaSinteticoSeg);
-        }
-
-        public FluentliWatchdog FluentliWatchdog(ISeries<double> input, int lotePequeno, int loteMedio, int loteGigante, bool mostrarNumeros, bool ativarVoz)
-        {
-            return FluentliWatchdog(input, lotePequeno, loteMedio, loteGigante, mostrarNumeros, ativarVoz, 15);
-        }
-
-        public FluentliWatchdog FluentliWatchdog(ISeries<double> input, int lotePequeno, int loteMedio, int loteGigante, bool mostrarNumeros, bool ativarVoz, int janelaSinteticoSeg)
-        {
-            if (cacheFluentliWatchdog != null)
-                for (int idx = 0; idx < cacheFluentliWatchdog.Length; idx++)
-                    if (cacheFluentliWatchdog[idx] != null && cacheFluentliWatchdog[idx].LotePequeno == lotePequeno && cacheFluentliWatchdog[idx].LoteMedio == loteMedio && cacheFluentliWatchdog[idx].LoteGigante == loteGigante && cacheFluentliWatchdog[idx].MostrarNumeros == mostrarNumeros && cacheFluentliWatchdog[idx].AtivarVoz == ativarVoz && cacheFluentliWatchdog[idx].JanelaSinteticoSeg == janelaSinteticoSeg && cacheFluentliWatchdog[idx].EqualsInput(input))
-                        return cacheFluentliWatchdog[idx];
-            return CacheIndicator<FluentliWatchdog>(new FluentliWatchdog() { LotePequeno = lotePequeno, LoteMedio = loteMedio, LoteGigante = loteGigante, MostrarNumeros = mostrarNumeros, AtivarVoz = ativarVoz, JanelaSinteticoSeg = janelaSinteticoSeg }, input, ref cacheFluentliWatchdog);
-        }
-    }
-}
-
-namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
-{
-    public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
-    {
-        public Indicators.FluentliWatchdog FluentliWatchdog(int lotePequeno, int loteMedio, int loteGigante, bool mostrarNumeros, bool ativarVoz, int janelaSinteticoSeg)
-        {
-            return indicator.FluentliWatchdog(Input, lotePequeno, loteMedio, loteGigante, mostrarNumeros, ativarVoz, janelaSinteticoSeg);
-        }
-
-        public Indicators.FluentliWatchdog FluentliWatchdog(ISeries<double> input, int lotePequeno, int loteMedio, int loteGigante, bool mostrarNumeros, bool ativarVoz, int janelaSinteticoSeg)
-        {
-            return indicator.FluentliWatchdog(input, lotePequeno, loteMedio, loteGigante, mostrarNumeros, ativarVoz, janelaSinteticoSeg);
-        }
-    }
-}
-
-namespace NinjaTrader.NinjaScript.Strategies
-{
-    public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
-    {
-        public Indicators.FluentliWatchdog FluentliWatchdog(int lotePequeno, int loteMedio, int loteGigante, bool mostrarNumeros, bool ativarVoz, int janelaSinteticoSeg)
-        {
-            return indicator.FluentliWatchdog(Input, lotePequeno, loteMedio, loteGigante, mostrarNumeros, ativarVoz, janelaSinteticoSeg);
-        }
-
-        public Indicators.FluentliWatchdog FluentliWatchdog(ISeries<double> input, int lotePequeno, int loteMedio, int loteGigante, bool mostrarNumeros, bool ativarVoz, int janelaSinteticoSeg)
-        {
-            return indicator.FluentliWatchdog(input, lotePequeno, loteMedio, loteGigante, mostrarNumeros, ativarVoz, janelaSinteticoSeg);
-        }
-    }
-}
-
-#endregion
