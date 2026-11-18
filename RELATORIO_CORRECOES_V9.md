@@ -485,3 +485,15 @@ git push origin main
 
 - **Erro reportado no F5 do NinjaScript Editor (`CS0104`):** `DarkPoolBeamsPro.cs` e `NyseTickBreadthPro.cs` importavam simultaneamente `using System.Windows.Media;` e `using SharpDX.Direct2D1;`, causando ambiguidade de referência para `Brush` e `SolidColorBrush`.
 - **Correção aplicada em [instalador_cloud2.0.py](file:///C:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):** Qualificadas explicitamente todas as ocorrências WPF como `System.Windows.Media.Brush` e `System.Windows.Media.SolidColorBrush`, mantendo `SharpDX.Direct2D1.Brush` e `SharpDX.Direct2D1.SolidColorBrush` separados; verificador AST atualizado para detectar qualquer referência ambígua em todo o pacote (`amb=[]`, `ALL_CHECKS_OK=True`).
+
+---
+
+## 34. Diagnóstico Vercel Auth (`RESPOSTA SEM DARKPOOL`), Failover Automático Local, Ajuste HUD `NyseTickBreadthPro` e 3 Novos Módulos na Biblioteca (`18/11/2026 18:52`)
+
+- **Causa raiz diagnosticada em `DarkPoolBeamsPro` (`RESPOSTA SEM DARKPOOL`) e `NyseTickBreadthPro` (`TICKQ/ADD/VIX/CORR = 0`):** A proteção **Vercel Authentication (SSO)** do projeto `gex-cloud` retornava HTTP `200 text/html` (`vercel.com/login`) para clientes externos sem cookie de sessão (como o NinjaTrader 8), impedindo o parse do JSON mesmo fora de horário ou com o site aberto no navegador.
+- **Correções em [instalador_cloud2.0.py](file:///C:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):**
+  - Adicionados detecção explícita de resposta HTML de login (`payload.TrimStart().StartsWith("<")`) e **failover automático para `http://localhost:3000`** tanto em `DarkPoolBeamsPro.FetchDarkPoolAsync()` quanto em `NyseTickBreadthPro.PollMarketContext()`, com mensagem clara (`VERCEL EXIGE LOGIN (Desligue Vercel Auth ou ligue localhost:3000)` / `VERCEL EXIGE LOGIN`) e expansão do card de status offline (`380x62`) para evitar corte de texto.
+  - Reposicionado o HUD superior do `NyseTickBreadthPro` (`panelTop + 24f`) para eliminar a colisão com o título nativo `VeltrixQuant - NyseTickBreadthPro(...)` no NinjaTrader 8.
+- **Novos E-Books & Documentação de Configuração (`Tick Replay`) em `gex-dashboard`:**
+  - Criados os 3 novos módulos completos (`teoria.md` + `pratica.md`) e registrados em [books.ts](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/lib/i18n/books.ts): `darkpoolbeamspro`, `nysetickbreadthpro` (explicando inclusive `#FF00BFFF` em `NyseTickValue`, barras verdes/vermelhas e leitura entre Índices/Bonds/Ouro/Petróleo) e `orderflowimbalanceflash` (explicando fita `OnMarketData` dos futuros vs opções, `C/V/Δ`, `tr/s`, `Top1/Top2`, faixas e sons PCM L1/L2/L3).
+  - Atualizados `deltacumulativepro/pratica.md` e `fluentliwatchdog/pratica.md` com orientações de **Tick Replay** (desnecessário ao vivo) e `Days to load` (`3–5` dias para evitar `(Calculating...)` longo no `DeltaCumulativePro`).

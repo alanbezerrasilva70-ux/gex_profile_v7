@@ -3844,24 +3844,68 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             try
             {
-                string baseUrl = ResolveDashboardBaseUrl();
+                string primaryUrl = ResolveDashboardBaseUrl();
+                string baseUrl = primaryUrl;
                 string endpoint = baseUrl + "/api/macro-darkpool";
-                string payload;
-                using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(7000))
+                string payload = null;
+                bool htmlBlocked = false;
+                Exception lastEx = null;
+
+                string[] candidates = string.Equals(primaryUrl, "http://localhost:3000", StringComparison.OrdinalIgnoreCase)
+                    ? new string[] { primaryUrl }
+                    : new string[] { primaryUrl, "http://localhost:3000" };
+
+                Dictionary<string, object> root = null;
+                Dictionary<string, object> dpObj = null;
+
+                for (int c = 0; c < candidates.Length; c++)
                 {
-                    wc.Encoding = Encoding.UTF8;
-                    payload = wc.DownloadString(endpoint);
+                    baseUrl = candidates[c];
+                    endpoint = baseUrl + "/api/macro-darkpool";
+                    try
+                    {
+                        using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(7000))
+                        {
+                            wc.Encoding = Encoding.UTF8;
+                            payload = wc.DownloadString(endpoint);
+                        }
+
+                        if (!string.IsNullOrEmpty(payload) && payload.TrimStart().StartsWith("<", StringComparison.Ordinal))
+                        {
+                            htmlBlocked = true;
+                            continue;
+                        }
+
+                        root = VeltrixJsonParser.AsDict(VeltrixJsonParser.Parse(payload));
+                        dpObj = (root != null) ? VeltrixJsonParser.AsDict(root.ContainsKey("darkPool") ? root["darkPool"] : null) : null;
+                        if (dpObj != null)
+                        {
+                            lastEx = null;
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        lastEx = ex;
+                    }
                 }
 
-                Dictionary<string, object> root = VeltrixJsonParser.AsDict(VeltrixJsonParser.Parse(payload));
-                Dictionary<string, object> dpObj = (root != null) ? VeltrixJsonParser.AsDict(root.ContainsKey("darkPool") ? root["darkPool"] : null) : null;
                 if (dpObj == null)
                 {
                     lock (dataLock)
                     {
                         apiOnline = false;
-                        resolvedUrlInUse = baseUrl;
-                        feedStatusMsg = "RESPOSTA SEM DARKPOOL";
+                        resolvedUrlInUse = primaryUrl;
+                        if (htmlBlocked)
+                            feedStatusMsg = "VERCEL EXIGE LOGIN (Desligue Vercel Auth ou ligue localhost:3000)";
+                        else if (lastEx != null)
+                        {
+                            string em = lastEx.Message ?? "Erro HTTP";
+                            if (em.Length > 34) em = em.Substring(0, 34);
+                            feedStatusMsg = "OFFLINE (" + em + ")";
+                        }
+                        else
+                            feedStatusMsg = "RESPOSTA SEM DARKPOOL";
                     }
                     return;
                 }
@@ -4243,8 +4287,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             // Card Resumo FINRA + Barra de Forca Dark Pool (canto inferior esquerdo)
             if (MostrarBarraFinra)
             {
-                float cardW = 310f;
-                float cardH = finraSnap.HasData ? 76f : 48f;
+                float cardW = finraSnap.HasData ? 310f : 380f;
+                float cardH = finraSnap.HasData ? 76f : 62f;
                 float cardLeft = panelLeft + 10f;
                 float cardTop = Math.Max(panelTop + 10f, panelBottom - cardH - 12f);
 
@@ -4279,7 +4323,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else
                 {
                     string sub = statusSnap + " · " + resolvedUrlInUse;
-                    RenderTarget.DrawText(sub, dxFontSmall, new SharpDX.RectangleF(cardLeft + 10f, cardTop + 25f, cardW - 20f, 15f), dxTextMuted);
+                    RenderTarget.DrawText(sub, dxFontSmall, new SharpDX.RectangleF(cardLeft + 10f, cardTop + 25f, cardW - 20f, cardH - 30f), dxTextMuted);
                 }
             }
 
@@ -4761,17 +4805,66 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (Interlocked.CompareExchange(ref isFetching, 1, 0) != 0) return;
             try
             {
-                string url = ResolveDashboardBaseUrl() + "/api/market-context";
-                string payload;
-                using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(7000))
+                string primaryUrl = ResolveDashboardBaseUrl();
+                string[] candidates = string.Equals(primaryUrl, "http://localhost:3000", StringComparison.OrdinalIgnoreCase)
+                    ? new string[] { primaryUrl }
+                    : new string[] { primaryUrl, "http://localhost:3000" };
+
+                Dictionary<string, object> root = null;
+                List<object> assets = null;
+                bool htmlBlocked = false;
+                Exception lastEx = null;
+
+                for (int c = 0; c < candidates.Length; c++)
                 {
-                    wc.Encoding = Encoding.UTF8;
-                    payload = wc.DownloadString(url);
+                    string url = candidates[c] + "/api/market-context";
+                    try
+                    {
+                        string payload;
+                        using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(7000))
+                        {
+                            wc.Encoding = Encoding.UTF8;
+                            payload = wc.DownloadString(url);
+                        }
+
+                        if (!string.IsNullOrEmpty(payload) && payload.TrimStart().StartsWith("<", StringComparison.Ordinal))
+                        {
+                            htmlBlocked = true;
+                            continue;
+                        }
+
+                        root = VeltrixJsonParser.AsDict(VeltrixJsonParser.Parse(payload));
+                        assets = (root != null) ? VeltrixJsonParser.AsList(root.ContainsKey("assets") ? root["assets"] : null) : null;
+                        if (assets != null)
+                        {
+                            lastEx = null;
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        lastEx = ex;
+                    }
                 }
 
-                Dictionary<string, object> root = VeltrixJsonParser.AsDict(VeltrixJsonParser.Parse(payload));
-                List<object> assets = (root != null) ? VeltrixJsonParser.AsList(root.ContainsKey("assets") ? root["assets"] : null) : null;
-                if (assets == null) return;
+                if (assets == null)
+                {
+                    lock (syncLock)
+                    {
+                        apiOnline = false;
+                        apiFeedLabel = htmlBlocked
+                            ? "VERCEL EXIGE LOGIN"
+                            : (lastEx != null ? "API OFFLINE" : "SEM ASSETS");
+                    }
+                    if (ChartControl != null)
+                    {
+                        ChartControl.Dispatcher.InvokeAsync(new Action(() =>
+                        {
+                            if (ChartControl != null && State != State.Terminated) ChartControl.InvalidateVisual();
+                        }));
+                    }
+                    return;
+                }
 
                 double tickP = 0, tickqP = 0, addP = 0, vixP = 0, vixC = 0;
                 List<MacroCorrItem> list = new List<MacroCorrItem>();
@@ -4927,9 +5020,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 corrSnap = new List<MacroCorrItem>(macroCorrList);
             }
 
+            float hudTop = panelTop + 24f;
             float hudW = Math.Min(panelRight - panelLeft - 16f, 520f);
             float hudH = MostrarCorrelacaoAtivo ? 42f : 24f;
-            SharpDX.RectangleF hudRect = new SharpDX.RectangleF(panelLeft + 8f, panelTop + 6f, hudW, hudH);
+            SharpDX.RectangleF hudRect = new SharpDX.RectangleF(panelLeft + 8f, hudTop, hudW, hudH);
             SharpDX.Direct2D1.RoundedRectangle rr = new SharpDX.Direct2D1.RoundedRectangle { Rect = hudRect, RadiusX = 4f, RadiusY = 4f };
             RenderTarget.FillRoundedRectangle(rr, dxBandBg);
             RenderTarget.DrawRoundedRectangle(rr, dxBorder, 0.8f);
@@ -4941,7 +5035,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             string tickSign = (curTick >= 0) ? ("+" + curTick.ToString("0", CultureInfo.InvariantCulture)) : curTick.ToString("0", CultureInfo.InvariantCulture);
             string topTxt = "NYSE $TICK: " + tickSign + "   [" + modeTag + "]";
             SharpDX.Direct2D1.SolidColorBrush valBrush = (curTick >= 200) ? dxBullBrush : ((curTick <= -200) ? dxBearBrush : dxTextLight);
-            RenderTarget.DrawText(topTxt, dxFontTitle, new SharpDX.RectangleF(panelLeft + 16f, panelTop + 8f, hudW - 16f, 16f), modoA ? dxModoABrush : valBrush);
+            RenderTarget.DrawText(topTxt, dxFontTitle, new SharpDX.RectangleF(panelLeft + 16f, hudTop + 2f, hudW - 16f, 16f), modoA ? dxModoABrush : valBrush);
 
             if (MostrarCorrelacaoAtivo)
             {
@@ -4961,7 +5055,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     sb.Append(" ").Append(item.Id).Append(" ").Append(c.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture));
                     added++;
                 }
-                RenderTarget.DrawText(sb.ToString(), dxFontSmall, new SharpDX.RectangleF(panelLeft + 16f, panelTop + 25f, hudW - 16f, 15f), dxTextMuted);
+                RenderTarget.DrawText(sb.ToString(), dxFontSmall, new SharpDX.RectangleF(panelLeft + 16f, hudTop + 19f, hudW - 16f, 15f), dxTextMuted);
             }
         }
 
