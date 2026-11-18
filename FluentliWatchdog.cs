@@ -6,9 +6,11 @@ using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Media;
+using System.Xml.Serialization;
 using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
+using NinjaTrader.Gui.Tools;
 using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
 using SharpDX;
@@ -54,6 +56,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             public bool IsSellSide;
             public IcebergKind Kind;
             public DateTime Timestamp;
+            public bool TrackActive;
+            public bool TrackCompleted;
+            public int TrackEndBarIndex;
+            public int FollowUpCount;
         }
 
         private readonly object syncLock = new object();
@@ -64,6 +70,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private readonly Dictionary<string, PriceCluster> clusters = new Dictionary<string, PriceCluster>();
         private readonly List<IcebergEvent> events = new List<IcebergEvent>(512);
         private readonly List<IcebergEvent> visibleScratch = new List<IcebergEvent>(128);
+        private readonly List<IcebergEvent> visibleTrackScratch = new List<IcebergEvent>(64);
         private readonly List<SharpDX.RectangleF> usedLabelRects = new List<SharpDX.RectangleF>(128);
 
         private double lastBid = 0;
@@ -73,13 +80,15 @@ namespace NinjaTrader.NinjaScript.Indicators
         private Type speechType;
         private bool speechIsManaged;
         private DateTime lastVoiceTime = DateTime.MinValue;
+        private string lastColorSignature = "";
 
         private SharpDX.DirectWrite.Factory dxFactory;
         private SharpDX.DirectWrite.TextFormat dxFont;
-        private SharpDX.Direct2D1.SolidColorBrush dxBuyDinFill, dxBuyDinAura, dxBuyDinBorder;
-        private SharpDX.Direct2D1.SolidColorBrush dxSellDinFill, dxSellDinAura, dxSellDinBorder;
-        private SharpDX.Direct2D1.SolidColorBrush dxBuySinRing, dxBuySinCenter, dxBuySinAura;
-        private SharpDX.Direct2D1.SolidColorBrush dxSellSinRing, dxSellSinCenter, dxSellSinAura;
+        private SharpDX.Direct2D1.StrokeStyle dxStrokeDash, dxStrokeDot;
+        private SharpDX.Direct2D1.SolidColorBrush dxBuyDinFill, dxBuyDinAura, dxBuyDinBorder, dxBuyDinTrack, dxBuyDinGhost;
+        private SharpDX.Direct2D1.SolidColorBrush dxSellDinFill, dxSellDinAura, dxSellDinBorder, dxSellDinTrack, dxSellDinGhost;
+        private SharpDX.Direct2D1.SolidColorBrush dxBuySinRing, dxBuySinCenter, dxBuySinAura, dxBuySinTrack, dxBuySinGhost;
+        private SharpDX.Direct2D1.SolidColorBrush dxSellSinRing, dxSellSinCenter, dxSellSinAura, dxSellSinTrack, dxSellSinGhost;
         private SharpDX.Direct2D1.SolidColorBrush dxLabelBg, dxTextBrush, dxLeaderBrush;
 
         [NinjaScriptProperty]
@@ -98,6 +107,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int LoteGigante { get; set; }
 
         [NinjaScriptProperty]
+        [Range(2, 120)]
+        [Display(Name = "4. Janela Iceberg Sintético (seg)", GroupName = "1. Configuração de Lotes", Order = 4)]
+        public int JanelaSinteticoSeg { get; set; }
+
+        [NinjaScriptProperty]
         [Display(Name = "Mostrar Volume Real (Números)", GroupName = "2. Visual e Áudio", Order = 1)]
         public bool MostrarNumeros { get; set; }
 
@@ -106,15 +120,77 @@ namespace NinjaTrader.NinjaScript.Indicators
         public bool AtivarVoz { get; set; }
 
         [NinjaScriptProperty]
-        [Range(2, 120)]
-        [Display(Name = "Janela Iceberg Sintético (seg)", GroupName = "1. Configuração de Lotes", Order = 4)]
-        public int JanelaSinteticoSeg { get; set; }
+        [XmlIgnore]
+        [Display(Name = "1. Cor Iceberg Compra (Dinâmico)", GroupName = "3. Cores Personalizadas", Order = 1)]
+        public System.Windows.Media.Brush CorCompraDinamico { get; set; }
+
+        [Browsable(false)]
+        public string CorCompraDinamicoSerialize
+        {
+            get { return Serialize.BrushToString(CorCompraDinamico ?? System.Windows.Media.Brushes.MediumSpringGreen); }
+            set { if (!string.IsNullOrEmpty(value)) CorCompraDinamico = Serialize.StringToBrush(value); }
+        }
+
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "2. Cor Iceberg Venda (Dinâmico)", GroupName = "3. Cores Personalizadas", Order = 2)]
+        public System.Windows.Media.Brush CorVendaDinamico { get; set; }
+
+        [Browsable(false)]
+        public string CorVendaDinamicoSerialize
+        {
+            get { return Serialize.BrushToString(CorVendaDinamico ?? System.Windows.Media.Brushes.Crimson); }
+            set { if (!string.IsNullOrEmpty(value)) CorVendaDinamico = Serialize.StringToBrush(value); }
+        }
+
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "3. Cor Iceberg Compra (Sintético)", GroupName = "3. Cores Personalizadas", Order = 3)]
+        public System.Windows.Media.Brush CorCompraSintetico { get; set; }
+
+        [Browsable(false)]
+        public string CorCompraSinteticoSerialize
+        {
+            get { return Serialize.BrushToString(CorCompraSintetico ?? System.Windows.Media.Brushes.Cyan); }
+            set { if (!string.IsNullOrEmpty(value)) CorCompraSintetico = Serialize.StringToBrush(value); }
+        }
+
+        [NinjaScriptProperty]
+        [XmlIgnore]
+        [Display(Name = "4. Cor Iceberg Venda (Sintético)", GroupName = "3. Cores Personalizadas", Order = 4)]
+        public System.Windows.Media.Brush CorVendaSintetico { get; set; }
+
+        [Browsable(false)]
+        public string CorVendaSinteticoSerialize
+        {
+            get { return Serialize.BrushToString(CorVendaSintetico ?? System.Windows.Media.Brushes.DarkOrange); }
+            set { if (!string.IsNullOrEmpty(value)) CorVendaSintetico = Serialize.StringToBrush(value); }
+        }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Ativar Linha Rastreio de Defesa", GroupName = "4. Rastreio de Defesa no Preço", Order = 1)]
+        public bool AtivarLinhaRastreio { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 50000)]
+        [Display(Name = "Lote Mínimo para Linha Rastreio", GroupName = "4. Rastreio de Defesa no Preço", Order = 2)]
+        public int RastreioLoteMinimo { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 200)]
+        [Display(Name = "Tolerância Rompimento (Ticks)", GroupName = "4. Rastreio de Defesa no Preço", Order = 3)]
+        public int ToleranciaRastreioTicks { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 25)]
+        [Display(Name = "Máx. Linhas Ativas Simultâneas", GroupName = "4. Rastreio de Defesa no Preço", Order = 4)]
+        public int MaxLinhasRastreio { get; set; }
 
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
             {
-                Description = @"Rastreador Institucional de Icebergs Dinâmicos (DOM Reload) e Sintéticos (Fracionados)";
+                Description = @"Rastreador Institucional de Icebergs Dinâmicos (DOM Reload), Sintéticos (Fracionados) e Rastreio de Defesa no Preço";
                 Name = "FluentliWatchdog";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
@@ -125,9 +201,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                 LotePequeno = 50;
                 LoteMedio = 250;
                 LoteGigante = 500;
+                JanelaSinteticoSeg = 15;
                 MostrarNumeros = true;
                 AtivarVoz = true;
-                JanelaSinteticoSeg = 15;
+
+                CorCompraDinamico = System.Windows.Media.Brushes.MediumSpringGreen;
+                CorVendaDinamico = System.Windows.Media.Brushes.Crimson;
+                CorCompraSintetico = System.Windows.Media.Brushes.Cyan;
+                CorVendaSintetico = System.Windows.Media.Brushes.DarkOrange;
+
+                AtivarLinhaRastreio = true;
+                RastreioLoteMinimo = 100;
+                ToleranciaRastreioTicks = 8;
+                MaxLinhasRastreio = 6;
             }
             else if (State == State.DataLoaded)
             {
@@ -214,6 +300,77 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
         }
 
+        private double GetTolerancePrice()
+        {
+            double tickSz = (TickSize > 0) ? TickSize : 0.25;
+            int ticks = (ToleranciaRastreioTicks >= 1) ? ToleranciaRastreioTicks : 8;
+            return ticks * tickSz;
+        }
+
+        private void AtualizarLinhasRastreio(double preco, int barIdx)
+        {
+            if (!AtivarLinhaRastreio) return;
+            double tol = GetTolerancePrice();
+            for (int i = 0; i < events.Count; i++)
+            {
+                IcebergEvent ev = events[i];
+                if (!ev.TrackActive) continue;
+
+                bool rompeu = ev.IsSellSide
+                    ? (preco > ev.Price + tol)
+                    : (preco < ev.Price - tol);
+
+                ev.TrackEndBarIndex = Math.Max(ev.TrackEndBarIndex, barIdx);
+                if (rompeu)
+                {
+                    ev.TrackActive = false;
+                    ev.TrackCompleted = true;
+                }
+            }
+        }
+
+        private void TentarAtivarRastreio(IcebergEvent ev, int barIdx)
+        {
+            if (!AtivarLinhaRastreio) return;
+            int minLote = Math.Max(1, RastreioLoteMinimo);
+            if (ev.Volume < minLote || ev.TrackCompleted || ev.TrackActive) return;
+
+            double tolZona = GetTolerancePrice() * 4.0;
+            for (int i = 0; i < events.Count; i++)
+            {
+                IcebergEvent parent = events[i];
+                if (parent == ev || !parent.TrackActive) continue;
+                if (parent.IsSellSide == ev.IsSellSide && Math.Abs(parent.Price - ev.Price) <= tolZona)
+                {
+                    parent.FollowUpCount++;
+                    parent.TrackEndBarIndex = Math.Max(parent.TrackEndBarIndex, barIdx);
+                }
+            }
+
+            ev.TrackActive = true;
+            ev.TrackEndBarIndex = Math.Max(ev.TrackEndBarIndex, barIdx);
+
+            int maxLines = Math.Max(1, MaxLinhasRastreio);
+            int activeCount = 0;
+            for (int i = 0; i < events.Count; i++)
+            {
+                if (events[i].TrackActive) activeCount++;
+            }
+
+            if (activeCount > maxLines)
+            {
+                for (int i = 0; i < events.Count && activeCount > maxLines; i++)
+                {
+                    if (events[i].TrackActive && events[i] != ev)
+                    {
+                        events[i].TrackActive = false;
+                        events[i].TrackCompleted = true;
+                        activeCount--;
+                    }
+                }
+            }
+        }
+
         private void AtualizarLivro(Dictionary<int, DepthSlot> slots, Dictionary<double, long> depthMap, MarketDepthEventArgs e, bool isSellSide)
         {
             DepthSlot prev;
@@ -251,7 +408,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             depthMap.TryGetValue(e.Price, out cur);
             depthMap[e.Price] = cur + e.Volume;
 
-            // Recarregamento passivo no DOM: mesma posição e preço subiu de lote durante agressões (compatível com Live e Market Replay)
+            // Recarregamento passivo no DOM: mesma posição e preço subiu de lote durante agressões (Live e Market Replay)
             if (e.Operation == NinjaTrader.Cbi.Operation.Update && hadPrev && Math.Abs(oldPrice - e.Price) < 1e-9 && e.Volume > oldVol)
             {
                 string key = (isSellSide ? "S_" : "B_") + e.Price.ToString("G17", System.Globalization.CultureInfo.InvariantCulture);
@@ -316,9 +473,12 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             int safeJanela = (JanelaSinteticoSeg >= 2 && JanelaSinteticoSeg <= 120) ? JanelaSinteticoSeg : 15;
             string voiceMsg = null;
+            int barIdx = CurrentBar;
 
             lock (syncLock)
             {
+                AtualizarLinhasRastreio(preco, barIdx);
+
                 string key = (icebergDeVenda ? "S_" : "B_") + preco.ToString("G17", System.Globalization.CultureInfo.InvariantCulture);
                 PriceCluster cl;
                 if (!clusters.TryGetValue(key, out cl))
@@ -364,13 +524,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                     return;
 
                 IcebergKind detectedKind = isDinamico ? IcebergKind.Dinamico : IcebergKind.Sintetico;
-                int barIdx = CurrentBar;
 
                 if (cl.ActiveEvent != null && cl.ActiveEvent.BarIndex == barIdx)
                 {
                     cl.ActiveEvent.Volume = cl.ExecutedVol;
                     cl.ActiveEvent.Timestamp = e.Time;
                     if (detectedKind == IcebergKind.Dinamico) cl.ActiveEvent.Kind = IcebergKind.Dinamico;
+                    TentarAtivarRastreio(cl.ActiveEvent, barIdx);
                 }
                 else
                 {
@@ -381,10 +541,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                         Volume = cl.ExecutedVol,
                         IsSellSide = icebergDeVenda,
                         Kind = detectedKind,
-                        Timestamp = e.Time
+                        Timestamp = e.Time,
+                        TrackEndBarIndex = barIdx
                     };
                     events.Add(ev);
                     cl.ActiveEvent = ev;
+                    TentarAtivarRastreio(ev, barIdx);
 
                     if (events.Count > 450)
                         events.RemoveRange(0, events.Count - 400);
@@ -412,28 +574,90 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
         }
 
+        private Color4 ExtractColor4(System.Windows.Media.Brush wpfBrush, Color4 fallback, float alphaOverride)
+        {
+            System.Windows.Media.SolidColorBrush scb = wpfBrush as System.Windows.Media.SolidColorBrush;
+            if (scb != null)
+            {
+                System.Windows.Media.Color c = scb.Color;
+                return new Color4(c.R / 255f, c.G / 255f, c.B / 255f, alphaOverride);
+            }
+            return new Color4(fallback.Red, fallback.Green, fallback.Blue, alphaOverride);
+        }
+
+        private Color4 LightenColor4(Color4 c, float boost, float alphaOverride)
+        {
+            return new Color4(
+                Math.Min(1.0f, c.Red + boost),
+                Math.Min(1.0f, c.Green + boost),
+                Math.Min(1.0f, c.Blue + boost),
+                alphaOverride
+            );
+        }
+
+        private string ColorKeyPart(System.Windows.Media.Brush wpfBrush)
+        {
+            System.Windows.Media.SolidColorBrush scb = wpfBrush as System.Windows.Media.SolidColorBrush;
+            if (scb == null) return "default";
+            System.Windows.Media.Color c = scb.Color;
+            return c.R + "," + c.G + "," + c.B;
+        }
+
         private void EnsureRenderResources()
         {
+            string sig = ColorKeyPart(CorCompraDinamico) + "|" + ColorKeyPart(CorVendaDinamico) + "|" + ColorKeyPart(CorCompraSintetico) + "|" + ColorKeyPart(CorVendaSintetico);
+            if (!string.IsNullOrEmpty(lastColorSignature) && lastColorSignature != sig)
+            {
+                LimparRecursosRender();
+            }
+            lastColorSignature = sig;
+
             if (dxFactory == null) dxFactory = new SharpDX.DirectWrite.Factory();
             if (dxFont == null) dxFont = new SharpDX.DirectWrite.TextFormat(dxFactory, "Consolas", SharpDX.DirectWrite.FontWeight.Bold, SharpDX.DirectWrite.FontStyle.Normal, 10f);
 
-            // Dinâmico (Preenchido com Halo Neon)
-            if (dxBuyDinFill == null) dxBuyDinFill = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.10f, 0.88f, 0.56f, 0.78f));
-            if (dxBuyDinAura == null) dxBuyDinAura = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.10f, 0.88f, 0.56f, 0.18f));
-            if (dxBuyDinBorder == null) dxBuyDinBorder = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.30f, 1.00f, 0.72f, 0.98f));
+            if (dxStrokeDash == null)
+            {
+                dxStrokeDash = new SharpDX.Direct2D1.StrokeStyle(
+                    NinjaTrader.Core.Globals.D2DFactory,
+                    new SharpDX.Direct2D1.StrokeStyleProperties { DashStyle = SharpDX.Direct2D1.DashStyle.Dash }
+                );
+            }
+            if (dxStrokeDot == null)
+            {
+                dxStrokeDot = new SharpDX.Direct2D1.StrokeStyle(
+                    NinjaTrader.Core.Globals.D2DFactory,
+                    new SharpDX.Direct2D1.StrokeStyleProperties { DashStyle = SharpDX.Direct2D1.DashStyle.Dot }
+                );
+            }
 
-            if (dxSellDinFill == null) dxSellDinFill = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.95f, 0.22f, 0.36f, 0.78f));
-            if (dxSellDinAura == null) dxSellDinAura = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.95f, 0.22f, 0.36f, 0.18f));
-            if (dxSellDinBorder == null) dxSellDinBorder = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1.00f, 0.42f, 0.58f, 0.98f));
+            Color4 cBuyDin = ExtractColor4(CorCompraDinamico, new Color4(0.10f, 0.88f, 0.56f, 1f), 1f);
+            Color4 cSellDin = ExtractColor4(CorVendaDinamico, new Color4(0.95f, 0.22f, 0.36f, 1f), 1f);
+            Color4 cBuySin = ExtractColor4(CorCompraSintetico, new Color4(0.16f, 0.94f, 0.84f, 1f), 1f);
+            Color4 cSellSin = ExtractColor4(CorVendaSintetico, new Color4(1.00f, 0.54f, 0.16f, 1f), 1f);
 
-            // Sintético (Anel Duplo / Vazado para diferenciar de olho do Dinâmico!)
-            if (dxBuySinRing == null) dxBuySinRing = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.16f, 0.94f, 0.84f, 0.98f));
-            if (dxBuySinCenter == null) dxBuySinCenter = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.03f, 0.16f, 0.15f, 0.85f));
-            if (dxBuySinAura == null) dxBuySinAura = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.16f, 0.94f, 0.84f, 0.16f));
+            if (dxBuyDinFill == null) dxBuyDinFill = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cBuyDin.Red, cBuyDin.Green, cBuyDin.Blue, 0.78f));
+            if (dxBuyDinAura == null) dxBuyDinAura = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cBuyDin.Red, cBuyDin.Green, cBuyDin.Blue, 0.18f));
+            if (dxBuyDinBorder == null) dxBuyDinBorder = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, LightenColor4(cBuyDin, 0.18f, 0.98f));
+            if (dxBuyDinTrack == null) dxBuyDinTrack = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cBuyDin.Red, cBuyDin.Green, cBuyDin.Blue, 0.82f));
+            if (dxBuyDinGhost == null) dxBuyDinGhost = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cBuyDin.Red, cBuyDin.Green, cBuyDin.Blue, 0.34f));
 
-            if (dxSellSinRing == null) dxSellSinRing = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1.00f, 0.54f, 0.16f, 0.98f));
-            if (dxSellSinCenter == null) dxSellSinCenter = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.18f, 0.06f, 0.03f, 0.85f));
-            if (dxSellSinAura == null) dxSellSinAura = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(1.00f, 0.54f, 0.16f, 0.16f));
+            if (dxSellDinFill == null) dxSellDinFill = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cSellDin.Red, cSellDin.Green, cSellDin.Blue, 0.78f));
+            if (dxSellDinAura == null) dxSellDinAura = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cSellDin.Red, cSellDin.Green, cSellDin.Blue, 0.18f));
+            if (dxSellDinBorder == null) dxSellDinBorder = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, LightenColor4(cSellDin, 0.18f, 0.98f));
+            if (dxSellDinTrack == null) dxSellDinTrack = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cSellDin.Red, cSellDin.Green, cSellDin.Blue, 0.82f));
+            if (dxSellDinGhost == null) dxSellDinGhost = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cSellDin.Red, cSellDin.Green, cSellDin.Blue, 0.34f));
+
+            if (dxBuySinRing == null) dxBuySinRing = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cBuySin.Red, cBuySin.Green, cBuySin.Blue, 0.98f));
+            if (dxBuySinCenter == null) dxBuySinCenter = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cBuySin.Red * 0.15f, cBuySin.Green * 0.18f, cBuySin.Blue * 0.18f, 0.86f));
+            if (dxBuySinAura == null) dxBuySinAura = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cBuySin.Red, cBuySin.Green, cBuySin.Blue, 0.16f));
+            if (dxBuySinTrack == null) dxBuySinTrack = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cBuySin.Red, cBuySin.Green, cBuySin.Blue, 0.82f));
+            if (dxBuySinGhost == null) dxBuySinGhost = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cBuySin.Red, cBuySin.Green, cBuySin.Blue, 0.34f));
+
+            if (dxSellSinRing == null) dxSellSinRing = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cSellSin.Red, cSellSin.Green, cSellSin.Blue, 0.98f));
+            if (dxSellSinCenter == null) dxSellSinCenter = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cSellSin.Red * 0.18f, cSellSin.Green * 0.12f, cSellSin.Blue * 0.10f, 0.86f));
+            if (dxSellSinAura == null) dxSellSinAura = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cSellSin.Red, cSellSin.Green, cSellSin.Blue, 0.16f));
+            if (dxSellSinTrack == null) dxSellSinTrack = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cSellSin.Red, cSellSin.Green, cSellSin.Blue, 0.82f));
+            if (dxSellSinGhost == null) dxSellSinGhost = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(cSellSin.Red, cSellSin.Green, cSellSin.Blue, 0.34f));
 
             if (dxLabelBg == null) dxLabelBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.03f, 0.05f, 0.09f, 0.92f));
             if (dxTextBrush == null) dxTextBrush = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new Color4(0.95f, 0.97f, 1.00f, 1.00f));
@@ -451,12 +675,61 @@ namespace NinjaTrader.NinjaScript.Indicators
             return false;
         }
 
+        private float ResolveNonCollidingTop(float boxLeft, float targetCenterY, float pillW, float pillH, float panelTop, float panelBottom)
+        {
+            float chosenTop = Math.Max(panelTop + 4f, Math.Min(panelBottom - pillH - 4f, targetCenterY - pillH * 0.5f));
+            if (!LabelColide(new SharpDX.RectangleF(boxLeft - 2f, chosenTop - 1f, pillW + 4f, pillH + 2f)))
+                return chosenTop;
+
+            float[] offsets = { -17f, 17f, -34f, 34f, -51f, 51f };
+            foreach (float dy in offsets)
+            {
+                float candTop = Math.Max(panelTop + 4f, Math.Min(panelBottom - pillH - 4f, (targetCenterY + dy) - pillH * 0.5f));
+                if (!LabelColide(new SharpDX.RectangleF(boxLeft - 2f, candTop - 1f, pillW + 4f, pillH + 2f)))
+                    return candTop;
+            }
+            return chosenTop;
+        }
+
+        private void DrawPillText(string txt, float boxLeft, float chosenTop, float pillW, float pillH, SharpDX.Direct2D1.SolidColorBrush borderBrush)
+        {
+            SharpDX.RectangleF pillRect = new SharpDX.RectangleF(boxLeft, chosenTop, pillW, pillH);
+            usedLabelRects.Add(new SharpDX.RectangleF(boxLeft - 2f, chosenTop - 1f, pillW + 4f, pillH + 2f));
+            SharpDX.Direct2D1.RoundedRectangle pill = new SharpDX.Direct2D1.RoundedRectangle { Rect = pillRect, RadiusX = 3.5f, RadiusY = 3.5f };
+            RenderTarget.FillRoundedRectangle(pill, dxLabelBg);
+            RenderTarget.DrawRoundedRectangle(pill, borderBrush, 0.9f);
+            RenderTarget.DrawText(txt, dxFont, new SharpDX.RectangleF(boxLeft + 5f, chosenTop + 1.5f, pillW - 6f, pillH - 1f), borderBrush);
+        }
+
+        private SharpDX.Direct2D1.SolidColorBrush ResolveAccentBrush(IcebergEvent ev, bool ghostTrack)
+        {
+            if (ev.Kind == IcebergKind.Dinamico)
+            {
+                if (ghostTrack) return ev.IsSellSide ? dxSellDinGhost : dxBuyDinGhost;
+                return ev.IsSellSide ? dxSellDinBorder : dxBuyDinBorder;
+            }
+            if (ghostTrack) return ev.IsSellSide ? dxSellSinGhost : dxBuySinGhost;
+            return ev.IsSellSide ? dxSellSinRing : dxBuySinRing;
+        }
+
+        private SharpDX.Direct2D1.SolidColorBrush ResolveTrackBrush(IcebergEvent ev)
+        {
+            if (ev.Kind == IcebergKind.Dinamico)
+            {
+                if (ev.TrackActive) return ev.IsSellSide ? dxSellDinTrack : dxBuyDinTrack;
+                return ev.IsSellSide ? dxSellDinGhost : dxBuyDinGhost;
+            }
+            if (ev.TrackActive) return ev.IsSellSide ? dxSellSinTrack : dxBuySinTrack;
+            return ev.IsSellSide ? dxSellSinGhost : dxBuySinGhost;
+        }
+
         protected override void OnRender(ChartControl chartControl, ChartScale chartScale)
         {
             if (chartControl == null || chartScale == null || ChartBars == null || ChartPanel == null || RenderTarget == null)
                 return;
 
             visibleScratch.Clear();
+            visibleTrackScratch.Clear();
             int fromIdx = Math.Max(0, ChartBars.FromIndex);
             int toIdx = ChartBars.ToIndex;
 
@@ -467,10 +740,17 @@ namespace NinjaTrader.NinjaScript.Indicators
                     IcebergEvent ev = events[i];
                     if (ev.BarIndex >= fromIdx && ev.BarIndex <= toIdx)
                         visibleScratch.Add(ev);
+
+                    if (AtivarLinhaRastreio && (ev.TrackActive || ev.TrackCompleted))
+                    {
+                        int endIdx = ev.TrackActive ? Math.Max(ev.TrackEndBarIndex, toIdx) : ev.TrackEndBarIndex;
+                        if (endIdx >= fromIdx && ev.BarIndex <= toIdx)
+                            visibleTrackScratch.Add(ev);
+                    }
                 }
             }
 
-            if (visibleScratch.Count == 0) return;
+            if (visibleScratch.Count == 0 && visibleTrackScratch.Count == 0) return;
 
             EnsureRenderResources();
             usedLabelRects.Clear();
@@ -481,6 +761,47 @@ namespace NinjaTrader.NinjaScript.Indicators
             float panelTop = (float)ChartPanel.Y;
             float panelRight = (float)(ChartPanel.X + ChartPanel.W);
             float panelBottom = (float)(ChartPanel.Y + ChartPanel.H);
+            float rightAnchorX = (toIdx >= fromIdx)
+                ? Math.Min(panelRight - 8f, (float)chartControl.GetXByBarIndex(ChartBars, toIdx) + 28f)
+                : panelRight - 12f;
+
+            // Passo 0: Linhas de Rastreio de Defesa no Preço (atrás das bolinhas)
+            for (int i = 0; i < visibleTrackScratch.Count; i++)
+            {
+                IcebergEvent ev = visibleTrackScratch[i];
+                float y = (float)chartScale.GetYByValue(ev.Price);
+                if (y < panelTop + 2f || y > panelBottom - 2f) continue;
+
+                float xStart = (ev.BarIndex < fromIdx)
+                    ? panelLeft + 2f
+                    : Math.Max(panelLeft + 2f, (float)chartControl.GetXByBarIndex(ChartBars, ev.BarIndex));
+
+                float xEnd;
+                if (ev.TrackActive)
+                {
+                    xEnd = rightAnchorX;
+                }
+                else
+                {
+                    int clampedEnd = Math.Max(fromIdx, Math.Min(toIdx, ev.TrackEndBarIndex));
+                    xEnd = Math.Min(panelRight - 6f, (float)chartControl.GetXByBarIndex(ChartBars, clampedEnd));
+                }
+
+                if (xEnd <= xStart + 4f) continue;
+
+                SharpDX.Direct2D1.SolidColorBrush lineBrush = ResolveTrackBrush(ev);
+                if (ev.TrackActive)
+                {
+                    RenderTarget.DrawLine(new SharpDX.Vector2(xStart, y), new SharpDX.Vector2(xEnd, y), lineBrush, 1.35f, dxStrokeDash);
+                    RenderTarget.FillEllipse(new SharpDX.Direct2D1.Ellipse(new SharpDX.Vector2(xEnd, y), 2.8f, 2.8f), lineBrush);
+                }
+                else
+                {
+                    RenderTarget.DrawLine(new SharpDX.Vector2(xStart, y), new SharpDX.Vector2(xEnd, y), lineBrush, 0.9f, dxStrokeDot);
+                    RenderTarget.DrawLine(new SharpDX.Vector2(xEnd - 3f, y - 3f), new SharpDX.Vector2(xEnd + 3f, y + 3f), lineBrush, 1.0f);
+                    RenderTarget.DrawLine(new SharpDX.Vector2(xEnd - 3f, y + 3f), new SharpDX.Vector2(xEnd + 3f, y - 3f), lineBrush, 1.0f);
+                }
+            }
 
             double minVol = Math.Max(1.0, LotePequeno);
             double maxRef = Math.Max(minVol + 10.0, LoteGigante * 1.5);
@@ -494,7 +815,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (y < panelTop - 30f || y > panelBottom + 30f || x < panelLeft - 30f || x > panelRight + 30f) continue;
 
                 double norm = Math.Max(0.0, Math.Min(1.0, (ev.Volume - minVol) / (maxRef - minVol)));
-                float radius = 5.5f + (float)(Math.Sqrt(norm) * 16.5);
+                float radius = 6.5f + (float)(Math.Sqrt(norm) * 17.0);
                 SharpDX.Vector2 center = new SharpDX.Vector2(x, y);
 
                 if (ev.Kind == IcebergKind.Dinamico)
@@ -519,7 +840,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 return;
             }
 
-            // Passo 2: Desenha todas as etiquetas SEMPRE fora da borda da bolinha (nunca em cima do círculo!)
+            // Passo 2: Etiquetas das bolinhas (nunca em cima do círculo!) + etiquetas das defesas ativas
             for (int i = 0; i < visibleScratch.Count; i++)
             {
                 IcebergEvent ev = visibleScratch[i];
@@ -528,49 +849,41 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (y < panelTop - 20f || y > panelBottom + 20f || x < panelLeft - 20f || x > panelRight + 20f) continue;
 
                 double norm = Math.Max(0.0, Math.Min(1.0, (ev.Volume - minVol) / (maxRef - minVol)));
-                float radius = 5.5f + (float)(Math.Sqrt(norm) * 16.5);
+                float radius = 6.5f + (float)(Math.Sqrt(norm) * 17.0);
 
                 string prefix = (ev.Kind == IcebergKind.Dinamico) ? "D " : "S ";
                 string txt = prefix + ev.Volume.ToString();
                 float pillW = Math.Max(34f, txt.Length * 6.5f + 10f);
                 float pillH = 15f;
 
-                // Posiciona à direita da borda externa da bolinha (ou à esquerda se perto da margem direita)
                 float rightCandidateLeft = x + radius + 7f;
                 float boxLeft = (rightCandidateLeft + pillW <= panelRight - 4f)
                     ? rightCandidateLeft
                     : Math.Max(panelLeft + 4f, x - radius - pillW - 7f);
 
-                float chosenTop = Math.Max(panelTop + 4f, Math.Min(panelBottom - pillH - 4f, y - pillH * 0.5f));
-                if (LabelColide(new SharpDX.RectangleF(boxLeft - 2f, chosenTop - 1f, pillW + 4f, pillH + 2f)))
-                {
-                    float[] offsets = { -17f, 17f, -34f, 34f, -51f, 51f };
-                    foreach (float dy in offsets)
-                    {
-                        float candTop = Math.Max(panelTop + 4f, Math.Min(panelBottom - pillH - 4f, (y + dy) - pillH * 0.5f));
-                        if (!LabelColide(new SharpDX.RectangleF(boxLeft - 2f, candTop - 1f, pillW + 4f, pillH + 2f)))
-                        {
-                            chosenTop = candTop;
-                            break;
-                        }
-                    }
-                }
-
-                SharpDX.RectangleF pillRect = new SharpDX.RectangleF(boxLeft, chosenTop, pillW, pillH);
-                usedLabelRects.Add(new SharpDX.RectangleF(boxLeft - 2f, chosenTop - 1f, pillW + 4f, pillH + 2f));
-
+                float chosenTop = ResolveNonCollidingTop(boxLeft, y, pillW, pillH, panelTop, panelBottom);
                 float edgeX = (boxLeft > x) ? (x + radius + 1f) : (x - radius - 1f);
-                float pillEdgeX = (boxLeft > x) ? boxLeft : pillRect.Right;
+                float pillEdgeX = (boxLeft > x) ? boxLeft : (boxLeft + pillW);
                 RenderTarget.DrawLine(new SharpDX.Vector2(edgeX, y), new SharpDX.Vector2(pillEdgeX, chosenTop + pillH * 0.5f), dxLeaderBrush, 0.85f);
 
-                SharpDX.Direct2D1.SolidColorBrush borderBrush = (ev.Kind == IcebergKind.Dinamico)
-                    ? (ev.IsSellSide ? dxSellDinBorder : dxBuyDinBorder)
-                    : (ev.IsSellSide ? dxSellSinRing : dxBuySinRing);
+                DrawPillText(txt, boxLeft, chosenTop, pillW, pillH, ResolveAccentBrush(ev, false));
+            }
 
-                SharpDX.Direct2D1.RoundedRectangle pill = new SharpDX.Direct2D1.RoundedRectangle { Rect = pillRect, RadiusX = 3.5f, RadiusY = 3.5f };
-                RenderTarget.FillRoundedRectangle(pill, dxLabelBg);
-                RenderTarget.DrawRoundedRectangle(pill, borderBrush, 0.9f);
-                RenderTarget.DrawText(txt, dxFont, new SharpDX.RectangleF(boxLeft + 5f, chosenTop + 1.5f, pillW - 6f, pillH - 1f), borderBrush);
+            for (int i = 0; i < visibleTrackScratch.Count; i++)
+            {
+                IcebergEvent ev = visibleTrackScratch[i];
+                if (!ev.TrackActive) continue;
+                float y = (float)chartScale.GetYByValue(ev.Price);
+                if (y < panelTop + 4f || y > panelBottom - 4f) continue;
+
+                string sideLabel = ev.IsSellSide ? "DEF V " : "DEF C ";
+                string trackTxt = sideLabel + ev.Volume.ToString() + (ev.FollowUpCount > 0 ? " (+" + ev.FollowUpCount + ")" : "");
+                float tW = Math.Max(60f, trackTxt.Length * 6.3f + 10f);
+                float tH = 14f;
+                float tLeft = Math.Max(panelLeft + 4f, Math.Min(panelRight - tW - 4f, rightAnchorX - tW));
+                float tTop = ResolveNonCollidingTop(tLeft, y - 12f, tW, tH, panelTop, panelBottom);
+
+                DrawPillText(trackTxt, tLeft, tTop, tW, tH, ResolveTrackBrush(ev));
             }
 
             RenderTarget.AntialiasMode = prevAa;
@@ -581,18 +894,28 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (dxBuyDinFill != null) { dxBuyDinFill.Dispose(); dxBuyDinFill = null; }
             if (dxBuyDinAura != null) { dxBuyDinAura.Dispose(); dxBuyDinAura = null; }
             if (dxBuyDinBorder != null) { dxBuyDinBorder.Dispose(); dxBuyDinBorder = null; }
+            if (dxBuyDinTrack != null) { dxBuyDinTrack.Dispose(); dxBuyDinTrack = null; }
+            if (dxBuyDinGhost != null) { dxBuyDinGhost.Dispose(); dxBuyDinGhost = null; }
             if (dxSellDinFill != null) { dxSellDinFill.Dispose(); dxSellDinFill = null; }
             if (dxSellDinAura != null) { dxSellDinAura.Dispose(); dxSellDinAura = null; }
             if (dxSellDinBorder != null) { dxSellDinBorder.Dispose(); dxSellDinBorder = null; }
+            if (dxSellDinTrack != null) { dxSellDinTrack.Dispose(); dxSellDinTrack = null; }
+            if (dxSellDinGhost != null) { dxSellDinGhost.Dispose(); dxSellDinGhost = null; }
             if (dxBuySinRing != null) { dxBuySinRing.Dispose(); dxBuySinRing = null; }
             if (dxBuySinCenter != null) { dxBuySinCenter.Dispose(); dxBuySinCenter = null; }
             if (dxBuySinAura != null) { dxBuySinAura.Dispose(); dxBuySinAura = null; }
+            if (dxBuySinTrack != null) { dxBuySinTrack.Dispose(); dxBuySinTrack = null; }
+            if (dxBuySinGhost != null) { dxBuySinGhost.Dispose(); dxBuySinGhost = null; }
             if (dxSellSinRing != null) { dxSellSinRing.Dispose(); dxSellSinRing = null; }
             if (dxSellSinCenter != null) { dxSellSinCenter.Dispose(); dxSellSinCenter = null; }
             if (dxSellSinAura != null) { dxSellSinAura.Dispose(); dxSellSinAura = null; }
+            if (dxSellSinTrack != null) { dxSellSinTrack.Dispose(); dxSellSinTrack = null; }
+            if (dxSellSinGhost != null) { dxSellSinGhost.Dispose(); dxSellSinGhost = null; }
             if (dxLabelBg != null) { dxLabelBg.Dispose(); dxLabelBg = null; }
             if (dxTextBrush != null) { dxTextBrush.Dispose(); dxTextBrush = null; }
             if (dxLeaderBrush != null) { dxLeaderBrush.Dispose(); dxLeaderBrush = null; }
+            if (dxStrokeDash != null) { dxStrokeDash.Dispose(); dxStrokeDash = null; }
+            if (dxStrokeDot != null) { dxStrokeDot.Dispose(); dxStrokeDot = null; }
             if (dxFont != null) { dxFont.Dispose(); dxFont = null; }
             if (dxFactory != null) { dxFactory.Dispose(); dxFactory = null; }
         }

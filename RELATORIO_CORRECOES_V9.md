@@ -409,3 +409,15 @@ git push origin main
 - **Zero dependência de `System.Speech.dll` em tempo de compilação:** Substituído `using System.Speech.Synthesis;` por carregamento em runtime (`Assembly.Load("System.Speech, ...")` + fallback automático para COM nativo `SAPI.SpVoice`), garantindo compilação no **F5** mesmo sem referenciar manualmente `System.Speech.dll` no NinjaScript Editor.
 - **Antialiasing SharpDX:** Ativado `RenderTarget.AntialiasMode = SharpDX.Direct2D1.AntialiasMode.PerPrimitive` (com restauração garantida em todos os caminhos de `OnRender`).
 - **`instalador_cloud2.0.py` (`10` indicadores):** Adicionado `CODE_WATCHDOG` e `"FluentliWatchdog.cs": CODE_WATCHDOG` em `arquivos_para_instalar`, atualizando o instalador para gravar todos os `10` indicadores diretamente na pasta `Indicators` do NinjaTrader 8.
+
+---
+
+## 28. `FluentliWatchdog.cs` — Cores Configuráveis (4 Brushes) & Rastreio Opcional de Defesa no Preço (`17/11/2026 22:25`)
+
+- **Cores Personalizadas no Painel do NinjaTrader 8 (`Grupo 3. Cores Personalizadas`):**
+  - Expostas `CorCompraDinamico`, `CorVendaDinamico`, `CorCompraSintetico` e `CorVendaSintetico` (`[XmlIgnore]` + pares `[Browsable(false)] ...Serialize` com fallback seguro contra `null` via `Serialize.BrushToString` / `StringToBrush`).
+  - `EnsureRenderResources()` converte as cores WPF escolhidas para SharpDX GPU (`ExtractColor4`) e invalida o cache automaticamente sempre que o usuário altera alguma cor (`lastColorSignature`).
+- **Rastreio Opcional de Defesa no Preço (`Grupo 4. Rastreio de Defesa no Preço`):**
+  - Parametrizável via `AtivarLinhaRastreio` (`true`), `RastreioLoteMinimo` (`100` contratos), `ToleranciaRastreioTicks` (`8` ticks) e `MaxLinhasRastreio` (`6` linhas simultâneas).
+  - **Transparência técnica sobre CME/NT8:** Como o feed público da CME não transmite CNPJ nem ID de corretora/player após a execução, o rastreio acompanha a **zona de preço da defesa passiva** — estendendo linha tracejada enquanto o preço respeitar o nível (`DEF C` / `DEF V`, contabilizando reforços do mesmo lado `(+N)` dentro da zona), e encerrando com marcação discreta caso o preço rompa além da tolerância.
+- **Sincronização com `instalador_cloud2.0.py`:** `CODE_WATCHDOG` atualizado com o novo código completo.
