@@ -467,3 +467,14 @@ git push origin main
   - Atualizado `DASHBOARD_URL_PADRAO`, o fallback padrão de `ResolveDashboardBaseUrl()` em `DarkPoolBeamsPro` e `NyseTickBreadthPro`, e a lógica de criação/atualização do arquivo `VeltrixQuant_URL.txt` (agora promove automaticamente de `http://localhost:3000` antigo para a URL da Vercel ao rodar Play, preservando eventuais URLs customizadas).
 - **`C:\Users\alanb\Desktop\Cursos\` (Educação Quant & Engenharia Full-Stack):**
   - Auditada a pasta `01_Programacao_Engenharia_e_Tecnologia/`, criados os novos arquivos [04_Cursos_Adicionais_APIs_Sockets_Estatistica_e_Canvas.md](file:///C:/Users/alanb/Desktop/Cursos/01_Programacao_Engenharia_e_Tecnologia/04_Cursos_Adicionais_APIs_Sockets_Estatistica_e_Canvas.md) e [05_Como_Construir_DOM_Footprint_VolumeProfile_TPO_e_TradingViewStudio.md](file:///C:/Users/alanb/Desktop/Cursos/01_Programacao_Engenharia_e_Tecnologia/05_Como_Construir_DOM_Footprint_VolumeProfile_TPO_e_TradingViewStudio.md) (trilhas gratuitas americanas sem Coursera + legendas PT-BR + engenharia completa de APIs, Sockets, Canvas, Drag & Drop, Volume Profile, TPO, Footprint e DOM) e atualizado [00_GUIA_MESTRE_E_MAPA_DA_JORNADA.md](file:///C:/Users/alanb/Desktop/Cursos/00_GUIA_MESTRE_E_MAPA_DA_JORNADA.md).
+
+---
+
+## 32. Correção da Escala Y (`ES 7300 → SPY 730`), Race Condition no WebSocket Finnhub e Persistência Resiliente da Chave (`18/11/2026 16:58`)
+
+- **Bug diagnosticado (`SPY` com velas esmagadas no rodapé enquanto eixo Y ia até `7160`):**
+  1. Ao trocar de `ES` (~`7330`) para `SPY` (~`730`), o WebSocket da Finnhub (`~50ms`) disparava o primeiro trade antes do `snapshot` do SSE retornar e desenhava em cima das barras antigas do `ES`, além de o `priceScale("right")` manter a escala anterior e `DarkPool` usar `projectedFutureLevel` em ETFs.
+- **Correções em [TradingViewGexChart.tsx](file:///C:/Users/alanb/source/gex-dashboard/gex-dashboard/components/TradingViewGexChart.tsx):**
+  - Limpeza imediata das séries (`candle`, `volume`, `VWAP`, `Delta`) e `autoScale: true` ao trocar de ativo/timeframe, travando ticks de `liveWs` via `snapshotReadyKeyRef` até o snapshot do novo símbolo chegar (com abertura correta de novos candles por intervalo `getIntervalSeconds`).
+  - Correção do preço do `DarkPool` para usar `etfPrice` quando o gráfico está no próprio ETF, filtro anti-outlier para linhas muito distantes e adição do botão **`Ajustar Escala`** no cabeçalho.
+  - Persistência dupla da chave Finnhub (`localStorage` + `document.cookie` de 1 ano com `auto-save` imediato ao colar) + botão **`Mostrar/Ocultar (👁️)`** para conferir a chave salva.
