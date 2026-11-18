@@ -3656,7 +3656,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Cor Base dos Feixes (Lilas)", Order = 9, GroupName = "03. Visual e HUD")]
-        public Brush CorFeixePrincipal { get; set; }
+        public System.Windows.Media.Brush CorFeixePrincipal { get; set; }
 
         [Browsable(false)]
         public string CorFeixePrincipalSerialize
@@ -4079,9 +4079,9 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (dxLeader == null) dxLeader = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.78f, 0.56f, 1.00f, 0.55f));
         }
 
-        private static SharpDX.Color ToSharpColor(Brush wpfBrush, float alphaScale)
+        private static SharpDX.Color ToSharpColor(System.Windows.Media.Brush wpfBrush, float alphaScale)
         {
-            SolidColorBrush scb = wpfBrush as SolidColorBrush;
+            System.Windows.Media.SolidColorBrush scb = wpfBrush as System.Windows.Media.SolidColorBrush;
             if (scb == null) return new SharpDX.Color((byte)186, (byte)85, (byte)211, (byte)(255 * alphaScale));
             System.Windows.Media.Color c = scb.Color;
             return new SharpDX.Color(c.R, c.G, c.B, (byte)Math.Max(0, Math.Min(255, c.A * alphaScale)));
@@ -4596,27 +4596,27 @@ namespace NinjaTrader.NinjaScript.Indicators
         [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Cor Compra Forte", Order = 7, GroupName = "03. Visual")]
-        public Brush CorCompraForte { get; set; }
+        public System.Windows.Media.Brush CorCompraForte { get; set; }
 
         [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Cor Compra Climax", Order = 8, GroupName = "03. Visual")]
-        public Brush CorCompraExtrema { get; set; }
+        public System.Windows.Media.Brush CorCompraExtrema { get; set; }
 
         [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Cor Venda Forte", Order = 9, GroupName = "03. Visual")]
-        public Brush CorVendaForte { get; set; }
+        public System.Windows.Media.Brush CorVendaForte { get; set; }
 
         [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Cor Venda Climax", Order = 10, GroupName = "03. Visual")]
-        public Brush CorVendaExtrema { get; set; }
+        public System.Windows.Media.Brush CorVendaExtrema { get; set; }
 
         [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Cor Neutra", Order = 11, GroupName = "03. Visual")]
-        public Brush CorNeutra { get; set; }
+        public System.Windows.Media.Brush CorNeutra { get; set; }
 
         [Browsable(false)] public string CorCompraForteS { get { return Serialize.BrushToString(CorCompraForte); } set { CorCompraForte = Serialize.StringToBrush(value); } }
         [Browsable(false)] public string CorCompraExtremaS { get { return Serialize.BrushToString(CorCompraExtrema); } set { CorCompraExtrema = Serialize.StringToBrush(value); } }

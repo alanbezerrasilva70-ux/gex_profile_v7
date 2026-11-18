@@ -478,3 +478,10 @@ git push origin main
   - Limpeza imediata das séries (`candle`, `volume`, `VWAP`, `Delta`) e `autoScale: true` ao trocar de ativo/timeframe, travando ticks de `liveWs` via `snapshotReadyKeyRef` até o snapshot do novo símbolo chegar (com abertura correta de novos candles por intervalo `getIntervalSeconds`).
   - Correção do preço do `DarkPool` para usar `etfPrice` quando o gráfico está no próprio ETF, filtro anti-outlier para linhas muito distantes e adição do botão **`Ajustar Escala`** no cabeçalho.
   - Persistência dupla da chave Finnhub (`localStorage` + `document.cookie` de 1 ano com `auto-save` imediato ao colar) + botão **`Mostrar/Ocultar (👁️)`** para conferir a chave salva.
+
+---
+
+## 33. Correção `CS0104` de Ambiguidade `Brush` / `SolidColorBrush` no NinjaTrader 8 (`18/11/2026 18:05`)
+
+- **Erro reportado no F5 do NinjaScript Editor (`CS0104`):** `DarkPoolBeamsPro.cs` e `NyseTickBreadthPro.cs` importavam simultaneamente `using System.Windows.Media;` e `using SharpDX.Direct2D1;`, causando ambiguidade de referência para `Brush` e `SolidColorBrush`.
+- **Correção aplicada em [instalador_cloud2.0.py](file:///C:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):** Qualificadas explicitamente todas as ocorrências WPF como `System.Windows.Media.Brush` e `System.Windows.Media.SolidColorBrush`, mantendo `SharpDX.Direct2D1.Brush` e `SharpDX.Direct2D1.SolidColorBrush` separados; verificador AST atualizado para detectar qualquer referência ambígua em todo o pacote (`amb=[]`, `ALL_CHECKS_OK=True`).
