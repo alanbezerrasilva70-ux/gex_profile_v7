@@ -541,3 +541,29 @@ git push origin main
 
 - **Erro reportado no F5 do NinjaScript Editor (`CS1519` / `CS0103` na linha `494`):** A inserção de `ResolveVercelBypassToken()` logo acima de `StartPolling()` havia removido acidentalmente a assinatura `private void StartPolling()` deixando `{ int intervalMs = ... }` solto no corpo da classe.
 - **Correção aplicada em [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):** Restaurada a linha `private void StartPolling()` antes do bloco de código e ampliado o verificador `verify_installer.py` com checagem estrutural automática para impedir blocos `{` sem assinatura em todos os 13 indicadores.
+
+---
+
+## 40. Redesign Visual/Móvel do QuantEngine, Painel Separado (`QuantEnginePainelPro`) e Cores Personalizadas no Imbalance e DarkPool (`19/11/2026 14:35`)
+
+- **Problema reportado:** A caixa antiga do `QUANT ENGINE V8` (`Draw.TextFixed` opaca `420x235` fixa em `TopLeft`) cobria candles e o card do `OrderFlowImbalanceFlash` (`MARKET PULSE`), sem opção de mover/separar em painel próprio, além de `OrderFlowImbalanceFlash` e o retângulo FINRA de `DarkPoolBeamsPro` possuírem cores fixas no código.
+- **Alterações aplicadas em [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):**
+  - **`NiveisGammaPro` (`CODE_GAMMA`):** Substituído o `Draw.TextFixed` por HUD moderno em SharpDX com fundo translúcido configurável (`OpacidadePainelPct`, padrão `72%`), `TamanhoFontePainel`, cores personalizáveis (`CorFundoPainel`, `CorTextoPainel`, `CorRegimeShort`, `CorRegimeLong`), **4 estilos visuais** (`Compacto`, `BarraHorizontal`, `Completo`, `Minimizado`), **7 posições** (`SuperiorEsquerdo`, `SuperiorDireito`, `InferiorEsquerdo`, `InferiorDireito`, `BarraTopo`, `BarraRodape`, `Oculto`), `OffsetPainelX`/`OffsetPainelY`, botões clicáveis `[⇄]` (trocar posição) e `[−]`/`[+]` (minimizar) e arraste direto com o mouse no cabeçalho, além de `hudReserve` dinâmico para as tags de níveis GEX.
+  - **Novo indicador nº 14 `QuantEnginePainelPro` (`CODE_QUANT_PANEL`):** Painel separado (`IsOverlay = false; DrawOnPricePanel = false`) dedicado para exibir todo o `QUANT ENGINE V8` fora da área de candles/fluxo em 3 modos responsivos (`3 cartões`, `2 cartões` ou `faixa compacta`) com seletor `VencimentoDTE` e personalização completa de cores e opacidade.
+  - **`OrderFlowImbalanceFlash` (`CODE_ORDERFLOW_IMBALANCE_FLASH`):** Adicionadas cores personalizáveis (`CorCompra`, `CorVenda`, `CorNeutra`, `CorFundoPainel`, `CorBordaPainel`, `CorTextoPrincipal`, `CorTextoSecundario`), `OpacidadeFundoPct`, `OpacidadeFaixasPct` (retângulos das faixas de preço), seletor `CantoPainel` em enum (`VeltrixImbalancePosicaoV8`), `OffsetPainelX`/`OffsetPainelY`, botão `[⇄]` e arraste direto com o mouse preservando o botão `[SOM]`.
+  - **`DarkPoolBeamsPro` (`CODE_DARKPOOL_BEAMS`):** Adicionadas cores personalizáveis para os feixes e para o retângulo FINRA + pílulas (`CorFeixeBid`, `CorFeixeAsk`, `CorFundoRetangulo`, `CorBordaRetangulo`, `CorFundoEtiqueta`, `CorTextoPrincipal`, `CorTextoSecundario`), `OpacidadeRetanguloPct`, `PosicaoCardFinra` (`VeltrixDarkPoolPosicaoV8`), `OffsetCardX`/`OffsetCardY`, botão `[⇄]` e arraste direto no retângulo FINRA para não sobrepor a tabela de footprint.
+
+---
+
+## 41. Botões de Acesso Rápido na Barra Superior do Gráfico (`MainMenu`), Precisão `0.00%` FINRA e Manual QuantEngine V8 (`19/11/2026 16:00`)
+
+- **Atalhos na barra superior da janela Chart (`OwnerChart.MainMenu`, ao lado de ativo/minutagem/`mzVolumeProfile`):**
+  - Adicionados botões WPF deduplicados e multi-abas com janelas flutuantes escuras de configuração instantânea (`... settings`) em [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py) para:
+    1. **`⚙ GammaPro` (`NiveisGammaPro`)**: presets rápidos (`Compacto`, `Barra Topo`, `Só Linhas (Ocultar HUD)`), `PosicaoPainel`, `EstiloPainel`, `OpacidadePainelPct`, `TamanhoFontePainel`, `MargemDireitaTags`, `OffsetPainelX/Y` + `Zero`, e cores Hex com prévia visual (`Aplicar` / `Aplicar & Fechar`).
+    2. **`⚡ Imbalance` (`OrderFlowImbalanceFlash`)**: edição ao vivo de `JanelaSegundos`, `VolumeMinimoJanela`, `RatioDesequilibrio`, `BrilhoDecaimentoSeg`, faixas/caixinha, opacidade, offsets, áudio PCM (`VolumeAudioPct` + `InitAudioPlayers()`) e todas as cores.
+    3. **`◉ DarkPool` (`DarkPoolBeamsPro`)**: edição ao vivo de `DashboardUrl`, `AtualizarSegundos`, `MaxFeixesVisiveis`, `LarguraFeixeBarras`, `NotionalMinMilhoes`, pulso, card FINRA, offsets, cores e botão **`Aplicar & Sincronizar`** imediato.
+  - Compilação verificada via `csc.exe` C# 5 direto contra `NinjaTrader.Core.dll` e `NinjaTrader.Gui.dll` (`CSC_TOOLBAR_HUD_EXIT= 0`).
+- **Precisão FINRA `0.00%` + indicação `(EOD)` em `DarkPoolBeamsPro`:**
+  - Investigado o motivo de `QQQ` (`NQ`) e `SPY` (`ES`) exibirem ambos `54.9% | SHORT: 45.1%` no dia `2026-11-18`: ao vivo no `cdn.finra.org/equity/regsho/daily/CNMSshvol20261118.txt`, `QQQ` estava em `54.87% / 45.13%` (`$8.97B BULLISH`) e `SPY` em `54.92% / 45.08%` (`$11.00B NEUTRAL`) — ambos arredondavam para `54.9% / 45.1%` com 1 casa (`0.0`). Atualizado o card FINRA para `372px` com formato `0.00%` (`54.87%` vs `54.92%`) e rótulo `(EOD)`.
+- **Novo Manual na Biblioteca (`gex-dashboard/public/ebooks/painel_quantengine_atalhos`):**
+  - Criados `teoria.md`, `pratica.md` e diagrama SVG `comparacao_estilos_quantengine_e_barra_superior.svg` (registrado em `books.ts`, `ptBR.ts` e `enUS.ts` como 28º livro) explicando o que já está plotado no gráfico vs exclusivo do QuantEngine, comparação exata de `Compacto` vs `BarraHorizontal` vs `Completo` vs `Minimizado` vs `QuantEnginePainelPro` (#14), atalhos de barra superior/mouse e diagnóstico prático sobre Put Walls de `-Net GEX` em regime `SHORT GAMMA`.
