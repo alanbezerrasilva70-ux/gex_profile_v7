@@ -518,3 +518,10 @@ git push origin main
 - **Melhorias aplicadas em [route.ts](file:///c:/Users/alanb/source/gex-dashboard/gex-dashboard/app/api/macro-darkpool/route.ts) e [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):**
   - Adicionado suporte a `?only=darkpool` no backend (retorna apenas `finra` + `proxyBlocks` sem esperar FRED, Calendário USD e Finviz).
   - Elevado `VeltrixTimeoutWebClient` para `20000ms` (`20s`), adicionado fallback `http://127.0.0.1:3000` junto a `http://localhost:3000`, `ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12` e `ChartControl.InvalidateVisual()` no retorno de falha em `DarkPoolBeamsPro`.
+
+---
+
+## 37. Suporte a `Protection Bypass for Automation` (`x-vercel-protection-bypass`) no NinjaTrader 8 (`18/11/2026 20:50`)
+
+- **Objetivo de segurança:** Permitir que o usuário mantenha **`Vercel Authentication` LIGADA** (protegendo 100% o site contra acessos sem login da conta Vercel), ao mesmo tempo em que `DarkPoolBeamsPro` e `NyseTickBreadthPro` autenticam automaticamente nas URLs `.vercel.app` sem depender de `localhost:3000` nem VS Code.
+- **Alteração em [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):** Adicionado `ResolveVercelBypassToken()` em `DarkPoolBeamsPro` e `NyseTickBreadthPro`, lendo `VELTRIX_BYPASS_TOKEN` ou `VeltrixQuant_BYPASS.txt` (`Documents\NinjaTrader 8\bin\Custom\Indicators\VeltrixQuant\VeltrixQuant_BYPASS.txt`) e enviando o cabeçalho HTTP `x-vercel-protection-bypass` sem alterar assinaturas de parâmetros dos templates salvos.

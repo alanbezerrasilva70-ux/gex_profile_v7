@@ -3787,7 +3787,32 @@ namespace NinjaTrader.NinjaScript.Indicators
             return "https://gex-dashboard-git-master-gex-cloud.vercel.app";
         }
 
-        private void StartPolling()
+        private string ResolveVercelBypassToken()
+        {
+            try
+            {
+                string envTok = Environment.GetEnvironmentVariable("VELTRIX_BYPASS_TOKEN");
+                if (!string.IsNullOrEmpty(envTok)) return envTok.Trim();
+
+                string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                string[] tokPaths = new string[]
+                {
+                    Path.Combine(docs, "NinjaTrader 8", "bin", "Custom", "Indicators", "VeltrixQuant", "VeltrixQuant_BYPASS.txt"),
+                    Path.Combine(docs, "NinjaTrader 8", "VeltrixQuant_BYPASS.txt"),
+                    Path.Combine(docs, "VeltrixQuant_BYPASS.txt")
+                };
+                for (int i = 0; i < tokPaths.Length; i++)
+                {
+                    if (File.Exists(tokPaths[i]))
+                    {
+                        string tok = File.ReadAllText(tokPaths[i]).Trim();
+                        if (!string.IsNullOrEmpty(tok)) return tok;
+                    }
+                }
+            }
+            catch { }
+            return string.Empty;
+        }
         {
             int intervalMs = Math.Max(5000, AtualizarSegundos * 1000);
             pollTimer = new Timer(_ => FetchDarkPoolAsync(), null, 350, intervalMs);
@@ -3860,6 +3885,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 try { ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12; } catch { }
 
+                string bypassToken = ResolveVercelBypassToken();
                 Dictionary<string, object> root = null;
                 Dictionary<string, object> dpObj = null;
 
@@ -3872,6 +3898,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                         using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(20000))
                         {
                             wc.Encoding = Encoding.UTF8;
+                            if (!string.IsNullOrEmpty(bypassToken) && baseUrl.IndexOf("vercel.app", StringComparison.OrdinalIgnoreCase) >= 0)
+                                wc.Headers["x-vercel-protection-bypass"] = bypassToken;
                             payload = wc.DownloadString(endpoint);
                         }
 
@@ -4812,6 +4840,33 @@ namespace NinjaTrader.NinjaScript.Indicators
             return "https://gex-dashboard-git-master-gex-cloud.vercel.app";
         }
 
+        private string ResolveVercelBypassToken()
+        {
+            try
+            {
+                string envTok = Environment.GetEnvironmentVariable("VELTRIX_BYPASS_TOKEN");
+                if (!string.IsNullOrEmpty(envTok)) return envTok.Trim();
+
+                string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                string[] tokPaths = new string[]
+                {
+                    Path.Combine(docs, "NinjaTrader 8", "bin", "Custom", "Indicators", "VeltrixQuant", "VeltrixQuant_BYPASS.txt"),
+                    Path.Combine(docs, "NinjaTrader 8", "VeltrixQuant_BYPASS.txt"),
+                    Path.Combine(docs, "VeltrixQuant_BYPASS.txt")
+                };
+                for (int i = 0; i < tokPaths.Length; i++)
+                {
+                    if (File.Exists(tokPaths[i]))
+                    {
+                        string tok = File.ReadAllText(tokPaths[i]).Trim();
+                        if (!string.IsNullOrEmpty(tok)) return tok;
+                    }
+                }
+            }
+            catch { }
+            return string.Empty;
+        }
+
         private void PollMarketContext()
         {
             if (State == State.Terminated) return;
@@ -4819,6 +4874,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             try
             {
                 string primaryUrl = ResolveDashboardBaseUrl();
+                string bypassToken = ResolveVercelBypassToken();
                 List<string> candList = new List<string>();
                 candList.Add(primaryUrl);
                 if (!candList.Exists(u => string.Equals(u, "http://localhost:3000", StringComparison.OrdinalIgnoreCase)))
@@ -4842,6 +4898,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                         using (VeltrixTimeoutWebClient wc = new VeltrixTimeoutWebClient(20000))
                         {
                             wc.Encoding = Encoding.UTF8;
+                            if (!string.IsNullOrEmpty(bypassToken) && candList[c].IndexOf("vercel.app", StringComparison.OrdinalIgnoreCase) >= 0)
+                                wc.Headers["x-vercel-protection-bypass"] = bypassToken;
                             payload = wc.DownloadString(url);
                         }
 
