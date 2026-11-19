@@ -4298,7 +4298,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // Camada 4: Etiqueta Dark Pool + Barra de Forca embutida
                 string sideShort = isBid ? "BID SUP" : (isAsk ? "ASK ABS" : "CLUSTER");
                 string timeTag = !string.IsNullOrEmpty(beam.TimeBrt) ? beam.TimeBrt : beam.TimeEt;
-                string tagText = "DP " + beam.Etf + " " + FormatNotional(beam.NotionalM) + " · " + FormatVolShort(beam.BarVolume) + " · " + sideShort;
+                string priceTag = (Instrument != null && Instrument.MasterInstrument != null)
+                    ? Instrument.MasterInstrument.FormatPrice(Instrument.MasterInstrument.RoundToTickSize(levelPrice))
+                    : levelPrice.ToString("0.##", CultureInfo.InvariantCulture);
+                string tagText = "DP " + beam.Etf + " @ " + priceTag + " · " + FormatNotional(beam.NotionalM) + " · " + FormatVolShort(beam.BarVolume) + " · " + sideShort;
                 if (!string.IsNullOrEmpty(timeTag)) tagText += " · " + timeTag;
 
                 float pillW = Math.Max(160f, tagText.Length * 5.65f + 22f);

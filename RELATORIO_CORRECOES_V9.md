@@ -525,3 +525,12 @@ git push origin main
 
 - **Objetivo de segurança:** Permitir que o usuário mantenha **`Vercel Authentication` LIGADA** (protegendo 100% o site contra acessos sem login da conta Vercel), ao mesmo tempo em que `DarkPoolBeamsPro` e `NyseTickBreadthPro` autenticam automaticamente nas URLs `.vercel.app` sem depender de `localhost:3000` nem VS Code.
 - **Alteração em [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):** Adicionado `ResolveVercelBypassToken()` em `DarkPoolBeamsPro` e `NyseTickBreadthPro`, lendo `VELTRIX_BYPASS_TOKEN` ou `VeltrixQuant_BYPASS.txt` (`Documents\NinjaTrader 8\bin\Custom\Indicators\VeltrixQuant\VeltrixQuant_BYPASS.txt`) e enviando o cabeçalho HTTP `x-vercel-protection-bypass` sem alterar assinaturas de parâmetros dos templates salvos.
+
+---
+
+## 38. Exibição de `@ Preço` nas Pílulas Dark Pool + Expansão Visual/Matemática dos Manuais (`18/11/2026 21:11`)
+
+- **[instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py) (`DarkPoolBeamsPro.OnRender()`):** Adicionado o preço formatado pelo `TickSize` do contrato (`@ 27430.75`) dentro de todas as etiquetas `DP <ETF> @ <preço> · $... · ASK ABS / BID SUP / CLUSTER · HH:MM BRT`.
+- **Manuais ampliados sem remoção de conteúdo (`gex-dashboard/public/ebooks/`):**
+  - `darkpoolbeamspro/` (`teoria.md`, `pratica.md`, `imagens/exemplo_real_dp_ask_cluster_finra.png`, `imagens/anatomia_feixes_e_matematica_darkpool.svg`): adicionada explicação completa com exemplos visuais de `ASK ABS` (parte vendedora passiva), `BID SUP` (parte compradora passiva), `CLUSTER` (nó neutro), FINRA `COMPRA/NON-SHORT % vs SHORT %`, explicação do horário `11:30 BRT`/`15:51 BRT` vs `21:07 BRT`, todas as 6 equações matemáticas (`Mediana 1m`, `RVOL`, `Nocional $M`, `absorptionScore`, `closePos`, `Nivel_Futuro` e `FINRA`) e guia do `VeltrixQuant_BYPASS.txt`.
+  - `orderflowimbalanceflash/` (`teoria.md`, `pratica.md`, `imagens/exemplo_real_linha_verde_15.png`, `imagens/exemplo_faixa_verde_no_candle.svg`): documentada a linha fina verde `+15` / vermelha `-15` sobre os candles (`MostrarFaixasNoPreco = true`, `Math.Max(6, VolumeMinimoJanela / 3)`).
