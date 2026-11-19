@@ -534,3 +534,10 @@ git push origin main
 - **Manuais ampliados sem remoção de conteúdo (`gex-dashboard/public/ebooks/`):**
   - `darkpoolbeamspro/` (`teoria.md`, `pratica.md`, `imagens/exemplo_real_dp_ask_cluster_finra.png`, `imagens/anatomia_feixes_e_matematica_darkpool.svg`): adicionada explicação completa com exemplos visuais de `ASK ABS` (parte vendedora passiva), `BID SUP` (parte compradora passiva), `CLUSTER` (nó neutro), FINRA `COMPRA/NON-SHORT % vs SHORT %`, explicação do horário `11:30 BRT`/`15:51 BRT` vs `21:07 BRT`, todas as 6 equações matemáticas (`Mediana 1m`, `RVOL`, `Nocional $M`, `absorptionScore`, `closePos`, `Nivel_Futuro` e `FINRA`) e guia do `VeltrixQuant_BYPASS.txt`.
   - `orderflowimbalanceflash/` (`teoria.md`, `pratica.md`, `imagens/exemplo_real_linha_verde_15.png`, `imagens/exemplo_faixa_verde_no_candle.svg`): documentada a linha fina verde `+15` / vermelha `-15` sobre os candles (`MostrarFaixasNoPreco = true`, `Math.Max(6, VolumeMinimoJanela / 3)`).
+
+---
+
+## 39. Restauração da Assinatura `private void StartPolling()` em `DarkPoolBeamsPro` (`18/11/2026 21:25`)
+
+- **Erro reportado no F5 do NinjaScript Editor (`CS1519` / `CS0103` na linha `494`):** A inserção de `ResolveVercelBypassToken()` logo acima de `StartPolling()` havia removido acidentalmente a assinatura `private void StartPolling()` deixando `{ int intervalMs = ... }` solto no corpo da classe.
+- **Correção aplicada em [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py):** Restaurada a linha `private void StartPolling()` antes do bloco de código e ampliado o verificador `verify_installer.py` com checagem estrutural automática para impedir blocos `{` sem assinatura em todos os 13 indicadores.

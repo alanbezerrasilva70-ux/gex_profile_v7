@@ -3813,6 +3813,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             catch { }
             return string.Empty;
         }
+
+        private void StartPolling()
         {
             int intervalMs = Math.Max(5000, AtualizarSegundos * 1000);
             pollTimer = new Timer(_ => FetchDarkPoolAsync(), null, 350, intervalMs);
