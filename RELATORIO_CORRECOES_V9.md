@@ -567,3 +567,17 @@ git push origin main
   - Investigado o motivo de `QQQ` (`NQ`) e `SPY` (`ES`) exibirem ambos `54.9% | SHORT: 45.1%` no dia `2026-11-18`: ao vivo no `cdn.finra.org/equity/regsho/daily/CNMSshvol20261118.txt`, `QQQ` estava em `54.87% / 45.13%` (`$8.97B BULLISH`) e `SPY` em `54.92% / 45.08%` (`$11.00B NEUTRAL`) — ambos arredondavam para `54.9% / 45.1%` com 1 casa (`0.0`). Atualizado o card FINRA para `372px` com formato `0.00%` (`54.87%` vs `54.92%`) e rótulo `(EOD)`.
 - **Novo Manual na Biblioteca (`gex-dashboard/public/ebooks/painel_quantengine_atalhos`):**
   - Criados `teoria.md`, `pratica.md` e diagrama SVG `comparacao_estilos_quantengine_e_barra_superior.svg` (registrado em `books.ts`, `ptBR.ts` e `enUS.ts` como 28º livro) explicando o que já está plotado no gráfico vs exclusivo do QuantEngine, comparação exata de `Compacto` vs `BarraHorizontal` vs `Completo` vs `Minimizado` vs `QuantEnginePainelPro` (#14), atalhos de barra superior/mouse e diagnóstico prático sobre Put Walls de `-Net GEX` em regime `SHORT GAMMA`.
+
+---
+
+## 42. `FluentliWatchdog` V2 (Linha Lateral Limpa + Filtro ES 800/NQ 200 + Painel Ao Vivo) & Indicador Nº 15 `HeatmapLiquidezPro` (`19/11/2026 16:28`)
+
+- **`FluentliWatchdog` V2 ([FluentliWatchdog.cs](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/FluentliWatchdog.cs) sincronizado em `CODE_WATCHDOG` de [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py)):**
+  - Novo padrão **`ModoVisual = LateralNoPreco`**: mantém os candles 100% livres traçando uma linha horizontal até a lateral direita com a bolinha (`D` / `S`) e pílula `@ Preço` (mantendo opção `SobreCandle`).
+  - Filtros independentes para plotagem no gráfico: **`LoteMinGraficoES = 800`**, **`LoteMinGraficoNQ = 200`**, **`LoteMinGraficoOutros = 100`** e **`FiltroGraficoManual`** (`0=Auto`), enquanto **`LotePequeno` (`50`)** continua alimentando o novo **Painel Ao Vivo Móvel (`DINÂMICOS (DOM)` vs `SINTÉTICOS (FAT)`)** com arraste, `[⇄]` e `[−]`/`[+]`.
+  - Mantido intacto todo o **motor de alerta de voz (`AtivarVoz` / `InitSpeech` / `SpeakAlertAsync`)** e adicionado botão na barra superior do Chart **`❄ Icebergs`** (`VeltrixToolbar_Watchdog`).
+- **Novo Indicador Separado Nº 15 — `HeatmapLiquidezPro` (`CODE_HEATMAP_LIQUIDEZ` em `instalador_cloud2.0.py`):**
+  - Mapa térmico Bookmap ultraleve em GPU (pincéis pré-alocados + buffer circular de `MaxSlicesHistorico = 120` a `500ms`) com escala **Vermelho Firme → Laranja → Amarelo → Cinza → Branco**, escada DOM L2 na lateral e **Painel Radar Móvel** exibindo **`SPOOF` (`FAKE / TIRADA`)**, **`HFT ROBÔ` (piscando)**, **`MANTIDA FIRME`**, **`⚡ STOP RUN` (varredura executada de ticks — com nota transparente sobre Book L2 vs Stops pendentes)** e botão na barra superior **`🔥 Liquidez`**.
+- **Documentação Completa Preservação+Expansão (`gex-dashboard/public/ebooks/`):**
+  - Criado 29º módulo **`heatmapliquidezpro/`** (`teoria.md`, `pratica.md`, diagrama SVG) registrado em `books.ts`, `ptBR.ts` e `enUS.ts`.
+  - Adicionados os estudos de caso completos de **FINRA `54.87%` vs `54.92%` (`(EOD)`)** em `darkpoolbeamspro/pratica.md`, **Put Walls `-Net GEX` em `SHORT GAMMA` (`ES 7249` / `2DTE PW 7250 -$4.9M` / `NQ`)** em `niveisgammapro/pratica.md`, e as novidades V2 em `fluentliwatchdog/teoria.md` & `pratica.md`.
