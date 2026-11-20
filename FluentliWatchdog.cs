@@ -6,9 +6,11 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Wpf = System.Windows.Controls;
 using System.Xml.Serialization;
 using NinjaTrader.Cbi;
@@ -100,7 +102,13 @@ namespace NinjaTrader.NinjaScript.Indicators
         private Type speechType;
         private bool speechIsManaged;
         private DateTime lastVoiceTime = DateTime.MinValue;
+        private readonly object voiceLock = new object();
         private string lastColorSignature = "";
+
+        private volatile bool pendingUiRefresh = false;
+        private long lastInvalidateUtcTicks = 0;
+        private int uiInvokeQueued = 0;
+        private DispatcherTimer uiRefreshTimer = null;
 
         private bool mouseHooked = false;
         private bool mouseHookPending = false;
@@ -386,6 +394,53 @@ namespace NinjaTrader.NinjaScript.Indicators
             return hasRuntimePosOverride ? runtimePosOverride : PosicaoPainel;
         }
 
+        private void RequestInstantChartRefresh()
+        {
+            pendingUiRefresh = true;
+            if (State == State.Terminated || ChartControl == null) return;
+
+            long nowTicks = DateTime.UtcNow.Ticks;
+            long prevTicks = Interlocked.Read(ref lastInvalidateUtcTicks);
+            if ((nowTicks - prevTicks) < TimeSpan.TicksPerMillisecond * 45)
+                return;
+
+            if (Interlocked.CompareExchange(ref uiInvokeQueued, 1, 0) != 0)
+                return;
+
+            Interlocked.Exchange(ref lastInvalidateUtcTicks, nowTicks);
+            try
+            {
+                ChartControl.Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
+                {
+                    try
+                    {
+                        Interlocked.Exchange(ref uiInvokeQueued, 0);
+                        pendingUiRefresh = false;
+                        if (State != State.Terminated && ChartControl != null)
+                            ChartControl.InvalidateVisual();
+                    }
+                    catch
+                    {
+                        Interlocked.Exchange(ref uiInvokeQueued, 0);
+                    }
+                }));
+            }
+            catch
+            {
+                Interlocked.Exchange(ref uiInvokeQueued, 0);
+            }
+        }
+
+        private void OnUiRefreshTimerTick(object sender, EventArgs e)
+        {
+            if (State == State.Terminated || ChartControl == null) return;
+            if (pendingUiRefresh)
+            {
+                pendingUiRefresh = false;
+                ChartControl.InvalidateVisual();
+            }
+        }
+
         private void EnsureMouseHooked()
         {
             EnsureToolbarAttachedThrottled();
@@ -401,6 +456,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                     ChartControl.PreviewMouseMove += OnChartPreviewMouseMove;
                     ChartControl.PreviewMouseLeftButtonUp += OnChartPreviewMouseLeftButtonUp;
                     ChartControl.LostMouseCapture += OnChartLostMouseCapture;
+                    if (uiRefreshTimer == null)
+                    {
+                        uiRefreshTimer = new DispatcherTimer(DispatcherPriority.Render, ChartControl.Dispatcher);
+                        uiRefreshTimer.Interval = TimeSpan.FromMilliseconds(100);
+                        uiRefreshTimer.Tick += OnUiRefreshTimerTick;
+                        uiRefreshTimer.Start();
+                    }
                     mouseHooked = true;
                 }));
             }
@@ -412,11 +474,21 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private void UnhookMouseEvents()
         {
-            if (ChartControl == null || !mouseHooked) return;
+            if (ChartControl == null) return;
             try
             {
                 ChartControl.Dispatcher.InvokeAsync(new Action(() =>
                 {
+                    if (uiRefreshTimer != null)
+                    {
+                        try
+                        {
+                            uiRefreshTimer.Stop();
+                            uiRefreshTimer.Tick -= OnUiRefreshTimerTick;
+                        }
+                        catch { }
+                        uiRefreshTimer = null;
+                    }
                     if (ChartControl != null && mouseHooked)
                     {
                         ChartControl.PreviewMouseLeftButtonDown -= OnChartPreviewMouseLeftButtonDown;
@@ -516,6 +588,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     object eng = Activator.CreateInstance(t);
                     t.InvokeMember("SetOutputToDefaultAudioDevice", BindingFlags.InvokeMethod, null, eng, null);
                     t.InvokeMember("Volume", BindingFlags.SetProperty, null, eng, new object[] { 100 });
+                    try { t.InvokeMember("Rate", BindingFlags.SetProperty, null, eng, new object[] { 2 }); } catch { }
                     speechType = t;
                     speechEngine = eng;
                     speechIsManaged = true;
@@ -531,6 +604,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 {
                     object comVoice = Activator.CreateInstance(comType);
                     comType.InvokeMember("Volume", BindingFlags.SetProperty, null, comVoice, new object[] { 100 });
+                    try { comType.InvokeMember("Rate", BindingFlags.SetProperty, null, comVoice, new object[] { 2 }); } catch { }
                     speechType = comType;
                     speechEngine = comVoice;
                     speechIsManaged = false;
@@ -547,9 +621,14 @@ namespace NinjaTrader.NinjaScript.Indicators
             try
             {
                 if (speechIsManaged)
+                {
+                    try { speechType.InvokeMember("SpeakAsyncCancelAll", BindingFlags.InvokeMethod, null, speechEngine, null); } catch { }
                     speechType.InvokeMember("SpeakAsync", BindingFlags.InvokeMethod, null, speechEngine, new object[] { msg });
+                }
                 else
+                {
                     speechType.InvokeMember("Speak", BindingFlags.InvokeMethod, null, speechEngine, new object[] { msg, 3 });
+                }
             }
             catch { }
         }
@@ -576,6 +655,8 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         protected override void OnBarUpdate()
         {
+            if (pendingUiRefresh && State == State.Realtime)
+                RequestInstantChartRefresh();
         }
 
         private double GetTolerancePrice()
@@ -585,9 +666,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             return ticks * tickSz;
         }
 
-        private void AtualizarLinhasRastreio(double preco, int barIdx)
+        private bool AtualizarLinhasRastreio(double preco, int barIdx)
         {
-            if (!AtivarLinhaRastreio) return;
+            if (!AtivarLinhaRastreio) return false;
+            bool changed = false;
             double tol = GetTolerancePrice();
             for (int i = 0; i < events.Count; i++)
             {
@@ -598,13 +680,33 @@ namespace NinjaTrader.NinjaScript.Indicators
                     ? (preco > ev.Price + tol)
                     : (preco < ev.Price - tol);
 
-                ev.TrackEndBarIndex = Math.Max(ev.TrackEndBarIndex, barIdx);
+                if (ev.TrackEndBarIndex < barIdx)
+                {
+                    ev.TrackEndBarIndex = barIdx;
+                    changed = true;
+                }
                 if (rompeu)
                 {
                     ev.TrackActive = false;
                     ev.TrackCompleted = true;
+                    changed = true;
                 }
             }
+            return changed;
+        }
+
+        private long GetVisibleDepthSafe(Dictionary<double, long> depthMap, double preco)
+        {
+            long val;
+            if (depthMap.TryGetValue(preco, out val))
+                return val;
+            double tickTol = ((TickSize > 0) ? TickSize : 0.25) * 0.25;
+            foreach (var kv in depthMap)
+            {
+                if (Math.Abs(kv.Key - preco) <= tickTol)
+                    return kv.Value;
+            }
+            return 0;
         }
 
         private void TentarAtivarRastreio(IcebergEvent ev, int barIdx)
@@ -750,11 +852,13 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             int safeJanela = (JanelaSinteticoSeg >= 2 && JanelaSinteticoSeg <= 120) ? JanelaSinteticoSeg : 15;
             string voiceMsg = null;
+            bool uiDirtyNeeded = false;
             int barIdx = CurrentBar;
 
             lock (syncLock)
             {
-                AtualizarLinhasRastreio(preco, barIdx);
+                if (AtualizarLinhasRastreio(preco, barIdx))
+                    uiDirtyNeeded = true;
 
                 string key = (icebergDeVenda ? "S_" : "B_") + preco.ToString("G17", CultureInfo.InvariantCulture);
                 PriceCluster cl;
@@ -787,8 +891,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 Dictionary<double, long> depthMap = icebergDeVenda ? askDepthByPrice : bidDepthByPrice;
                 bool hasDepthData = depthMap.Count > 0;
-                long visibleDepth = 0;
-                depthMap.TryGetValue(preco, out visibleDepth);
+                long visibleDepth = hasDepthData ? GetVisibleDepthSafe(depthMap, preco) : 0;
 
                 bool isDinamico =
                     (cl.ReloadCount >= 2 && cl.ExecutedVol >= LotePequeno) ||
@@ -797,56 +900,70 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 bool isSintetico = !isDinamico && cl.TradeCount >= 2 && cl.ExecutedVol >= LotePequeno;
 
-                if (!isDinamico && !isSintetico)
-                    return;
-
-                IcebergKind detectedKind = isDinamico ? IcebergKind.Dinamico : IcebergKind.Sintetico;
-
-                if (cl.ActiveEvent != null && cl.ActiveEvent.BarIndex == barIdx)
+                if (isDinamico || isSintetico)
                 {
-                    cl.ActiveEvent.Volume = cl.ExecutedVol;
-                    cl.ActiveEvent.Timestamp = e.Time;
-                    if (detectedKind == IcebergKind.Dinamico) cl.ActiveEvent.Kind = IcebergKind.Dinamico;
-                    TentarAtivarRastreio(cl.ActiveEvent, barIdx);
-                }
-                else
-                {
-                    IcebergEvent ev = new IcebergEvent
+                    IcebergKind detectedKind = isDinamico ? IcebergKind.Dinamico : IcebergKind.Sintetico;
+
+                    if (cl.ActiveEvent != null && cl.ActiveEvent.BarIndex == barIdx)
                     {
-                        BarIndex = barIdx,
-                        Price = preco,
-                        Volume = cl.ExecutedVol,
-                        IsSellSide = icebergDeVenda,
-                        Kind = detectedKind,
-                        Timestamp = e.Time,
-                        TrackEndBarIndex = barIdx
-                    };
-                    events.Add(ev);
-                    cl.ActiveEvent = ev;
-                    TentarAtivarRastreio(ev, barIdx);
+                        cl.ActiveEvent.Volume = cl.ExecutedVol;
+                        cl.ActiveEvent.Timestamp = e.Time;
+                        if (detectedKind == IcebergKind.Dinamico) cl.ActiveEvent.Kind = IcebergKind.Dinamico;
+                        TentarAtivarRastreio(cl.ActiveEvent, barIdx);
+                    }
+                    else
+                    {
+                        IcebergEvent ev = new IcebergEvent
+                        {
+                            BarIndex = barIdx,
+                            Price = preco,
+                            Volume = cl.ExecutedVol,
+                            IsSellSide = icebergDeVenda,
+                            Kind = detectedKind,
+                            Timestamp = e.Time,
+                            TrackEndBarIndex = barIdx
+                        };
+                        events.Add(ev);
+                        cl.ActiveEvent = ev;
+                        TentarAtivarRastreio(ev, barIdx);
 
-                    if (events.Count > 450)
-                        events.RemoveRange(0, events.Count - 400);
-                }
+                        if (events.Count > 450)
+                            events.RemoveRange(0, events.Count - 400);
+                    }
 
-                int tier = (cl.ExecutedVol >= LoteGigante) ? 3 : ((cl.ExecutedVol >= LoteMedio) ? 2 : 1);
-                if (tier > cl.SpokenTier)
-                {
-                    cl.SpokenTier = tier;
-                    string tipoTxt = (cl.ActiveEvent.Kind == IcebergKind.Dinamico) ? "Dinâmico" : "Sintético";
-                    string ladoTxt = icebergDeVenda ? "Venda" : "Compra";
-                    if (tier == 3) voiceMsg = "Iceberg " + tipoTxt + " Gigante de " + ladoTxt;
-                    else if (tier == 2) voiceMsg = "Iceberg " + tipoTxt + " Médio de " + ladoTxt;
-                    else voiceMsg = "Absorção " + tipoTxt + " de " + ladoTxt;
+                    uiDirtyNeeded = true;
+
+                    int tier = (cl.ExecutedVol >= LoteGigante) ? 3 : ((cl.ExecutedVol >= LoteMedio) ? 2 : 1);
+                    if (tier > cl.SpokenTier)
+                    {
+                        cl.SpokenTier = tier;
+                        string tipoTxt = (cl.ActiveEvent.Kind == IcebergKind.Dinamico) ? "Dinâmico" : "Sintético";
+                        string ladoTxt = icebergDeVenda ? "Venda" : "Compra";
+                        if (tier == 3) voiceMsg = "Iceberg " + tipoTxt + " Gigante " + ladoTxt;
+                        else if (tier == 2) voiceMsg = "Iceberg " + tipoTxt + " Médio " + ladoTxt;
+                        else voiceMsg = "Iceberg " + tipoTxt + " " + ladoTxt;
+                    }
                 }
             }
 
-            if (voiceMsg != null && AtivarVoz)
+            if (State == State.Realtime)
             {
-                if ((DateTime.Now - lastVoiceTime).TotalSeconds >= 4.0)
+                if (uiDirtyNeeded)
+                    RequestInstantChartRefresh();
+
+                if (voiceMsg != null && AtivarVoz)
                 {
-                    lastVoiceTime = DateTime.Now;
-                    SpeakAlertAsync(voiceMsg);
+                    bool shouldSpeak = false;
+                    lock (voiceLock)
+                    {
+                        if ((DateTime.UtcNow - lastVoiceTime).TotalSeconds >= 1.4)
+                        {
+                            lastVoiceTime = DateTime.UtcNow;
+                            shouldSpeak = true;
+                        }
+                    }
+                    if (shouldSpeak)
+                        SpeakAlertAsync(voiceMsg);
                 }
             }
         }
@@ -1053,6 +1170,29 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
         }
 
+        private string FormatBarsPeriodTag()
+        {
+            try
+            {
+                if (BarsPeriod != null)
+                {
+                    string unit = string.Empty;
+                    switch (BarsPeriod.BarsPeriodType)
+                    {
+                        case BarsPeriodType.Minute: unit = "m"; break;
+                        case BarsPeriodType.Second: unit = "s"; break;
+                        case BarsPeriodType.Range: unit = "R"; break;
+                        case BarsPeriodType.Tick: unit = "T"; break;
+                        case BarsPeriodType.Volume: unit = "V"; break;
+                        default: unit = BarsPeriod.BarsPeriodType.ToString(); break;
+                    }
+                    return "[" + BarsPeriod.Value + unit + "]";
+                }
+            }
+            catch { }
+            return string.Empty;
+        }
+
         private void RenderLiveIcebergsPanel(float panelLeft, float panelTop, float panelRight, float panelBottom, int chartMinVol, int totalDynCount, int totalSinCount)
         {
             if (!MostrarPainelIcebergs)
@@ -1064,8 +1204,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
 
             string instName = (Instrument != null && Instrument.MasterInstrument != null) ? Instrument.MasterInstrument.Name : "ATIVO";
+            string tfTag = FormatBarsPeriodTag();
+            string instLabel = string.IsNullOrEmpty(tfTag) ? instName : (instName + " " + tfTag);
             bool isMin = runtimeMinimized;
-            float cardW = isMin ? 336f : 384f;
+            float cardW = isMin ? 368f : 444f;
             float cardH = isMin ? 26f : 158f;
             VeltrixWatchdogPosicaoV9 pos = GetEffectivePos();
 
@@ -1100,12 +1242,12 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             if (isMin)
             {
-                string minTxt = "❄ ICEBERGS · " + instName + " (GRAF≥" + chartMinVol + ") · D:" + totalDynCount + " S:" + totalSinCount;
+                string minTxt = "❄ ICEBERGS · " + instLabel + " (GRAF≥" + chartMinVol + ") · D:" + totalDynCount + " S:" + totalSinCount;
                 RenderTarget.DrawText(minTxt, dxPanelTitleFmt, new SharpDX.RectangleF(cardLeft + 8f, cardTop + 5f, btnCyclePosRect.Left - cardLeft - 12f, 16f), dxTextBrush);
                 return;
             }
 
-            string hdrTxt = "❄ ICEBERGS AO VIVO · " + instName + "  (PAINEL≥" + LotePequeno + " | GRAF≥" + chartMinVol + ")";
+            string hdrTxt = "❄ ICEBERGS AO VIVO · " + instLabel + "  (PAINEL≥" + LotePequeno + " | GRAF≥" + chartMinVol + ")";
             RenderTarget.DrawText(hdrTxt, dxPanelTitleFmt, new SharpDX.RectangleF(cardLeft + 10f, cardTop + 5.5f, btnCyclePosRect.Left - cardLeft - 14f, 16f), dxTextBrush);
 
             float sepY = cardTop + 25f;
@@ -1130,7 +1272,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                     bool isBig = dEv.Volume >= chartMinVol;
                     if (isBig)
                         RenderTarget.FillRectangle(new SharpDX.RectangleF(leftColX - 2f, rowY - 1f, colW, 14f), dxHighlightRowBg);
-                    string line = (isBig ? "★" : "·") + (dEv.IsSellSide ? "V " : "C ") + dEv.Volume + " @ " + FormatPriceSafe(dEv.Price);
+                    string tmStr = (dEv.Timestamp != DateTime.MinValue) ? dEv.Timestamp.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " " : string.Empty;
+                    string line = tmStr + (isBig ? "★" : "·") + (dEv.IsSellSide ? "V " : "C ") + dEv.Volume + " @ " + FormatPriceSafe(dEv.Price);
                     var br = dEv.IsSellSide ? dxSellDinBorder : dxBuyDinBorder;
                     RenderTarget.DrawText(line, dxPanelBodyFmt, new SharpDX.RectangleF(leftColX, rowY, colW - 2f, 13f), br);
                 }
@@ -1145,7 +1288,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                     bool isBig = sEv.Volume >= chartMinVol;
                     if (isBig)
                         RenderTarget.FillRectangle(new SharpDX.RectangleF(rightColX - 2f, rowY - 1f, colW, 14f), dxHighlightRowBg);
-                    string line = (isBig ? "★" : "·") + (sEv.IsSellSide ? "V " : "C ") + sEv.Volume + " @ " + FormatPriceSafe(sEv.Price);
+                    string tmStr = (sEv.Timestamp != DateTime.MinValue) ? sEv.Timestamp.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " " : string.Empty;
+                    string line = tmStr + (isBig ? "★" : "·") + (sEv.IsSellSide ? "V " : "C ") + sEv.Volume + " @ " + FormatPriceSafe(sEv.Price);
                     var br = sEv.IsSellSide ? dxSellSinRing : dxBuySinRing;
                     RenderTarget.DrawText(line, dxPanelBodyFmt, new SharpDX.RectangleF(rightColX, rowY, colW - 2f, 13f), br);
                 }

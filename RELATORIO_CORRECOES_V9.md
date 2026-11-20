@@ -581,3 +581,21 @@ git push origin main
 - **Documentação Completa Preservação+Expansão (`gex-dashboard/public/ebooks/`):**
   - Criado 29º módulo **`heatmapliquidezpro/`** (`teoria.md`, `pratica.md`, diagrama SVG) registrado em `books.ts`, `ptBR.ts` e `enUS.ts`.
   - Adicionados os estudos de caso completos de **FINRA `54.87%` vs `54.92%` (`(EOD)`)** em `darkpoolbeamspro/pratica.md`, **Put Walls `-Net GEX` em `SHORT GAMMA` (`ES 7249` / `2DTE PW 7250 -$4.9M` / `NQ`)** em `niveisgammapro/pratica.md`, e as novidades V2 em `fluentliwatchdog/teoria.md` & `pratica.md`.
+
+---
+
+## 43. Suíte Estilo Rancho Dinero: `PerfilTpoVolumePro` (#16), `VWAP Value Channel` (#8), `VeltrixRangeVWAP`, Flodometer L2 (#15), 7 Templates XML & Manuais Multi-Ativos (`20/11/2026`)
+
+- **`VWAPInstitucionalPro` (#8 em [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py)):**
+  - Preservada a assinatura compatível de 4 `[NinjaScriptProperty]` (`NumBandas, MostrarBandas, ResetDiario, DesvioMaximo`) e adicionados: canal de valor sombreado em Direct2D (`SombrearCanalValor`, `BandaCanalSombreado`, `OpacidadeCanalPct`), tags à direita (`c VWAP`, `c +1.0`...), resets `SessaoGraficoETH` / `RthNovaYork0930` / `Semanal` / `Continuo` e botão na barra superior **`△ VWAP`**.
+- **Nova Ferramenta de Desenho `VeltrixRangeVWAP` (`TOOL_RANGE_VWAP` -> `Custom\DrawingTools\VeltrixRangeVWAP.cs`):**
+  - Ferramenta de desenho de 2 âncoras no estilo **Range VWAP (Rancho Dinero)** com moldura vertical, canal sombreado, curvas Welford `±0.5 / ±1.0 / ±1.5 / ±2.0 SD`, tags de preço e 3 modos (`SomenteNaFaixa`, `AncoradoAoVivo`, `ProjetarNiveisDireita`).
+- **Upgrade `HeatmapLiquidezPro` (#15 -> Flodometer Pro):**
+  - Adicionados: paleta viva **`BidAskAzulVermelho`** (Ask Carmim / Bid Azul Royal estendida no painel inteiro com `OpacidadeTrilhaPct = 52%`, mantendo **`Termica5Cores`**), **Bolhas Proporcionais de Execução com Números** ajustáveis (`BolhaVolMinimo`, `TamanhoBolhaMinPx/MaxPx`), e **3 colunas acopladas à direita (`Depth` | `LΔ PΔ` | `SVP`) + Termômetro Bid/Ask (%)**.
+- **Novo Indicador Nº 16 `PerfilTpoVolumePro` (`CODE_TPO_VOLUME`):**
+  - **Session TPO (`A, B, C...`) + Volume Profile Real CME** sem `Tick Replay` (com série `1m` automática em gráficos `>= 10m`), cálculo automático de `POC / VAH / VAL (70%) / IB / Mid / Naked POC`, cores personalizáveis dentro/fora da VA, botão **`📊 TPO+VP`** e menu de **clique direito direto por dia** (`Ocultar SÓ Retângulo VA deste Dia`, `Ocultar Dia inteiro`, `Juntar com Próximo Dia (Merge)`, `Dividir Perfil neste Candle (Split)`, `Desfazer Junção` e alternância em 1 clique das linhas padrão).
+- **7 Templates XML de Gráfico NT8 Prontos (`templates\Chart\VeltrixQuant - 01..07.xml`):**
+  - Instalados automaticamente por `instalador_cloud2.0.py` com **`IsTickReplay=false`**, incluindo templates completos (`30s`, `20R`, `30m`, `60m`, `1m`) e templates solitários (`Flodometer L2 Puro` e `TPO + VolumeProfile + VWAP`).
+- **Novos E-Books & SVG Diagrams (`gex-dashboard/public/ebooks/`):**
+  - Atualizado **`heatmapliquidezpro/`** (+ `flodometer_colunas_e_bolhas.svg` e matriz completa de `Tick Replay` / Bookmap).
+  - Criados módulos 30 e 31: **`tpo_vwap_rancho_style/`** (+ `tpo_vwap_rancho_arquitetura.svg`) e **`config_ativos_e_templates/`** cobrindo presets completos para **`ES`, `NQ`, `CL`, `GC`, `SI`, `NG`, `YM`, `RTY`, `ZB`, `ZN`, Agro (`ZC`, `ZS`, `ZW`, `LE`) e Forex (`6E`, `6J`, `6B` vs Spot)**, registrados em `books.ts`, `ptBR.ts` e `enUS.ts`.
