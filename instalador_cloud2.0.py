@@ -3911,6 +3911,94 @@ namespace NinjaTrader.NinjaScript.Indicators
         #endregion
     }
 }
+
+#region NinjaScript generated code. Neither change nor remove.
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+    public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
+    {
+        private VWAPInstitucionalPro[] cacheVWAPInstitucionalPro;
+
+        public VWAPInstitucionalPro VWAPInstitucionalPro()
+        {
+            return VWAPInstitucionalPro(Input, 4, true, true, 2.0);
+        }
+
+        public VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input)
+        {
+            return VWAPInstitucionalPro(input, 4, true, true, 2.0);
+        }
+
+        public VWAPInstitucionalPro VWAPInstitucionalPro(int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return VWAPInstitucionalPro(Input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+
+        public VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input, int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            if (cacheVWAPInstitucionalPro != null)
+                for (int idx = 0; idx < cacheVWAPInstitucionalPro.Length; idx++)
+                    if (cacheVWAPInstitucionalPro[idx] != null && cacheVWAPInstitucionalPro[idx].NumBandas == numBandas && cacheVWAPInstitucionalPro[idx].MostrarBandas == mostrarBandas && cacheVWAPInstitucionalPro[idx].ResetDiario == resetDiario && cacheVWAPInstitucionalPro[idx].DesvioMaximo == desvioMaximo && cacheVWAPInstitucionalPro[idx].EqualsInput(input))
+                        return cacheVWAPInstitucionalPro[idx];
+            return CacheIndicator<VWAPInstitucionalPro>(new VWAPInstitucionalPro() { NumBandas = numBandas, MostrarBandas = mostrarBandas, ResetDiario = resetDiario, DesvioMaximo = desvioMaximo }, input, ref cacheVWAPInstitucionalPro);
+        }
+    }
+}
+
+namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
+{
+    public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
+    {
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro()
+        {
+            return indicator.VWAPInstitucionalPro(Input, 4, true, true, 2.0);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input)
+        {
+            return indicator.VWAPInstitucionalPro(input, 4, true, true, 2.0);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return indicator.VWAPInstitucionalPro(Input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input, int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return indicator.VWAPInstitucionalPro(input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+    }
+}
+
+namespace NinjaTrader.NinjaScript.Strategies
+{
+    public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
+    {
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro()
+        {
+            return indicator.VWAPInstitucionalPro(Input, 4, true, true, 2.0);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input)
+        {
+            return indicator.VWAPInstitucionalPro(input, 4, true, true, 2.0);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return indicator.VWAPInstitucionalPro(Input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+
+        public Indicators.VWAPInstitucionalPro VWAPInstitucionalPro(ISeries<double> input, int numBandas, bool mostrarBandas, bool resetDiario, double desvioMaximo)
+        {
+            return indicator.VWAPInstitucionalPro(input, numBandas, mostrarBandas, resetDiario, desvioMaximo);
+        }
+    }
+}
+
+#endregion
 """
 
 # ==============================================================================
@@ -13677,7 +13765,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             var prof = new CompiledProfile
             {
                 AnchorKey = firstBlk.BlockKey,
-                Label = (firstIdx == lastIdx) ? firstBlk.Label : (firstBlk.StartTime.ToString("dd/MM", CultureInfo.InvariantCulture) + "+" + (lastIdx - firstIdx + 1) + "d"),
+                Label = (firstIdx == lastIdx) ? firstBlk.Label : ("COMPOSTO " + (lastIdx - firstIdx + 1) + "d (" + firstBlk.StartTime.ToString("dd/MM", CultureInfo.InvariantCulture) + "-" + lastBlk.StartTime.ToString("dd/MM", CultureInfo.InvariantCulture) + ")"),
                 FirstRawIdx = firstIdx,
                 LastRawIdx = lastIdx,
                 StartBar0 = firstBlk.StartBar0,
@@ -14298,6 +14386,24 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
         }
 
+        private void RequestImmediateRedraw()
+        {
+            if (ChartControl == null) return;
+            ChartControl.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, new Action(delegate
+            {
+                try
+                {
+                    if (ChartPanel != null) ChartPanel.InvalidateVisual();
+                    if (ChartControl != null)
+                    {
+                        ChartControl.InvalidateVisual();
+                        ChartControl.UpdateLayout();
+                    }
+                }
+                catch { }
+            }));
+        }
+
         private void OnChartContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
             try
@@ -14308,27 +14414,45 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 System.Windows.Point pt = Mouse.GetPosition(ChartControl);
                 float px = (float)pt.X;
-                float py = (float)pt.Y;
                 if (ChartControl.PresentationSource != null)
                 {
                     px = (float)ChartingExtensions.ConvertToHorizontalPixels(pt.X, ChartControl.PresentationSource);
-                    py = (float)ChartingExtensions.ConvertToVerticalPixels(pt.Y, ChartControl.PresentationSource);
                 }
 
-                int clickedBar = 0;
-                try { clickedBar = Math.Max(0, Math.Min(Math.Max(0, CurrentBar), (int)Math.Round(ChartControl.GetSlotIndexByX((int)px)))); }
-                catch { clickedBar = 0; }
+                int clickedBar = -1;
+                try
+                {
+                    if (ChartBars != null) clickedBar = ChartBars.GetBarIdxByX(ChartControl, (int)px);
+                    if (clickedBar < 0) clickedBar = (int)Math.Round(ChartControl.GetSlotIndexByX((int)px));
+                }
+                catch { clickedBar = -1; }
+                int safeSplitBar = Math.Max(0, Math.Min(Math.Max(0, CurrentBar), clickedBar));
 
                 CompiledProfile hitProf = null;
                 lock (syncLock)
                 {
-                    for (int i = 0; i < compiledProfiles.Count; i++)
+                    if (clickedBar >= 0)
                     {
-                        CompiledProfile cp = compiledProfiles[i];
-                        if (px >= cp.ScreenRect.Left - 8f && px <= cp.ScreenRect.Right + 8f)
+                        for (int i = 0; i < compiledProfiles.Count; i++)
                         {
-                            hitProf = cp;
-                            break;
+                            CompiledProfile cp = compiledProfiles[i];
+                            if (clickedBar >= cp.StartBar0 && clickedBar <= cp.EndBar0)
+                            {
+                                hitProf = cp;
+                                break;
+                            }
+                        }
+                    }
+                    if (hitProf == null)
+                    {
+                        for (int i = 0; i < compiledProfiles.Count; i++)
+                        {
+                            CompiledProfile cp = compiledProfiles[i];
+                            if (px >= cp.ScreenRect.Left - 8f && px <= cp.ScreenRect.Right + 8f)
+                            {
+                                hitProf = cp;
+                                break;
+                            }
                         }
                     }
                     if (hitProf == null)
@@ -14368,7 +14492,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     {
                         if (hiddenVaKeys.Contains(targetKey)) hiddenVaKeys.Remove(targetKey);
                         else hiddenVaKeys.Add(targetKey);
-                        if (ChartControl != null) ChartControl.InvalidateVisual();
+                        RequestImmediateRedraw();
                     };
                     injected.Add(miToggleVa);
 
@@ -14382,37 +14506,64 @@ namespace NinjaTrader.NinjaScript.Indicators
                     {
                         if (hiddenProfileKeys.Contains(targetKey)) hiddenProfileKeys.Remove(targetKey);
                         else hiddenProfileKeys.Add(targetKey);
-                        if (ChartControl != null) ChartControl.InvalidateVisual();
+                        RequestImmediateRedraw();
                     };
                     injected.Add(miToggleProf);
 
-                    bool canMergeNext = false;
+                    string prevJoinKey = null;
+                    string prevJoinLabel = "";
                     string nextJoinKey = null;
+                    string nextJoinLabel = "";
                     lock (syncLock)
                     {
-                        if (lastRaw + 1 < rawBlocks.Count)
+                        if (firstRaw - 1 >= 0 && firstRaw < rawBlocks.Count)
                         {
-                            canMergeNext = true;
+                            prevJoinKey = rawBlocks[firstRaw - 1].BlockKey;
+                            prevJoinLabel = rawBlocks[firstRaw - 1].StartTime.ToString("dd/MM", CultureInfo.InvariantCulture);
+                        }
+                        if (lastRaw >= 0 && lastRaw + 1 < rawBlocks.Count)
+                        {
                             nextJoinKey = rawBlocks[lastRaw].BlockKey;
+                            nextJoinLabel = rawBlocks[lastRaw + 1].StartTime.ToString("dd/MM", CultureInfo.InvariantCulture);
                         }
                     }
-                    if (canMergeNext && nextJoinKey != null)
+
+                    if (prevJoinKey != null)
                     {
-                        var miMergeNext = new Wpf.MenuItem { Header = "🔗 Juntar com Próximo Dia/Sessão (Merge)", Tag = CTX_TAG };
+                        var miMergePrev = new Wpf.MenuItem { Header = "◀ Juntar com Dia Anterior / Esquerda (" + prevJoinLabel + ")", Tag = CTX_TAG };
+                        miMergePrev.Click += (s2, e2) =>
+                        {
+                            lock (syncLock)
+                            {
+                                mergeWithNextKeys.Add(prevJoinKey);
+                                RebuildCompiledProfilesLocked();
+                            }
+                            RequestImmediateRedraw();
+                        };
+                        injected.Add(miMergePrev);
+                    }
+
+                    if (nextJoinKey != null)
+                    {
+                        var miMergeNext = new Wpf.MenuItem { Header = "▶ Juntar com Próximo Dia / Direita (" + nextJoinLabel + ")", Tag = CTX_TAG };
                         miMergeNext.Click += (s2, e2) =>
                         {
-                            lock (syncLock) { mergeWithNextKeys.Add(nextJoinKey); RebuildCompiledProfilesLocked(); }
-                            if (ChartControl != null) ChartControl.InvalidateVisual();
+                            lock (syncLock)
+                            {
+                                mergeWithNextKeys.Add(nextJoinKey);
+                                RebuildCompiledProfilesLocked();
+                            }
+                            RequestImmediateRedraw();
                         };
                         injected.Add(miMergeNext);
                     }
 
-                    var miSplitHere = new Wpf.MenuItem { Header = "✂ Dividir Perfil neste Candle (Split #" + clickedBar + ")", Tag = CTX_TAG };
+                    var miSplitHere = new Wpf.MenuItem { Header = "✂ Dividir Perfil neste Candle (Split #" + safeSplitBar + ")", Tag = CTX_TAG };
                     miSplitHere.Click += (s2, e2) =>
                     {
-                        userSplitBars.Add(clickedBar);
-                        RebuildAllProfilesSafe();
-                        if (ChartControl != null) ChartControl.InvalidateVisual();
+                        userSplitBars.Add(safeSplitBar);
+                        RebuildAllProfilesSafe(true);
+                        RequestImmediateRedraw();
                     };
                     injected.Add(miSplitHere);
 
@@ -14427,12 +14578,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                                 for (int r = firstRaw; r <= lastRaw && r < rawBlocks.Count; r++)
                                 {
                                     mergeWithNextKeys.Remove(rawBlocks[r].BlockKey);
+                                    if (r > 0) mergeWithNextKeys.Remove(rawBlocks[r - 1].BlockKey);
                                     for (int b = rawBlocks[r].StartBar0; b <= rawBlocks[r].EndBar0; b++)
                                         userSplitBars.Remove(b);
                                 }
                             }
-                            RebuildAllProfilesSafe();
-                            if (ChartControl != null) ChartControl.InvalidateVisual();
+                            RebuildAllProfilesSafe(true);
+                            RequestImmediateRedraw();
                         };
                         injected.Add(miUnmerge);
                     }
@@ -14456,7 +14608,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     {
                         hiddenVaKeys.Clear();
                         hiddenProfileKeys.Clear();
-                        if (ChartControl != null) ChartControl.InvalidateVisual();
+                        RequestImmediateRedraw();
                     };
                     miLines.Items.Add(new Wpf.Separator());
                     miLines.Items.Add(miUnhideAll);
@@ -14478,7 +14630,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             mi.Click += (s, e) =>
             {
                 setter(mi.IsChecked);
-                if (ChartControl != null) ChartControl.InvalidateVisual();
+                RequestImmediateRedraw();
             };
             parent.Items.Add(mi);
         }
