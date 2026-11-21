@@ -645,3 +645,29 @@ git push origin main
 - **`verify_cs_from_installer.ps1` (`csc.exe .NET 4.0`)**: **`CS_FAILED_COUNT=0` (`17/17 PASS`: 16 indicadores + `TOOL_RANGE_VWAP.cs`)** compilados contra as DLLs locais do NinjaTrader 8.
 - **`python -m unittest discover` (`test_gex_profile_v7_cloud.py`)**: **`Ran 54 tests in 9.267s — OK`**.
 - **`verify_bot_combo.ps1` / Roslyn**: Confirmadas assinaturas de 4 parâmetros em `VWAPInstitucionalPro(4, true, true, 3.0)` e `DeltaCumulativePro("Line", 100, ...)`; compilação isolada de `FluentliQuantBot_V1.cs` via `csc.exe` externo acusa apenas interpolação C# 6 (`$""`) no `.NET 4.0` ou classes parciais já presentes em `NinjaTrader.Custom.dll`, sendo o pacote completo compilado normalmente via `F5` no **NinjaScript Editor**.
+
+---
+
+## 45. 20/11/2026 23:23 — Correção de Textos/Botões Cortados nos Popups, Persistência em `F5`/Reinício do NT8 e Espelhamento Cross-Chart (`PerfilTpoVolumePro`)
+
+- **Arquivos Modificados:** [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py) (`CODE_HEATMAP_LIQUIDEZ`, `CODE_TPO_VOLUME`, `CODE_VWAP`) e [RELATORIO_CORRECOES_V9.md](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/RELATORIO_CORRECOES_V9.md).
+
+### 45.1 Popups sem Cortes (`HeatmapLiquidezPro`, `PerfilTpoVolumePro`, `VWAPInstitucionalPro`)
+- **Causa raiz:** As janelas `OpenQuickSettingsWindow` (`HeatmapLiquidezPro`, `Width = 445`) e `OpenQuickSettingsPopup` (`PerfilTpoVolumePro`, `Width = 460`, e `VWAPInstitucionalPro`, `Width = 445`) usavam largura fixa com `SizeToContent.Height` e barras horizontais de botões/checkboxes sem quebra (`StackPanel` rígido com alinhamento à direita), decepando botões na esquerda (`Zerar LΔ/PΔ`) e checkboxes/ações à direita (`Limpar Extensões VA/POC`, `Naked POC`, etc.).
+- **Correção aplicada:** Trocado para `SizeToContent.WidthAndHeight` com `MinWidth` adequado (`540` no Heatmap, `580` no TPO+VP, `500` na VWAP), `TextWrapping.Wrap` nos títulos, grupos de checkboxes e botões em **`Wpf.WrapPanel`** e separação das ações/presets (`actionRow` à esquerda) dos botões de confirmação (`btnRow` `Aplicar`, `Aplicar & Fechar`/`OK`, `Fechar` à direita).
+
+### 45.2 Persistência Automática em Atualização de Gráfico (`F5`) e Reinício do NinjaTrader 8 (`CODE_TPO_VOLUME`)
+- **Causa raiz:** `mergeWithNextKeys`, `extendedVaKeys`, `extendedPocKeys`, `hiddenVaKeys`, `hiddenProfileKeys` e o antigo `userSplitBars` (indexado por número mutável de barra `#BarIdx0`) ficavam apenas em `HashSet` privados em memória, sendo apagados quando o NinjaTrader recriava a instância ao atualizar o gráfico (`F5` / *Reload All Historical Data*) ou ao fechar e reabrir a plataforma.
+- **Correção aplicada:**
+  - Trocado `userSplitBars` (`int`) por **`userSplitTimeKeys`** (baseado em `Time.Ticks` exato da barra) e sufixo determinístico `_sN` na chave de bloco `BlockKey`, tornando junções e splits imunes a mudanças na quantidade de barras históricas carregadas.
+  - Adicionada persistência dupla via propriedades serializáveis **`[Browsable(false)] InstanceStateKey` / `EstadoPersistenteSerialize`** (salvas no Workspace/Template XML do NT8) + espelho em arquivo por instrumento/timeframe em `Documentos\NinjaTrader 8\VeltrixTpoState\TpoState_<Ativo>_<Timeframe>_*.dat`, com carregamento automático no `State.DataLoaded` pelo timestamp (`TS`) mais recente e gravação imediata (`SaveAndRepublishSafe()`) a cada Merge, Split, Extensão VA/POC, Ocultação ou Clear.
+
+### 45.3 Espelhamento Cross-Chart de Área de Valor e POC + Correção de Initial Balance (`CODE_TPO_VOLUME`)
+- **Espelhamento entre gráficos (`VeltrixTpoCrossChartHub`):** Adicionado hub estático thread-safe por ativo raiz (`ES/MES`, `NQ/MNQ`, `YM/MYM`, `RTY/M2K`, `GC/MGC`, `CL/MCL`, `NG`) e canal (`CanalSync 1..4`) com novas opções em `04. Espelhamento Entre Gráficos`, no popup **`📊 TPO+VP`** e no menu de clique direito:
+  - **`PublicarZonasCrossChart`** (`DiaAtualEEstendidas`, `SomenteEstendidasEPinadas`, `TodosPerfisVisiveis`) + opção por dia **`📡 Espelhar VA/POC em Outros Gráficos`** (`pinnedSyncKeys`).
+  - **`ReceberZonasCrossChart`** + **`SomenteZonasRecebidas` (`Modo Receptor Limpo`)**: permite exibir no gráfico operacional (`30s`, `20 Range`, `Tick`, `Renko`, `Flodometer`, `1m`/`5m`) apenas os retângulos de Área de Valor e POC vindos do gráfico macro de TPO, com mapeamento temporal por busca binária (`FindBarXByTime`) e clique direito na zona externa para ocultar individualmente (`🙈 Ocultar Zona Externa`).
+  - **Initial Balance (`IB H/L`) em gráficos `1D` (`RebuildAllProfilesSafe`):** corrigido o cálculo de `IbHigh / IbLow` para usar a sub-série `1 Minute` quando `usesSub1mSeries` estiver ativo (evitando confundir o IB de 60 minutos com a máxima/mínima inteira do candle diário).
+
+### 45.4 Validação Pós-Edição Final
+- **`verify_python_and_templates.py`**: `PY_COMPILE_OK=True`, `WATCHDOG_SYNC=True`, `ALL_CHECKS_OK=True`, `TOOL_RANGE_VWAP_OK=True`, `16/16` blocos e `7/7` templates XML válidos.
+- **`verify_cs_from_installer.ps1`**: **`CS_FAILED_COUNT=0` (`17/17 PASS`)** incluindo `CODE_TPO_VOLUME.cs`, `CODE_HEATMAP_LIQUIDEZ.cs` e `CODE_VWAP.cs`.

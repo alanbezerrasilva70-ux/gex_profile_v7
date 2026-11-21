@@ -3892,8 +3892,9 @@ namespace NinjaTrader.NinjaScript.Indicators
             var win = new Window
             {
                 Title = "VeltrixQuant — VWAP Value Channel",
-                Width = 445,
-                SizeToContent = SizeToContent.Height,
+                SizeToContent = SizeToContent.WidthAndHeight,
+                MinWidth = 500,
+                MaxWidth = 720,
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,
                 ResizeMode = ResizeMode.NoResize,
                 Background = winBg,
@@ -3908,6 +3909,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Foreground = accentBr,
                 FontSize = 13.5,
                 FontWeight = FontWeights.Bold,
+                TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 8)
             });
 
@@ -4024,16 +4026,16 @@ namespace NinjaTrader.NinjaScript.Indicators
             addRow("Bandas SD (1..4)", tbNumBandas);
             addRow("Desvio Maximo SD", tbDesvMax);
             addRow("Exibir Bandas", chkBandas);
-            addRow("Canal & Camadas", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkCanal, new Wpf.TextBlock { Width = 8 }, chk2Layer } });
+            addRow("Canal & Camadas", new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkCanal, new Wpf.TextBlock { Width = 10 }, chk2Layer } });
             addRow("Banda do Canal (1=0.5 .. 4=2.0)", tbCanalBanda);
             addRow("Opacidade Canal (%)", tbCanalOp);
-            addRow("Visual Extras", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkDots, new Wpf.TextBlock { Width = 8 }, chkTags } });
+            addRow("Visual Extras", new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkDots, new Wpf.TextBlock { Width = 10 }, chkTags } });
             addRow("Cor Central VWAP", tbColVwap);
             addRow("Cor Sombreado Canal", tbColCanal);
 
             root.Children.Add(new Wpf.Border { Background = cardBg, BorderBrush = borderBr, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 6, 10, 6), Child = grid });
 
-            var btnRow = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
+            var btnRow = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
             var okBg = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(185, 28, 28)); okBg.Freeze();
             var btnApply = new Wpf.Button { Content = "Aplicar", Height = 24, Padding = new Thickness(12, 2, 12, 2), Margin = new Thickness(0, 0, 6, 0), Background = okBg, Foreground = txtBr, BorderBrush = accentBr, Cursor = Cursors.Hand };
             var btnOk = new Wpf.Button { Content = "Aplicar & Fechar", Height = 24, Padding = new Thickness(12, 2, 12, 2), Margin = new Thickness(0, 0, 6, 0), Background = cardBg, Foreground = accentBr, BorderBrush = accentBr, Cursor = Cursors.Hand };
@@ -13102,8 +13104,9 @@ namespace NinjaTrader.NinjaScript.Indicators
             Window win = new Window
             {
                 Title = "Configurações — Flodometer Heatmap, Bolhas & Colunas L2",
-                Width = 445,
-                SizeToContent = SizeToContent.Height,
+                SizeToContent = SizeToContent.WidthAndHeight,
+                MinWidth = 540,
+                MaxWidth = 760,
                 ResizeMode = ResizeMode.NoResize,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Background = winBg,
@@ -13119,6 +13122,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Foreground = accentBr,
                 FontSize = 13.0,
                 FontWeight = FontWeights.Bold,
+                TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 8)
             });
 
@@ -13226,7 +13230,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 int rIdx = grid.RowDefinitions.Count;
                 grid.RowDefinitions.Add(new Wpf.RowDefinition { Height = GridLength.Auto });
-                var lbl = new Wpf.TextBlock { Text = label, Foreground = mutBr, FontSize = 11.0, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2.5, 8, 2.5) };
+                var lbl = new Wpf.TextBlock { Text = label, Foreground = mutBr, FontSize = 11.0, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2.5, 10, 2.5) };
                 Wpf.Grid.SetRow(lbl, rIdx); Wpf.Grid.SetColumn(lbl, 0); grid.Children.Add(lbl);
                 var host = ctrl as FrameworkElement;
                 if (host != null) { host.Margin = new Thickness(0, 2.5, 0, 2.5); host.VerticalAlignment = VerticalAlignment.Center; }
@@ -13241,6 +13245,21 @@ namespace NinjaTrader.NinjaScript.Indicators
                 sp.Children.Add(sw); sp.Children.Add(tb); return sp;
             };
 
+            Func<UIElement[], Wpf.WrapPanel> wrapGroup = (els) =>
+            {
+                var wp = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                for (int i = 0; i < els.Length; i++)
+                {
+                    var fe = els[i] as FrameworkElement;
+                    if (fe != null && i + 1 < els.Length)
+                        fe.Margin = new Thickness(0, 1, 10, 1);
+                    else if (fe != null)
+                        fe.Margin = new Thickness(0, 1, 0, 1);
+                    wp.Children.Add(els[i]);
+                }
+                return wp;
+            };
+
             addRow("Modo Mapa L2", cbModo);
             addRow("Paleta Flodometer / Térmica", cbPaleta);
             addRow("Trilha Estendida", chkExt);
@@ -13248,17 +13267,17 @@ namespace NinjaTrader.NinjaScript.Indicators
             addRow("Captura (ms) / Colunas", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbSnap, new Wpf.TextBlock { Width = 6 }, tbSlices } });
             addRow("Opac. Trilha% / Escada%", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbOpTrail, new Wpf.TextBlock { Width = 6 }, tbOpBar } });
 
-            addRow("Bolhas Executadas", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkBub, new Wpf.TextBlock { Width = 8 }, chkBubNum } });
+            addRow("Bolhas Executadas", wrapGroup(new UIElement[] { chkBub, chkBubNum }));
             addRow("Bolha Vol Mín / Ref Máx", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbBubMinVol, new Wpf.TextBlock { Text = " / ", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbBubRefVol } });
             addRow("Raio Bolha Mín / Máx (px)", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbBubRMin, new Wpf.TextBlock { Text = " / ", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbBubRMax } });
 
-            addRow("Colunas Direita", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkMeter, new Wpf.TextBlock { Width = 5 }, chkDepth, new Wpf.TextBlock { Width = 5 }, chkLdPd, new Wpf.TextBlock { Width = 5 }, chkSvp } });
+            addRow("Colunas Direita", wrapGroup(new UIElement[] { chkMeter, chkDepth, chkLdPd, chkSvp }));
 
             addRow("Lote Spoofing / Tempo (s)", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbSpoofLote, new Wpf.TextBlock { Width = 6 }, tbSpoofSeg } });
             addRow("Tempo Mantida (s) / HFT", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbHeldSeg, new Wpf.TextBlock { Width = 6 }, tbHftCic } });
             addRow("Stop Run Ticks / Vol", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbStopT, new Wpf.TextBlock { Width = 6 }, tbStopV } });
-            addRow("Painel Radar / Opac (%)", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkPainel, new Wpf.TextBlock { Width = 6 }, tbOpPnl } });
-            addRow("Posição / Persistir Bookmap", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { cbPos, new Wpf.TextBlock { Width = 6 }, chkPersist } });
+            addRow("Painel Radar / Opac (%)", wrapGroup(new UIElement[] { chkPainel, tbOpPnl }));
+            addRow("Posição / Persistir Bookmap", wrapGroup(new UIElement[] { cbPos, chkPersist }));
             addRow("Fonte Painel / Colunas (px)", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbFontPnl, new Wpf.TextBlock { Text = " / ", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbFontCol } });
 
             addRow("Cor Ask (Heatmap)", makeColorRow(tbCAsk));
@@ -13267,17 +13286,23 @@ namespace NinjaTrader.NinjaScript.Indicators
             addRow("Cor Bolha Venda", makeColorRow(tbCSb));
             addRow("Cor Spoofing", makeColorRow(tbCSp));
 
-            var scroll = new Wpf.ScrollViewer { MaxHeight = 480, VerticalScrollBarVisibility = Wpf.ScrollBarVisibility.Auto, Content = grid };
+            var scroll = new Wpf.ScrollViewer { MaxHeight = 470, VerticalScrollBarVisibility = Wpf.ScrollBarVisibility.Auto, Content = grid };
             root.Children.Add(new Wpf.Border { Background = cardBg, BorderBrush = borderBr, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 6, 10, 6), Child = scroll });
 
-            var btnRow = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
+            var actionRow = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 2) };
             var okBg = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(185, 28, 28)); okBg.Freeze();
-            var btnNqPreset = new Wpf.Button { Content = "⚡ NQ Ideal", Height = 24, Padding = new Thickness(7, 2, 7, 2), Margin = new Thickness(0, 0, 5, 0), Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
-            var btnEsPreset = new Wpf.Button { Content = "⚡ ES Ideal", Height = 24, Padding = new Thickness(7, 2, 7, 2), Margin = new Thickness(0, 0, 6, 0), Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
-            var btnResetLd = new Wpf.Button { Content = "Zerar LΔ/PΔ", Height = 24, Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 8, 0), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
-            var btnApply = new Wpf.Button { Content = "Aplicar", Height = 24, Padding = new Thickness(12, 2, 12, 2), Margin = new Thickness(0, 0, 6, 0), Background = okBg, Foreground = txtBr, BorderBrush = accentBr, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand };
-            var btnOk = new Wpf.Button { Content = "Aplicar & Fechar", Height = 24, Padding = new Thickness(12, 2, 12, 2), Margin = new Thickness(0, 0, 6, 0), Background = cardBg, Foreground = accentBr, BorderBrush = accentBr, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand };
-            var btnClose = new Wpf.Button { Content = "Fechar", Height = 24, Padding = new Thickness(10, 2, 10, 2), Background = inputBg, Foreground = mutBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnNqPreset = new Wpf.Button { Content = "⚡ NQ Ideal", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnEsPreset = new Wpf.Button { Content = "⚡ ES Ideal", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnResetLd = new Wpf.Button { Content = "Zerar LΔ/PΔ", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            actionRow.Children.Add(btnNqPreset);
+            actionRow.Children.Add(btnEsPreset);
+            actionRow.Children.Add(btnResetLd);
+            root.Children.Add(actionRow);
+
+            var btnRow = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0) };
+            var btnApply = new Wpf.Button { Content = "Aplicar", Height = 25, Padding = new Thickness(14, 2, 14, 2), Margin = new Thickness(0, 0, 6, 0), Background = okBg, Foreground = txtBr, BorderBrush = accentBr, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand };
+            var btnOk = new Wpf.Button { Content = "Aplicar & Fechar", Height = 25, Padding = new Thickness(14, 2, 14, 2), Margin = new Thickness(0, 0, 6, 0), Background = cardBg, Foreground = accentBr, BorderBrush = accentBr, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand };
+            var btnClose = new Wpf.Button { Content = "Fechar", Height = 25, Padding = new Thickness(12, 2, 12, 2), Background = inputBg, Foreground = mutBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
 
             btnNqPreset.Click += (s2, e2) => { cbPaleta.SelectedItem = VeltrixHeatmapPaletaV9.Termica5Cores; cbPos.SelectedItem = VeltrixHeatmapPosicaoV9.SuperiorDireito; tbFirme.Text = "25"; tbSpoofLote.Text = "30"; tbBubMinVol.Text = "10"; tbOpTrail.Text = "52"; tbFontPnl.Text = "11"; tbFontCol.Text = "10"; chkPersist.IsChecked = true; applyChanges(); };
             btnEsPreset.Click += (s2, e2) => { cbPaleta.SelectedItem = VeltrixHeatmapPaletaV9.Termica5Cores; cbPos.SelectedItem = VeltrixHeatmapPosicaoV9.SuperiorDireito; tbFirme.Text = "150"; tbSpoofLote.Text = "80"; tbBubMinVol.Text = "25"; tbOpTrail.Text = "52"; tbFontPnl.Text = "11"; tbFontCol.Text = "10"; chkPersist.IsChecked = true; applyChanges(); };
@@ -13286,9 +13311,6 @@ namespace NinjaTrader.NinjaScript.Indicators
             btnOk.Click += (s2, e2) => { applyChanges(); win.Close(); };
             btnClose.Click += (s2, e2) => { win.Close(); };
 
-            btnRow.Children.Add(btnNqPreset);
-            btnRow.Children.Add(btnEsPreset);
-            btnRow.Children.Add(btnResetLd);
             btnRow.Children.Add(btnApply);
             btnRow.Children.Add(btnOk);
             btnRow.Children.Add(btnClose);
@@ -13315,6 +13337,8 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using Wpf = System.Windows.Controls;
@@ -13338,6 +13362,115 @@ namespace NinjaTrader.NinjaScript.Indicators
         TpoSobreVolume = 1,
         SomenteVolumeProfile = 2,
         SomenteTPO = 3
+    }
+
+    public enum VeltrixTpoSyncPubModoV9
+    {
+        DiaAtualEEstendidas = 0,
+        SomenteEstendidasEPinadas = 1,
+        TodosPerfisVisiveis = 2
+    }
+
+    internal class VeltrixSyncedZoneV9
+    {
+        public string ZoneId;
+        public string PublisherId;
+        public string RootKey;
+        public int Channel;
+        public string SourceTfLabel;
+        public string DateSpan;
+        public DateTime StartTime;
+        public DateTime EndTime;
+        public double Vah;
+        public double Val;
+        public double Poc;
+        public double Mid;
+        public bool IncludeVaRect;
+        public bool IncludePoc;
+        public bool ExtendRight;
+        public byte ColorR;
+        public byte ColorG;
+        public byte ColorB;
+    }
+
+    internal static class VeltrixTpoCrossChartHub
+    {
+        private static readonly object hubLock = new object();
+        private static readonly Dictionary<string, List<VeltrixSyncedZoneV9>> zonesByPub = new Dictionary<string, List<VeltrixSyncedZoneV9>>();
+        private static readonly Dictionary<string, Action> subscribers = new Dictionary<string, Action>();
+
+        public static void RegisterSubscriber(string id, Action onUpdate)
+        {
+            if (string.IsNullOrEmpty(id) || onUpdate == null) return;
+            lock (hubLock)
+            {
+                subscribers[id] = onUpdate;
+            }
+        }
+
+        public static void UnregisterSubscriber(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            lock (hubLock)
+            {
+                subscribers.Remove(id);
+            }
+        }
+
+        public static void UpdatePublisher(string publisherId, List<VeltrixSyncedZoneV9> zones)
+        {
+            if (string.IsNullOrEmpty(publisherId)) return;
+            List<Action> notifyList = null;
+            lock (hubLock)
+            {
+                if (zones == null || zones.Count == 0)
+                    zonesByPub.Remove(publisherId);
+                else
+                    zonesByPub[publisherId] = new List<VeltrixSyncedZoneV9>(zones);
+
+                if (subscribers.Count > 0)
+                {
+                    notifyList = new List<Action>(subscribers.Count);
+                    foreach (KeyValuePair<string, Action> kv in subscribers)
+                    {
+                        if (!string.Equals(kv.Key, publisherId, StringComparison.Ordinal))
+                            notifyList.Add(kv.Value);
+                    }
+                }
+            }
+            if (notifyList != null)
+            {
+                for (int i = 0; i < notifyList.Count; i++)
+                {
+                    try { notifyList[i](); } catch { }
+                }
+            }
+        }
+
+        public static void RemovePublisher(string publisherId)
+        {
+            UpdatePublisher(publisherId, null);
+        }
+
+        public static void SnapshotFor(int channel, string rootKey, string excludePublisherId, List<VeltrixSyncedZoneV9> dst)
+        {
+            dst.Clear();
+            lock (hubLock)
+            {
+                foreach (KeyValuePair<string, List<VeltrixSyncedZoneV9>> kv in zonesByPub)
+                {
+                    if (string.Equals(kv.Key, excludePublisherId, StringComparison.Ordinal)) continue;
+                    List<VeltrixSyncedZoneV9> list = kv.Value;
+                    if (list == null) continue;
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        VeltrixSyncedZoneV9 z = list[i];
+                        if (z.Channel == channel && string.Equals(z.RootKey, rootKey, StringComparison.OrdinalIgnoreCase))
+                            dst.Add(z);
+                    }
+                }
+            }
+        }
     }
 
     public class PerfilTpoVolumePro : Indicator
@@ -13426,16 +13559,33 @@ namespace NinjaTrader.NinjaScript.Indicators
         private readonly List<double> liveBarPrices = new List<double>();
         private readonly List<long> liveBarTickGroups = new List<long>();
 
+        private class RenderedExtZone
+        {
+            public string ZoneId;
+            public string Title;
+            public SharpDX.RectangleF Rect;
+            public float PocY;
+            public float PocFromX;
+            public float PocToX;
+        }
+
         private readonly HashSet<string> mergeWithNextKeys = new HashSet<string>();
-        private readonly HashSet<int> userSplitBars = new HashSet<int>();
+        private readonly HashSet<string> userSplitTimeKeys = new HashSet<string>();
         private readonly HashSet<string> hiddenVaKeys = new HashSet<string>();
         private readonly HashSet<string> hiddenProfileKeys = new HashSet<string>();
         private readonly HashSet<string> extendedVaKeys = new HashSet<string>();
         private readonly HashSet<string> extendedPocKeys = new HashSet<string>();
+        private readonly HashSet<string> pinnedSyncKeys = new HashSet<string>();
+        private readonly HashSet<string> hiddenExternalZoneIds = new HashSet<string>();
         private readonly Dictionary<long, ulong> liveTickTpoByGroup = new Dictionary<long, ulong>();
         private readonly Dictionary<long, double> liveVolDeltasByGroup = new Dictionary<long, double>();
         private readonly Dictionary<long, double> liveBuyDeltasByGroup = new Dictionary<long, double>();
         private readonly Dictionary<long, double> liveSellDeltasByGroup = new Dictionary<long, double>();
+
+        private readonly List<VeltrixSyncedZoneV9> extZoneSnapScratch = new List<VeltrixSyncedZoneV9>(16);
+        private readonly List<RenderedExtZone> renderedExtZones = new List<RenderedExtZone>(16);
+        private readonly Dictionary<uint, SharpDX.Direct2D1.SolidColorBrush> dxExtBrushes = new Dictionary<uint, SharpDX.Direct2D1.SolidColorBrush>();
+        private long liveSyncPubTs = 0;
 
         private bool usesSub1mSeries = false;
         private int lastCommittedPrimary = -1;
@@ -13633,6 +13783,37 @@ namespace NinjaTrader.NinjaScript.Indicators
             get { return Serialize.BrushToString(CorMid ?? System.Windows.Media.Brushes.Orchid); }
             set { if (!string.IsNullOrEmpty(value)) CorMid = Serialize.StringToBrush(value); }
         }
+
+        // Cross-Chart Sync (Espelhamento de VA / POC entre Graficos)
+        [Display(Name = "Publicar Zonas deste Grafico", Order = 1, GroupName = "04. Espelhamento Entre Graficos")]
+        public bool PublicarZonasCrossChart { get; set; }
+
+        [Display(Name = "Modo de Publicacao Sync", Order = 2, GroupName = "04. Espelhamento Entre Graficos")]
+        public VeltrixTpoSyncPubModoV9 ModoPublicacaoSync { get; set; }
+
+        [Display(Name = "Receber Zonas de Outros Graficos", Order = 3, GroupName = "04. Espelhamento Entre Graficos")]
+        public bool ReceberZonasCrossChart { get; set; }
+
+        [Display(Name = "Modo Receptor Limpo (So Zonas Externas)", Order = 4, GroupName = "04. Espelhamento Entre Graficos")]
+        public bool SomenteZonasRecebidas { get; set; }
+
+        [Range(1, 4)]
+        [Display(Name = "Canal Sync (1..4)", Order = 5, GroupName = "04. Espelhamento Entre Graficos")]
+        public int CanalSync { get; set; }
+
+        [Range(0, 60)]
+        [Display(Name = "Opacidade VA Recebida (%)", Order = 6, GroupName = "04. Espelhamento Entre Graficos")]
+        public int OpacidadeVAExternaPct { get; set; }
+
+        [Display(Name = "Mostrar POC / Bordas VA Recebidas", Order = 7, GroupName = "04. Espelhamento Entre Graficos")]
+        public bool MostrarPocVAExterna { get; set; }
+
+        // Persistencia Automatica (Refresh F5 + Reinicio NT8)
+        [Browsable(false)]
+        public string InstanceStateKey { get; set; }
+
+        [Browsable(false)]
+        public string EstadoPersistenteSerialize { get; set; }
         #endregion
 
         protected override void OnStateChange()
@@ -13678,26 +13859,42 @@ namespace NinjaTrader.NinjaScript.Indicators
                 CorInitialBalance = FreezeMediaBrush(System.Windows.Media.Color.FromRgb(245, 158, 11));
                 CorNakedPOC = FreezeMediaBrush(System.Windows.Media.Color.FromRgb(249, 115, 22));
                 CorMid = FreezeMediaBrush(System.Windows.Media.Color.FromRgb(232, 121, 249));
+
+                PublicarZonasCrossChart = false;
+                ModoPublicacaoSync = VeltrixTpoSyncPubModoV9.DiaAtualEEstendidas;
+                ReceberZonasCrossChart = false;
+                SomenteZonasRecebidas = false;
+                CanalSync = 1;
+                OpacidadeVAExternaPct = 14;
+                MostrarPocVAExterna = true;
+                InstanceStateKey = "";
+                EstadoPersistenteSerialize = "";
             }
             else if (State == State.Configure)
             {
                 usesSub1mSeries = false;
-                try
+                if (!SomenteZonasRecebidas)
                 {
-                    if (BarsPeriod != null &&
-                        ((BarsPeriod.BarsPeriodType == BarsPeriodType.Minute && BarsPeriod.Value >= 10) ||
-                         BarsPeriod.BarsPeriodType == BarsPeriodType.Day))
+                    try
                     {
-                        AddDataSeries(BarsPeriodType.Minute, 1);
-                        usesSub1mSeries = true;
+                        if (BarsPeriod != null &&
+                            ((BarsPeriod.BarsPeriodType == BarsPeriodType.Minute && BarsPeriod.Value >= 10) ||
+                             BarsPeriod.BarsPeriodType == BarsPeriodType.Day))
+                        {
+                            AddDataSeries(BarsPeriodType.Minute, 1);
+                            usesSub1mSeries = true;
+                        }
                     }
+                    catch { usesSub1mSeries = false; }
                 }
-                catch { usesSub1mSeries = false; }
             }
             else if (State == State.DataLoaded)
             {
                 lock (syncLock)
                 {
+                    if (string.IsNullOrEmpty(InstanceStateKey))
+                        InstanceStateKey = Guid.NewGuid().ToString("N").Substring(0, 12);
+
                     primaryBarsCache.Clear();
                     sub1mBarsCache.Clear();
                     rawBlocks.Clear();
@@ -13709,11 +13906,15 @@ namespace NinjaTrader.NinjaScript.Indicators
                     lastCommittedPrimary = -1;
                     lastCommittedSub1m = -1;
                     lastLiveCompileTs = 0;
+                    liveSyncPubTs = 0;
                     liveTicksArrivedInCurrent1m = false;
                     liveTicksArrivedAny = false;
                     lastFullBuildPrimCount = -1;
                     lastFullBuildSub1mCount = -1;
+
+                    LoadPersistedStateLocked();
                 }
+                VeltrixTpoCrossChartHub.RegisterSubscriber(InstanceStateKey, OnExternalSyncUpdated);
                 SetZOrder(-2);
                 HookChartContextMenuAndToolbar();
             }
@@ -13724,25 +13925,33 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             else if (State == State.Transition)
             {
-                try
+                if (!SomenteZonasRecebidas)
                 {
-                    if (Bars != null && Bars.Count > 0)
+                    try
                     {
-                        int lastIdx0 = Bars.Count - 1;
-                        CachePrimaryBar(lastIdx0, Bars.GetTime(lastIdx0), Bars.GetOpen(lastIdx0), Bars.GetHigh(lastIdx0), Bars.GetLow(lastIdx0), Bars.GetClose(lastIdx0), Bars.GetVolume(lastIdx0), Bars.IsFirstBarOfSessionByIndex(lastIdx0));
+                        if (Bars != null && Bars.Count > 0)
+                        {
+                            int lastIdx0 = Bars.Count - 1;
+                            CachePrimaryBar(lastIdx0, Bars.GetTime(lastIdx0), Bars.GetOpen(lastIdx0), Bars.GetHigh(lastIdx0), Bars.GetLow(lastIdx0), Bars.GetClose(lastIdx0), Bars.GetVolume(lastIdx0), Bars.IsFirstBarOfSessionByIndex(lastIdx0));
+                        }
+                        if (usesSub1mSeries && BarsArray != null && BarsArray.Length > 1 && BarsArray[1] != null && BarsArray[1].Count > 0)
+                        {
+                            Bars sb1 = BarsArray[1];
+                            int lastIdx1 = sb1.Count - 1;
+                            CacheSub1mBar(lastIdx1, sb1.GetTime(lastIdx1), sb1.GetOpen(lastIdx1), sb1.GetHigh(lastIdx1), sb1.GetLow(lastIdx1), sb1.GetClose(lastIdx1), sb1.GetVolume(lastIdx1));
+                        }
                     }
-                    if (usesSub1mSeries && BarsArray != null && BarsArray.Length > 1 && BarsArray[1] != null && BarsArray[1].Count > 0)
-                    {
-                        Bars sb1 = BarsArray[1];
-                        int lastIdx1 = sb1.Count - 1;
-                        CacheSub1mBar(lastIdx1, sb1.GetTime(lastIdx1), sb1.GetOpen(lastIdx1), sb1.GetHigh(lastIdx1), sb1.GetLow(lastIdx1), sb1.GetClose(lastIdx1), sb1.GetVolume(lastIdx1));
-                    }
+                    catch { }
+                    RebuildAllProfilesSafe(false);
                 }
-                catch { }
-                RebuildAllProfilesSafe(false);
             }
             else if (State == State.Terminated)
             {
+                if (!string.IsNullOrEmpty(InstanceStateKey))
+                {
+                    VeltrixTpoCrossChartHub.UnregisterSubscriber(InstanceStateKey);
+                    VeltrixTpoCrossChartHub.RemovePublisher(InstanceStateKey);
+                }
                 UnhookChartContextMenu();
                 RemoveToolbarButton();
                 DisposeDx();
@@ -13802,9 +14011,317 @@ namespace NinjaTrader.NinjaScript.Indicators
             return grp * GetGroupStep();
         }
 
+        private byte cachedVaColorR = 59;
+        private byte cachedVaColorG = 130;
+        private byte cachedVaColorB = 246;
+
+        private string GetNormalizedRoot()
+        {
+            string raw = (Instrument != null && Instrument.MasterInstrument != null && !string.IsNullOrEmpty(Instrument.MasterInstrument.Name))
+                ? Instrument.MasterInstrument.Name.Trim().ToUpperInvariant()
+                : "UNKNOWN";
+            if (raw == "MNQ") return "NQ";
+            if (raw == "MES") return "ES";
+            if (raw == "MYM") return "YM";
+            if (raw == "M2K") return "RTY";
+            if (raw == "MGC") return "GC";
+            if (raw == "MCL" || raw == "QM") return "CL";
+            if (raw == "MNG" || raw == "QG") return "NG";
+            return raw;
+        }
+
+        private string FormatSourceTfLabel()
+        {
+            if (BarsPeriod == null) return "TPO";
+            switch (BarsPeriod.BarsPeriodType)
+            {
+                case BarsPeriodType.Minute: return BarsPeriod.Value + "m";
+                case BarsPeriodType.Second: return BarsPeriod.Value + "s";
+                case BarsPeriodType.Day: return BarsPeriod.Value + "D";
+                case BarsPeriodType.Range: return BarsPeriod.Value + "R";
+                case BarsPeriodType.Tick: return BarsPeriod.Value + "T";
+                case BarsPeriodType.Volume: return BarsPeriod.Value + "V";
+                case BarsPeriodType.Renko: return BarsPeriod.Value + "Rk";
+                default: return BarsPeriod.Value + BarsPeriod.BarsPeriodType.ToString();
+            }
+        }
+
+        private string GetSharedStateKey()
+        {
+            string root = GetNormalizedRoot();
+            string bt = (BarsPeriod != null) ? BarsPeriod.BarsPeriodType.ToString() : "Minute";
+            int bv = (BarsPeriod != null) ? BarsPeriod.Value : 30;
+            return SanitizeStateFilePart(root + "_" + bt + "_" + bv);
+        }
+
+        private static string SanitizeStateFilePart(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "DEF";
+            StringBuilder sb = new StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char ch = s[i];
+                if (char.IsLetterOrDigit(ch) || ch == '_' || ch == '-') sb.Append(ch);
+                else sb.Append('_');
+            }
+            return sb.ToString();
+        }
+
+        private static string GetStateFolder()
+        {
+            string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            return Path.Combine(docs, "NinjaTrader 8", "VeltrixTpoState");
+        }
+
+        private static string JoinSet(HashSet<string> hs)
+        {
+            if (hs == null || hs.Count == 0) return "";
+            StringBuilder sb = new StringBuilder();
+            bool first = true;
+            foreach (string s in hs)
+            {
+                if (string.IsNullOrEmpty(s)) continue;
+                if (!first) sb.Append(',');
+                sb.Append(s);
+                first = false;
+            }
+            return sb.ToString();
+        }
+
+        private static void SplitIntoSet(string csv, HashSet<string> hs)
+        {
+            hs.Clear();
+            if (string.IsNullOrWhiteSpace(csv)) return;
+            string[] parts = csv.Split(',');
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string item = parts[i].Trim();
+                if (!string.IsNullOrEmpty(item)) hs.Add(item);
+            }
+        }
+
+        private string SerializeStateStringLocked(long tsTicks)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("TS=").Append(tsTicks.ToString(CultureInfo.InvariantCulture));
+            sb.Append("|MERGES=").Append(JoinSet(mergeWithNextKeys));
+            sb.Append("|SPLITS=").Append(JoinSet(userSplitTimeKeys));
+            sb.Append("|HIDVA=").Append(JoinSet(hiddenVaKeys));
+            sb.Append("|HIDPROF=").Append(JoinSet(hiddenProfileKeys));
+            sb.Append("|EXTVA=").Append(JoinSet(extendedVaKeys));
+            sb.Append("|EXTPOC=").Append(JoinSet(extendedPocKeys));
+            sb.Append("|PINSYNC=").Append(JoinSet(pinnedSyncKeys));
+            sb.Append("|HIDEXT=").Append(JoinSet(hiddenExternalZoneIds));
+            return sb.ToString();
+        }
+
+        private static long ReadStateTimestamp(string data)
+        {
+            if (string.IsNullOrWhiteSpace(data)) return 0;
+            string[] parts = data.Split(new char[] { '|', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i].StartsWith("TS=", StringComparison.Ordinal))
+                {
+                    long ts;
+                    if (long.TryParse(parts[i].Substring(3).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out ts))
+                        return ts;
+                }
+            }
+            return 0;
+        }
+
+        private void DeserializeStateStringLocked(string data)
+        {
+            mergeWithNextKeys.Clear();
+            userSplitTimeKeys.Clear();
+            hiddenVaKeys.Clear();
+            hiddenProfileKeys.Clear();
+            extendedVaKeys.Clear();
+            extendedPocKeys.Clear();
+            pinnedSyncKeys.Clear();
+            hiddenExternalZoneIds.Clear();
+
+            if (string.IsNullOrWhiteSpace(data)) return;
+            string[] parts = data.Split(new char[] { '|', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string p = parts[i];
+                int eq = p.IndexOf('=');
+                if (eq <= 0) continue;
+                string k = p.Substring(0, eq).Trim();
+                string v = p.Substring(eq + 1).Trim();
+                if (k == "MERGES") SplitIntoSet(v, mergeWithNextKeys);
+                else if (k == "SPLITS") SplitIntoSet(v, userSplitTimeKeys);
+                else if (k == "HIDVA") SplitIntoSet(v, hiddenVaKeys);
+                else if (k == "HIDPROF") SplitIntoSet(v, hiddenProfileKeys);
+                else if (k == "EXTVA") SplitIntoSet(v, extendedVaKeys);
+                else if (k == "EXTPOC") SplitIntoSet(v, extendedPocKeys);
+                else if (k == "PINSYNC") SplitIntoSet(v, pinnedSyncKeys);
+                else if (k == "HIDEXT") SplitIntoSet(v, hiddenExternalZoneIds);
+            }
+        }
+
+        private void LoadPersistedStateLocked()
+        {
+            try
+            {
+                string memData = EstadoPersistenteSerialize ?? "";
+                long memTs = ReadStateTimestamp(memData);
+
+                string folder = GetStateFolder();
+                string shared = GetSharedStateKey();
+                string instSafe = SanitizeStateFilePart(InstanceStateKey);
+                string fileInst = Path.Combine(folder, "TpoState_" + shared + "_" + instSafe + ".dat");
+                string fileLatest = Path.Combine(folder, "TpoState_" + shared + "_latest.dat");
+
+                string bestData = memData;
+                long bestTs = memTs;
+
+                if (File.Exists(fileInst))
+                {
+                    string fInst = File.ReadAllText(fileInst, Encoding.UTF8);
+                    long tInst = ReadStateTimestamp(fInst);
+                    if (tInst >= bestTs && tInst > 0) { bestTs = tInst; bestData = fInst; }
+                }
+                else if (memTs <= 0 && File.Exists(fileLatest))
+                {
+                    string fLat = File.ReadAllText(fileLatest, Encoding.UTF8);
+                    long tLat = ReadStateTimestamp(fLat);
+                    if (tLat > bestTs) { bestTs = tLat; bestData = fLat; }
+                }
+
+                if (!string.IsNullOrEmpty(bestData))
+                {
+                    DeserializeStateStringLocked(bestData);
+                    EstadoPersistenteSerialize = bestData.Replace("\r", "").Replace("\n", "|");
+                }
+            }
+            catch { }
+        }
+
+        private void SavePersistedStateLocked()
+        {
+            try
+            {
+                long ts = DateTime.UtcNow.Ticks;
+                string payload = SerializeStateStringLocked(ts);
+                EstadoPersistenteSerialize = payload;
+
+                string folder = GetStateFolder();
+                Directory.CreateDirectory(folder);
+                string shared = GetSharedStateKey();
+                string instSafe = SanitizeStateFilePart(InstanceStateKey);
+                File.WriteAllText(Path.Combine(folder, "TpoState_" + shared + "_" + instSafe + ".dat"), payload, Encoding.UTF8);
+                File.WriteAllText(Path.Combine(folder, "TpoState_" + shared + "_latest.dat"), payload, Encoding.UTF8);
+            }
+            catch { }
+        }
+
+        private List<VeltrixSyncedZoneV9> BuildPublishListLocked()
+        {
+            if ((!PublicarZonasCrossChart && pinnedSyncKeys.Count == 0) || compiledProfiles.Count == 0 || SomenteZonasRecebidas)
+                return null;
+
+            string root = GetNormalizedRoot();
+            string tfLbl = FormatSourceTfLabel();
+            List<VeltrixSyncedZoneV9> list = new List<VeltrixSyncedZoneV9>(compiledProfiles.Count);
+            for (int p = 0; p < compiledProfiles.Count; p++)
+            {
+                CompiledProfile prof = compiledProfiles[p];
+                if (hiddenProfileKeys.Contains(prof.AnchorKey)) continue;
+
+                bool isLast = (p == compiledProfiles.Count - 1);
+                bool isExtVa = extendedVaKeys.Contains(prof.AnchorKey);
+                bool isExtPoc = extendedPocKeys.Contains(prof.AnchorKey);
+                bool isPinned = pinnedSyncKeys.Contains(prof.AnchorKey);
+
+                bool include = isPinned;
+                if (!include && PublicarZonasCrossChart)
+                {
+                    if (ModoPublicacaoSync == VeltrixTpoSyncPubModoV9.TodosPerfisVisiveis)
+                        include = true;
+                    else if (ModoPublicacaoSync == VeltrixTpoSyncPubModoV9.SomenteEstendidasEPinadas)
+                        include = (isExtVa || isExtPoc);
+                    else
+                        include = (isLast || isExtVa || isExtPoc);
+                }
+                if (!include) continue;
+
+                list.Add(new VeltrixSyncedZoneV9
+                {
+                    ZoneId = InstanceStateKey + "|" + prof.AnchorKey,
+                    PublisherId = InstanceStateKey,
+                    RootKey = root,
+                    Channel = Math.Max(1, Math.Min(4, CanalSync)),
+                    SourceTfLabel = tfLbl,
+                    DateSpan = prof.ShortDateSpan,
+                    StartTime = prof.StartTime,
+                    EndTime = prof.EndTime,
+                    Vah = prof.VahPrice,
+                    Val = prof.ValPrice,
+                    Poc = prof.PocPrice,
+                    Mid = prof.MidPrice,
+                    IncludeVaRect = !hiddenVaKeys.Contains(prof.AnchorKey) && (isExtVa || !isExtPoc || isPinned || isLast || ModoPublicacaoSync == VeltrixTpoSyncPubModoV9.TodosPerfisVisiveis),
+                    IncludePoc = (isExtPoc || !isExtVa || isPinned || isLast || ModoPublicacaoSync == VeltrixTpoSyncPubModoV9.TodosPerfisVisiveis),
+                    ExtendRight = (isExtVa || isExtPoc || isLast),
+                    ColorR = cachedVaColorR,
+                    ColorG = cachedVaColorG,
+                    ColorB = cachedVaColorB
+                });
+            }
+            return list;
+        }
+
+        private void PublishCrossChartZonesSafe()
+        {
+            if (string.IsNullOrEmpty(InstanceStateKey)) return;
+            List<VeltrixSyncedZoneV9> snap;
+            lock (syncLock)
+            {
+                snap = BuildPublishListLocked();
+            }
+            if (snap == null || snap.Count == 0)
+                VeltrixTpoCrossChartHub.RemovePublisher(InstanceStateKey);
+            else
+                VeltrixTpoCrossChartHub.UpdatePublisher(InstanceStateKey, snap);
+        }
+
+        private void SaveAndRepublishSafe()
+        {
+            List<VeltrixSyncedZoneV9> snap;
+            lock (syncLock)
+            {
+                SavePersistedStateLocked();
+                snap = BuildPublishListLocked();
+            }
+            if (!string.IsNullOrEmpty(InstanceStateKey))
+            {
+                if (snap == null || snap.Count == 0)
+                    VeltrixTpoCrossChartHub.RemovePublisher(InstanceStateKey);
+                else
+                    VeltrixTpoCrossChartHub.UpdatePublisher(InstanceStateKey, snap);
+            }
+        }
+
+        private void OnExternalSyncUpdated()
+        {
+            if (State == State.Terminated || ChartControl == null) return;
+            if (!ReceberZonasCrossChart && !SomenteZonasRecebidas) return;
+            ChartControl.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, new Action(delegate
+            {
+                try
+                {
+                    if (State != State.Terminated && ChartControl != null)
+                        ChartControl.InvalidateVisual();
+                }
+                catch { }
+            }));
+        }
+
         protected override void OnMarketData(MarketDataEventArgs e)
         {
-            if (e == null) return;
+            if (SomenteZonasRecebidas || e == null) return;
             if (e.MarketDataType == MarketDataType.Bid) { lastBidPrice = e.Price; return; }
             if (e.MarketDataType == MarketDataType.Ask) { lastAskPrice = e.Price; return; }
             if (State != State.Realtime || e.MarketDataType != MarketDataType.Last || e.Volume <= 0) return;
@@ -13815,6 +14332,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             lastTradePrice = e.Price;
 
             long grp = PriceToGroup(e.Price);
+            List<VeltrixSyncedZoneV9> pubSnap = null;
             lock (syncLock)
             {
                 double cur;
@@ -13864,13 +14382,21 @@ namespace NinjaTrader.NinjaScript.Indicators
                     {
                         lastLiveCompileTs = nowTs;
                         RefreshLastCompiledProfileLocked();
+                        if ((PublicarZonasCrossChart || pinnedSyncKeys.Count > 0) && ((nowTs - liveSyncPubTs) * 1000.0 / Stopwatch.Frequency >= 600.0))
+                        {
+                            liveSyncPubTs = nowTs;
+                            pubSnap = BuildPublishListLocked();
+                        }
                     }
                 }
             }
+            if (pubSnap != null && !string.IsNullOrEmpty(InstanceStateKey))
+                VeltrixTpoCrossChartHub.UpdatePublisher(InstanceStateKey, pubSnap);
         }
 
         protected override void OnBarUpdate()
         {
+            if (SomenteZonasRecebidas) return;
             if (BarsInProgress == 0)
             {
                 if (CurrentBar < 0) return;
@@ -14088,8 +14614,10 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private void RebuildAllProfilesSafe(bool force = true)
         {
-            if (rebuildPending) return;
+            if (rebuildPending || SomenteZonasRecebidas) return;
             rebuildPending = true;
+            List<VeltrixSyncedZoneV9> pubSnap = null;
+            bool shouldPublish = false;
             try
             {
                 lock (syncLock)
@@ -14109,12 +14637,17 @@ namespace NinjaTrader.NinjaScript.Indicators
                         CachedBarData b = primaryBarsCache[i];
                         if (b == null) continue;
 
-                        bool mustSplit = (cur == null) || b.IsSessionStart || userSplitBars.Contains(b.BarIdx0);
+                        string barTimeKey = b.Time.Ticks.ToString(CultureInfo.InvariantCulture);
+                        bool mustSplit = (cur == null) || b.IsSessionStart || userSplitTimeKeys.Contains(barTimeKey);
                         if (mustSplit)
                         {
-                            string baseKey = b.Time.Ticks.ToString(CultureInfo.InvariantCulture);
-                            if (rawBlocks.Count > 0 && rawBlocks[rawBlocks.Count - 1].BlockKey == baseKey)
-                                baseKey = baseKey + "_" + b.BarIdx0.ToString(CultureInfo.InvariantCulture);
+                            string baseKey = barTimeKey;
+                            int subSeq = 1;
+                            while (rawBlocks.Count > 0 && rawBlocks[rawBlocks.Count - 1].BlockKey == baseKey)
+                            {
+                                baseKey = barTimeKey + "_s" + subSeq.ToString(CultureInfo.InvariantCulture);
+                                subSeq++;
+                            }
                             cur = new RawSessionBlock
                             {
                                 BlockKey = baseKey,
@@ -14152,6 +14685,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                     // If sub-1m series exists, map sub-1m bars cleanly into rawBlocks by timestamp!
                     if (usesSub1mSeries && rawBlocks.Count > 0)
                     {
+                        bool[] hadSub1mIb = new bool[rawBlocks.Count];
+                        int ibMins = Math.Max(15, MinutosInitialBalance);
                         int blkCursor = 0;
                         for (int s = 0; s < sub1mBarsCache.Count; s++)
                         {
@@ -14162,6 +14697,20 @@ namespace NinjaTrader.NinjaScript.Indicators
                                 blkCursor++;
                             }
                             RawSessionBlock targetBlk = rawBlocks[blkCursor];
+                            if ((sb.Time - targetBlk.StartTime).TotalMinutes <= ibMins && sb.Time >= targetBlk.StartTime)
+                            {
+                                if (!hadSub1mIb[blkCursor])
+                                {
+                                    targetBlk.IbHigh = sb.High;
+                                    targetBlk.IbLow = sb.Low;
+                                    hadSub1mIb[blkCursor] = true;
+                                }
+                                else
+                                {
+                                    if (sb.High > targetBlk.IbHigh) targetBlk.IbHigh = sb.High;
+                                    if (sb.Low < targetBlk.IbLow) targetBlk.IbLow = sb.Low;
+                                }
+                            }
                             DistributeBarToBlock(targetBlk, sb.Open, sb.High, sb.Low, sb.Close, sb.Volume, sb.Time, false);
                         }
                         // Fallback if any block received 0 sub-1m volume (e.g. far back history)
@@ -14201,11 +14750,20 @@ namespace NinjaTrader.NinjaScript.Indicators
                     RebuildCompiledProfilesLocked();
                     lastFullBuildPrimCount = primaryBarsCache.Count;
                     lastFullBuildSub1mCount = sub1mBarsCache.Count;
+                    pubSnap = BuildPublishListLocked();
+                    shouldPublish = true;
                 }
             }
             finally
             {
                 rebuildPending = false;
+            }
+            if (shouldPublish && !string.IsNullOrEmpty(InstanceStateKey))
+            {
+                if (pubSnap == null || pubSnap.Count == 0)
+                    VeltrixTpoCrossChartHub.RemovePublisher(InstanceStateKey);
+                else
+                    VeltrixTpoCrossChartHub.UpdatePublisher(InstanceStateKey, pubSnap);
             }
         }
 
@@ -14488,6 +15046,12 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (dxTextBr != null) { dxTextBr.Dispose(); dxTextBr = null; }
             if (dxMutedBr != null) { dxMutedBr.Dispose(); dxMutedBr = null; }
             if (dxBadgeBg != null) { dxBadgeBg.Dispose(); dxBadgeBg = null; }
+            if (dxExtBrushes.Count > 0)
+            {
+                foreach (KeyValuePair<uint, SharpDX.Direct2D1.SolidColorBrush> kv in dxExtBrushes)
+                    if (kv.Value != null) kv.Value.Dispose();
+                dxExtBrushes.Clear();
+            }
             if (dxTpoPalette != null)
             {
                 for (int i = 0; i < dxTpoPalette.Length; i++)
@@ -14511,6 +15075,19 @@ namespace NinjaTrader.NinjaScript.Indicators
             lastDxSig = "";
         }
 
+        private SharpDX.Direct2D1.SolidColorBrush GetExtDxBrush(byte r, byte g, byte b, float alpha)
+        {
+            byte aByte = (byte)Math.Max(0, Math.Min(255, (int)Math.Round(alpha * 255f)));
+            uint key = ((uint)aByte << 24) | ((uint)r << 16) | ((uint)g << 8) | (uint)b;
+            SharpDX.Direct2D1.SolidColorBrush br;
+            if (!dxExtBrushes.TryGetValue(key, out br) || br == null)
+            {
+                br = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(r / 255f, g / 255f, b / 255f, aByte / 255f));
+                dxExtBrushes[key] = br;
+            }
+            return br;
+        }
+
         public override void OnRenderTargetChanged()
         {
             DisposeDx();
@@ -14528,6 +15105,9 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (RenderTarget == null) return;
             IntPtr curPtr = RenderTarget.NativePointer;
+            var scVaCol = CorRetanguloVA as System.Windows.Media.SolidColorBrush;
+            if (scVaCol != null) { cachedVaColorR = scVaCol.Color.R; cachedVaColorG = scVaCol.Color.G; cachedVaColorB = scVaCol.Color.B; }
+
             string sig = BrushToHex(CorVolumeDentroVA, "#E2E8F0") + "|" + BrushToHex(CorVolumeForaVA, "#475569") + "|"
                 + BrushToHex(CorPOC, "#EF4444") + "|" + BrushToHex(CorRetanguloVA, "#3B82F6") + "|" + OpacidadeRetanguloVAPct.ToString()
                 + "|" + BrushToHex(CorBordaVA, "#94A3B8") + "|" + BrushToHex(CorInitialBalance, "#F59E0B")
@@ -14600,13 +15180,26 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (dxVolInVa == null) return;
 
             renderSnapScratch.Clear();
-            lock (syncLock)
+            if (!SomenteZonasRecebidas)
             {
-                for (int i = 0; i < compiledProfiles.Count; i++)
-                    renderSnapScratch.Add(compiledProfiles[i]);
+                lock (syncLock)
+                {
+                    for (int i = 0; i < compiledProfiles.Count; i++)
+                        renderSnapScratch.Add(compiledProfiles[i]);
+                }
             }
 
-            if (renderSnapScratch.Count == 0) return;
+            float panelRight = (float)(ChartPanel.X + ChartPanel.W - 8f);
+            float panelLeft = (float)(ChartPanel.X + 4f);
+            float panelTop = (float)(ChartPanel.Y + 4f);
+            float panelBot = (float)(ChartPanel.Y + ChartPanel.H - 4f);
+
+            if (SomenteZonasRecebidas || renderSnapScratch.Count == 0)
+            {
+                if (ReceberZonasCrossChart || SomenteZonasRecebidas)
+                    DrawExternalSyncedZones(chartControl, chartScale, panelLeft, panelTop, panelRight, panelBot);
+                return;
+            }
 
             double step = GetGroupStep();
             double scaleMin = chartScale.MinValue;
@@ -14623,11 +15216,6 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             long gViewLow = PriceToGroup(Math.Min(scaleMin, scaleMax));
             long gViewHigh = PriceToGroup(Math.Max(scaleMin, scaleMax));
-
-            float panelRight = (float)(ChartPanel.X + ChartPanel.W - 8f);
-            float panelLeft = (float)(ChartPanel.X + 4f);
-            float panelTop = (float)(ChartPanel.Y + 4f);
-            float panelBot = (float)(ChartPanel.Y + ChartPanel.H - 4f);
 
             int maxViewIdx = ChartBars.ToIndex;
 
@@ -14926,6 +15514,110 @@ namespace NinjaTrader.NinjaScript.Indicators
                     }
                 }
             }
+
+            if (ReceberZonasCrossChart || SomenteZonasRecebidas)
+                DrawExternalSyncedZones(chartControl, chartScale, panelLeft, panelTop, panelRight, panelBot);
+        }
+
+        private float FindBarXByTime(ChartControl chartControl, DateTime targetTime, float panelLeft, float panelRight)
+        {
+            if (ChartBars == null || ChartBars.Bars == null) return panelLeft;
+            Bars b = ChartBars.Bars;
+            int cnt = b.Count;
+            if (cnt <= 0) return panelLeft;
+            if (targetTime <= b.GetTime(0)) return panelLeft;
+            if (targetTime >= b.GetTime(cnt - 1)) return Math.Min(panelRight, (float)chartControl.GetXByBarIndex(ChartBars, cnt - 1));
+
+            int lo = 0, hi = cnt - 1;
+            while (lo < hi)
+            {
+                int mid = lo + ((hi - lo) >> 1);
+                if (b.GetTime(mid) < targetTime) lo = mid + 1;
+                else hi = mid;
+            }
+            return (float)chartControl.GetXByBarIndex(ChartBars, lo);
+        }
+
+        private void DrawExternalSyncedZones(ChartControl chartControl, ChartScale chartScale, float panelLeft, float panelTop, float panelRight, float panelBot)
+        {
+            renderedExtZones.Clear();
+            string myId = InstanceStateKey ?? "";
+            int ch = Math.Max(1, Math.Min(4, CanalSync));
+            VeltrixTpoCrossChartHub.SnapshotFor(ch, GetNormalizedRoot(), myId, extZoneSnapScratch);
+            if (extZoneSnapScratch.Count == 0) return;
+
+            float fillAlpha = (float)(Math.Max(0, Math.Min(60, OpacidadeVAExternaPct)) / 100.0);
+            for (int i = 0; i < extZoneSnapScratch.Count; i++)
+            {
+                VeltrixSyncedZoneV9 z = extZoneSnapScratch[i];
+                bool isExtHidden;
+                lock (syncLock) { isExtHidden = hiddenExternalZoneIds.Contains(z.ZoneId); }
+                if (isExtHidden) continue;
+
+                float xLeft = FindBarXByTime(chartControl, z.StartTime, panelLeft, panelRight);
+                xLeft = Math.Max(panelLeft, Math.Min(panelRight - 10f, xLeft));
+                float xRight = z.ExtendRight
+                    ? panelRight
+                    : Math.Min(panelRight, Math.Max(xLeft + 18f, FindBarXByTime(chartControl, z.EndTime, panelLeft, panelRight)));
+                if (xRight <= panelLeft + 6f || xLeft >= panelRight - 4f) continue;
+
+                float yVah = (float)chartScale.GetYByValue(z.Vah);
+                float yVal = (float)chartScale.GetYByValue(z.Val);
+                float yPoc = (float)chartScale.GetYByValue(z.Poc);
+                float topY = Math.Min(yVah, yVal);
+                float rectH = Math.Max(4f, Math.Abs(yVal - yVah));
+                if (topY + rectH < panelTop - 12f || topY > panelBot + 12f) continue;
+
+                SharpDX.RectangleF vaRect = new SharpDX.RectangleF(xLeft, topY, Math.Max(14f, xRight - xLeft), rectH);
+                if (z.IncludeVaRect)
+                {
+                    var brFill = GetExtDxBrush(z.ColorR, z.ColorG, z.ColorB, fillAlpha);
+                    var brEdge = GetExtDxBrush(z.ColorR, z.ColorG, z.ColorB, 0.85f);
+                    RenderTarget.FillRectangle(vaRect, brFill);
+                    if (yVah >= panelTop - 2f && yVah <= panelBot + 2f)
+                        RenderTarget.DrawLine(new SharpDX.Vector2(xLeft, yVah), new SharpDX.Vector2(xRight, yVah), brEdge, 1.35f, dxDashDotStyle);
+                    if (yVal >= panelTop - 2f && yVal <= panelBot + 2f)
+                        RenderTarget.DrawLine(new SharpDX.Vector2(xLeft, yVal), new SharpDX.Vector2(xRight, yVal), brEdge, 1.35f, dxDashDotStyle);
+
+                    string syncTag = "VA SYNC [" + z.SourceTfLabel + " · " + z.DateSpan + "]";
+                    float tagW = Math.Max(88f, syncTag.Length * 5.8f + 12f);
+                    float tagY = Math.Max(panelTop + 2f, Math.Min(panelBot - 15f, topY + 3f));
+                    SharpDX.RectangleF tRect = new SharpDX.RectangleF(Math.Max(panelLeft + 4f, xRight - tagW - 4f), tagY, tagW, 13.5f);
+                    RenderTarget.FillRectangle(tRect, dxBadgeBg);
+                    RenderTarget.DrawRectangle(tRect, brEdge, 0.8f);
+                    RenderTarget.DrawText(syncTag, dxFontSmall, new SharpDX.RectangleF(tRect.Left + 4f, tRect.Top + 0.5f, tagW - 6f, 13f), dxTextBr);
+                }
+
+                bool drawPoc = MostrarPocVAExterna && z.IncludePoc && yPoc >= panelTop + 2f && yPoc <= panelBot - 2f;
+                if (drawPoc)
+                {
+                    RenderTarget.DrawLine(new SharpDX.Vector2(xLeft, yPoc), new SharpDX.Vector2(xRight, yPoc), dxPocBr, 1.75f, dxDashStyle);
+                    string pocTag = "POC SYNC [" + z.SourceTfLabel + "] " + FormatInstPrice(z.Poc);
+                    float pTagW = Math.Max(94f, pocTag.Length * 5.8f + 12f);
+                    float pTagY = Math.Max(panelTop + 2f, Math.Min(panelBot - 15f, yPoc - 7f));
+                    SharpDX.RectangleF pRect = new SharpDX.RectangleF(Math.Max(panelLeft + 4f, xRight - pTagW - 4f), pTagY, pTagW, 13.5f);
+                    RenderTarget.FillRectangle(pRect, dxBadgeBg);
+                    RenderTarget.DrawRectangle(pRect, dxPocBr, 0.8f);
+                    RenderTarget.DrawText(pocTag, dxFontSmall, new SharpDX.RectangleF(pRect.Left + 4f, pRect.Top + 0.5f, pTagW - 6f, 13f), dxPocBr);
+                }
+
+                if (MostrarMid && z.Mid > 0)
+                {
+                    float yMid = (float)chartScale.GetYByValue(z.Mid);
+                    if (yMid >= panelTop + 2f && yMid <= panelBot - 2f)
+                        RenderTarget.DrawLine(new SharpDX.Vector2(xLeft, yMid), new SharpDX.Vector2(xRight, yMid), dxMidBr, 1.3f, dxDashDotStyle);
+                }
+
+                renderedExtZones.Add(new RenderedExtZone
+                {
+                    ZoneId = z.ZoneId,
+                    Title = z.SourceTfLabel + " · " + z.DateSpan,
+                    Rect = z.IncludeVaRect ? vaRect : new SharpDX.RectangleF(0, 0, 0, 0),
+                    PocY = drawPoc ? yPoc : float.NaN,
+                    PocFromX = xLeft,
+                    PocToX = xRight
+                });
+            }
         }
         #endregion
 
@@ -15022,16 +15714,32 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
                 catch { clickedBar = -1; }
                 int safeSplitBar = Math.Max(0, Math.Min(Math.Max(0, CurrentBar), clickedBar));
+                string safeSplitTimeKey = "";
 
                 CompiledProfile hitProf = null;
                 List<CompiledProfile> hitExtended = new List<CompiledProfile>();
+                List<RenderedExtZone> hitSyncedExt = new List<RenderedExtZone>();
                 bool hasAnyMergeOrSplit = false;
                 bool hasAnyExtended = false;
+                bool hasAnyHiddenExt = false;
+
+                for (int ex = 0; ex < renderedExtZones.Count; ex++)
+                {
+                    RenderedExtZone ez = renderedExtZones[ex];
+                    bool hitEzRect = ez.Rect.Width > 0 && px >= ez.Rect.Left - 4f && px <= ez.Rect.Right + 4f && py >= ez.Rect.Top - 4f && py <= ez.Rect.Bottom + 4f;
+                    bool hitEzPoc = !float.IsNaN(ez.PocY) && Math.Abs(py - ez.PocY) <= 8f && px >= ez.PocFromX - 6f && px <= ez.PocToX + 6f;
+                    if (hitEzRect || hitEzPoc)
+                        hitSyncedExt.Add(ez);
+                }
 
                 lock (syncLock)
                 {
-                    hasAnyMergeOrSplit = (mergeWithNextKeys.Count > 0 || userSplitBars.Count > 0);
+                    if (safeSplitBar >= 0 && safeSplitBar < primaryBarsCache.Count && primaryBarsCache[safeSplitBar] != null)
+                        safeSplitTimeKey = primaryBarsCache[safeSplitBar].Time.Ticks.ToString(CultureInfo.InvariantCulture);
+
+                    hasAnyMergeOrSplit = (mergeWithNextKeys.Count > 0 || userSplitTimeKeys.Count > 0);
                     hasAnyExtended = (extendedVaKeys.Count > 0 || extendedPocKeys.Count > 0);
+                    hasAnyHiddenExt = (hiddenExternalZoneIds.Count > 0);
 
                     for (int i = 0; i < compiledProfiles.Count; i++)
                     {
@@ -15081,6 +15789,41 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 List<object> injected = new List<object>();
 
+                // Zona(s) Externas Recebidas (Cross-Chart) clicadas neste gráfico
+                for (int ezIdx = 0; ezIdx < hitSyncedExt.Count; ezIdx++)
+                {
+                    RenderedExtZone ez = hitSyncedExt[ezIdx];
+                    string zId = ez.ZoneId;
+                    var miHideExtZone = new Wpf.MenuItem
+                    {
+                        Header = "🙈 Ocultar Zona Externa [" + ez.Title + "] só neste Gráfico",
+                        FontWeight = FontWeights.SemiBold,
+                        Tag = CTX_TAG
+                    };
+                    miHideExtZone.Click += (s2, e2) =>
+                    {
+                        lock (syncLock) { hiddenExternalZoneIds.Add(zId); SavePersistedStateLocked(); }
+                        RequestImmediateRedraw();
+                    };
+                    injected.Add(miHideExtZone);
+                }
+                if (hasAnyHiddenExt)
+                {
+                    var miShowAllExt = new Wpf.MenuItem
+                    {
+                        Header = "👁 Mostrar TODAS as Zonas Externas Ocultas",
+                        Tag = CTX_TAG
+                    };
+                    miShowAllExt.Click += (s2, e2) =>
+                    {
+                        lock (syncLock) { hiddenExternalZoneIds.Clear(); SavePersistedStateLocked(); }
+                        RequestImmediateRedraw();
+                    };
+                    injected.Add(miShowAllExt);
+                }
+                if (hitSyncedExt.Count > 0 || hasAnyHiddenExt)
+                    injected.Add(new Wpf.Separator { Tag = CTX_TAG });
+
                 // Zona(s) Estendida(s) clicada(s) diretamente pelo mouse (VA ou POC em qualquer barra futura!)
                 for (int ex = 0; ex < hitExtended.Count; ex++)
                 {
@@ -15116,6 +15859,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                             extendedVaKeys.Remove(extKey);
                             extendedPocKeys.Remove(extKey);
                         }
+                        SaveAndRepublishSafe();
                         RequestImmediateRedraw();
                     };
                     injected.Add(miCancelBoth);
@@ -15130,6 +15874,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         miCancelExtVa.Click += (s2, e2) =>
                         {
                             lock (syncLock) { extendedVaKeys.Remove(extKey); }
+                            SaveAndRepublishSafe();
                             RequestImmediateRedraw();
                         };
                         injected.Add(miCancelExtVa);
@@ -15145,6 +15890,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         miCancelExtPoc.Click += (s2, e2) =>
                         {
                             lock (syncLock) { extendedPocKeys.Remove(extKey); }
+                            SaveAndRepublishSafe();
                             RequestImmediateRedraw();
                         };
                         injected.Add(miCancelExtPoc);
@@ -15155,24 +15901,25 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 string titleHdr = (hitProf != null)
                     ? ("📊 TPO+VP [" + hitProf.Label + "] · POC " + FormatInstPrice(hitProf.PocPrice))
-                    : "📊 VeltrixQuant TPO+VP";
+                    : (SomenteZonasRecebidas ? "📥 VeltrixQuant TPO+VP (Modo Receptor Cross-Chart)" : "📊 VeltrixQuant TPO+VP");
 
                 var miHeader = new Wpf.MenuItem { Header = titleHdr, IsEnabled = false, FontWeight = FontWeights.Bold, Tag = CTX_TAG };
                 injected.Add(miHeader);
 
-                if (hitProf != null)
+                if (hitProf != null && !SomenteZonasRecebidas)
                 {
                     string targetKey = hitProf.AnchorKey;
                     int firstRaw = hitProf.FirstRawIdx;
                     int lastRaw = hitProf.LastRawIdx;
 
-                    bool vaHidden, profHidden, isExtVa, isExtPoc;
+                    bool vaHidden, profHidden, isExtVa, isExtPoc, isPinnedSync;
                     lock (syncLock)
                     {
                         vaHidden = hiddenVaKeys.Contains(targetKey);
                         profHidden = hiddenProfileKeys.Contains(targetKey);
                         isExtVa = extendedVaKeys.Contains(targetKey);
                         isExtPoc = extendedPocKeys.Contains(targetKey);
+                        isPinnedSync = pinnedSyncKeys.Contains(targetKey);
                     }
 
                     bool bothExtended = isExtVa && isExtPoc;
@@ -15198,6 +15945,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                                 hiddenVaKeys.Remove(targetKey);
                             }
                         }
+                        SaveAndRepublishSafe();
                         RequestImmediateRedraw();
                     };
                     injected.Add(miExtBoth);
@@ -15214,6 +15962,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                             if (extendedVaKeys.Contains(targetKey)) extendedVaKeys.Remove(targetKey);
                             else { extendedVaKeys.Add(targetKey); hiddenVaKeys.Remove(targetKey); }
                         }
+                        SaveAndRepublishSafe();
                         RequestImmediateRedraw();
                     };
                     injected.Add(miExtVaOnly);
@@ -15230,9 +15979,31 @@ namespace NinjaTrader.NinjaScript.Indicators
                             if (extendedPocKeys.Contains(targetKey)) extendedPocKeys.Remove(targetKey);
                             else extendedPocKeys.Add(targetKey);
                         }
+                        SaveAndRepublishSafe();
                         RequestImmediateRedraw();
                     };
                     injected.Add(miExtPocOnly);
+
+                    var miPinSync = new Wpf.MenuItem
+                    {
+                        Header = isPinnedSync ? "📡 Remover VA/POC de Outros Gráficos" : "📡 Espelhar VA/POC em Outros Gráficos (Cross-Chart)",
+                        Tag = CTX_TAG
+                    };
+                    miPinSync.Click += (s2, e2) =>
+                    {
+                        lock (syncLock)
+                        {
+                            if (pinnedSyncKeys.Contains(targetKey)) pinnedSyncKeys.Remove(targetKey);
+                            else
+                            {
+                                pinnedSyncKeys.Add(targetKey);
+                                PublicarZonasCrossChart = true;
+                            }
+                        }
+                        SaveAndRepublishSafe();
+                        RequestImmediateRedraw();
+                    };
+                    injected.Add(miPinSync);
 
                     var miToggleVa = new Wpf.MenuItem
                     {
@@ -15246,6 +16017,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                             if (hiddenVaKeys.Contains(targetKey)) hiddenVaKeys.Remove(targetKey);
                             else { hiddenVaKeys.Add(targetKey); extendedVaKeys.Remove(targetKey); }
                         }
+                        SaveAndRepublishSafe();
                         RequestImmediateRedraw();
                     };
                     injected.Add(miToggleVa);
@@ -15262,6 +16034,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                             if (hiddenProfileKeys.Contains(targetKey)) hiddenProfileKeys.Remove(targetKey);
                             else hiddenProfileKeys.Add(targetKey);
                         }
+                        SaveAndRepublishSafe();
                         RequestImmediateRedraw();
                     };
                     injected.Add(miToggleProf);
@@ -15293,21 +16066,21 @@ namespace NinjaTrader.NinjaScript.Indicators
                             {
                                 bool hadExtVa = extendedVaKeys.Remove(targetKey);
                                 bool hadExtPoc = extendedPocKeys.Remove(targetKey);
+                                bool hadPinSync = pinnedSyncKeys.Remove(targetKey);
                                 mergeWithNextKeys.Add(prevJoinKey);
                                 RebuildCompiledProfilesLocked();
-                                if (firstRaw - 1 >= 0 && firstRaw - 1 < compiledProfiles.Count + rawBlocks.Count)
+                                for (int p = 0; p < compiledProfiles.Count; p++)
                                 {
-                                    for (int p = 0; p < compiledProfiles.Count; p++)
+                                    if (compiledProfiles[p].FirstRawIdx <= firstRaw && compiledProfiles[p].LastRawIdx >= lastRaw)
                                     {
-                                        if (compiledProfiles[p].FirstRawIdx <= firstRaw && compiledProfiles[p].LastRawIdx >= lastRaw)
-                                        {
-                                            if (hadExtVa) extendedVaKeys.Add(compiledProfiles[p].AnchorKey);
-                                            if (hadExtPoc) extendedPocKeys.Add(compiledProfiles[p].AnchorKey);
-                                            break;
-                                        }
+                                        if (hadExtVa) extendedVaKeys.Add(compiledProfiles[p].AnchorKey);
+                                        if (hadExtPoc) extendedPocKeys.Add(compiledProfiles[p].AnchorKey);
+                                        if (hadPinSync) pinnedSyncKeys.Add(compiledProfiles[p].AnchorKey);
+                                        break;
                                     }
                                 }
                             }
+                            SaveAndRepublishSafe();
                             RequestImmediateRedraw();
                         };
                         injected.Add(miMergePrev);
@@ -15320,22 +16093,40 @@ namespace NinjaTrader.NinjaScript.Indicators
                         {
                             lock (syncLock)
                             {
+                                bool hadExtVa = extendedVaKeys.Remove(targetKey);
+                                bool hadExtPoc = extendedPocKeys.Remove(targetKey);
+                                bool hadPinSync = pinnedSyncKeys.Remove(targetKey);
                                 mergeWithNextKeys.Add(nextJoinKey);
                                 RebuildCompiledProfilesLocked();
+                                for (int p = 0; p < compiledProfiles.Count; p++)
+                                {
+                                    if (compiledProfiles[p].FirstRawIdx <= firstRaw && compiledProfiles[p].LastRawIdx >= lastRaw)
+                                    {
+                                        if (hadExtVa) extendedVaKeys.Add(compiledProfiles[p].AnchorKey);
+                                        if (hadExtPoc) extendedPocKeys.Add(compiledProfiles[p].AnchorKey);
+                                        if (hadPinSync) pinnedSyncKeys.Add(compiledProfiles[p].AnchorKey);
+                                        break;
+                                    }
+                                }
                             }
+                            SaveAndRepublishSafe();
                             RequestImmediateRedraw();
                         };
                         injected.Add(miMergeNext);
                     }
 
-                    var miSplitHere = new Wpf.MenuItem { Header = "✂ Dividir Perfil neste Candle (Split #" + safeSplitBar + ")", Tag = CTX_TAG };
-                    miSplitHere.Click += (s2, e2) =>
+                    if (!string.IsNullOrEmpty(safeSplitTimeKey))
                     {
-                        lock (syncLock) { userSplitBars.Add(safeSplitBar); }
-                        RebuildAllProfilesSafe(true);
-                        RequestImmediateRedraw();
-                    };
-                    injected.Add(miSplitHere);
+                        var miSplitHere = new Wpf.MenuItem { Header = "✂ Dividir Perfil neste Candle (Split #" + safeSplitBar + ")", Tag = CTX_TAG };
+                        miSplitHere.Click += (s2, e2) =>
+                        {
+                            lock (syncLock) { userSplitTimeKeys.Add(safeSplitTimeKey); }
+                            RebuildAllProfilesSafe(true);
+                            SaveAndRepublishSafe();
+                            RequestImmediateRedraw();
+                        };
+                        injected.Add(miSplitHere);
+                    }
 
                     bool thisHasComposite = (lastRaw > firstRaw);
                     bool thisHasSplit = false;
@@ -15343,9 +16134,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                     {
                         for (int r = firstRaw; r <= lastRaw && r < rawBlocks.Count; r++)
                         {
-                            for (int b = rawBlocks[r].StartBar0; b <= rawBlocks[r].EndBar0; b++)
+                            for (int b = rawBlocks[r].StartBar0; b <= rawBlocks[r].EndBar0 && b < primaryBarsCache.Count; b++)
                             {
-                                if (userSplitBars.Contains(b)) { thisHasSplit = true; break; }
+                                if (primaryBarsCache[b] != null && userSplitTimeKeys.Contains(primaryBarsCache[b].Time.Ticks.ToString(CultureInfo.InvariantCulture)))
+                                {
+                                    thisHasSplit = true;
+                                    break;
+                                }
                             }
                             if (thisHasSplit) break;
                         }
@@ -15362,11 +16157,15 @@ namespace NinjaTrader.NinjaScript.Indicators
                                 {
                                     mergeWithNextKeys.Remove(rawBlocks[r].BlockKey);
                                     if (r > 0) mergeWithNextKeys.Remove(rawBlocks[r - 1].BlockKey);
-                                    for (int b = rawBlocks[r].StartBar0; b <= rawBlocks[r].EndBar0; b++)
-                                        userSplitBars.Remove(b);
+                                    for (int b = rawBlocks[r].StartBar0; b <= rawBlocks[r].EndBar0 && b < primaryBarsCache.Count; b++)
+                                    {
+                                        if (primaryBarsCache[b] != null)
+                                            userSplitTimeKeys.Remove(primaryBarsCache[b].Time.Ticks.ToString(CultureInfo.InvariantCulture));
+                                    }
                                 }
                             }
                             RebuildAllProfilesSafe(true);
+                            SaveAndRepublishSafe();
                             RequestImmediateRedraw();
                         };
                         injected.Add(miUnmerge);
@@ -15386,9 +16185,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                         lock (syncLock)
                         {
                             mergeWithNextKeys.Clear();
-                            userSplitBars.Clear();
+                            userSplitTimeKeys.Clear();
                         }
                         RebuildAllProfilesSafe(true);
+                        SaveAndRepublishSafe();
                         RequestImmediateRedraw();
                     };
                     injected.Add(miUnmergeAll);
@@ -15408,6 +16208,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                             extendedVaKeys.Clear();
                             extendedPocKeys.Clear();
                         }
+                        SaveAndRepublishSafe();
                         RequestImmediateRedraw();
                     };
                     injected.Add(miClearAllExt);
@@ -15429,8 +16230,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                     var miUnhideAll = new Wpf.MenuItem { Header = "👁 Mostrar TODOS os Dias/Retângulos Ocultos" };
                     miUnhideAll.Click += (s2, e2) =>
                     {
-                        hiddenVaKeys.Clear();
-                        hiddenProfileKeys.Clear();
+                        lock (syncLock)
+                        {
+                            hiddenVaKeys.Clear();
+                            hiddenProfileKeys.Clear();
+                        }
+                        SaveAndRepublishSafe();
                         RequestImmediateRedraw();
                     };
                     miLines.Items.Add(new Wpf.Separator());
@@ -15542,8 +16347,9 @@ namespace NinjaTrader.NinjaScript.Indicators
             var win = new Window
             {
                 Title = "VeltrixQuant — TPO + Volume Profile",
-                Width = 460,
-                SizeToContent = SizeToContent.Height,
+                SizeToContent = SizeToContent.WidthAndHeight,
+                MinWidth = 580,
+                MaxWidth = 780,
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,
                 ResizeMode = ResizeMode.NoResize,
                 Background = winBg,
@@ -15554,7 +16360,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             var root = new Wpf.StackPanel { Margin = new Thickness(12) };
             root.Children.Add(new Wpf.TextBlock
             {
-                Text = "TPO + Volume Profile (Dica: clique direito num dia do gráfico para Merge/Split/Ocultar)",
+                Text = "TPO + Volume Profile (Dica: clique direito num dia do gráfico para Merge/Split/Estender/Espelhar)",
                 Foreground = accentBr,
                 FontSize = 11.8,
                 FontWeight = FontWeights.Bold,
@@ -15562,7 +16368,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Margin = new Thickness(0, 0, 0, 8)
             });
 
-            var cbModo = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixTpoVolModoV9)), SelectedItem = ModoExibicao, Width = 175 };
+            var cbModo = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixTpoVolModoV9)), SelectedItem = ModoExibicao, Width = 195 };
             var tbTpoMin = new Wpf.TextBox { Text = PeriodoTpoMinutos.ToString(CultureInfo.InvariantCulture), Width = 68, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbVaPct = new Wpf.TextBox { Text = PercentualAreaValor.ToString(CultureInfo.InvariantCulture), Width = 68, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbTickGrp = new Wpf.TextBox { Text = TicksAgrupamento.ToString(CultureInfo.InvariantCulture), Width = 68, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
@@ -15578,6 +16384,14 @@ namespace NinjaTrader.NinjaScript.Indicators
             var chkIb = new Wpf.CheckBox { IsChecked = MostrarInitialBalance, Content = "Initial Balance", Foreground = txtBr };
             var chkMid = new Wpf.CheckBox { IsChecked = MostrarMid, Content = "Mid 50%", Foreground = txtBr };
             var chkNPoc = new Wpf.CheckBox { IsChecked = MostrarNakedPOC, Content = "Naked POC", Foreground = txtBr };
+
+            var chkSyncPub = new Wpf.CheckBox { IsChecked = PublicarZonasCrossChart, Content = "Publicar VA/POC deste Gráfico", Foreground = txtBr };
+            var cbSyncPubModo = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixTpoSyncPubModoV9)), SelectedItem = ModoPublicacaoSync, Width = 195 };
+            var chkSyncRecv = new Wpf.CheckBox { IsChecked = ReceberZonasCrossChart, Content = "Receber VA/POC de Outros Gráficos", Foreground = txtBr };
+            var chkSyncOnly = new Wpf.CheckBox { IsChecked = SomenteZonasRecebidas, Content = "Modo Receptor Limpo (Só Zonas Externas)", Foreground = txtBr };
+            var chkSyncPoc = new Wpf.CheckBox { IsChecked = MostrarPocVAExterna, Content = "Mostrar POC/Bordas Recebidas", Foreground = txtBr };
+            var tbCanalSync = new Wpf.TextBox { Text = CanalSync.ToString(CultureInfo.InvariantCulture), Width = 44, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbOpVaExt = new Wpf.TextBox { Text = OpacidadeVAExternaPct.ToString(CultureInfo.InvariantCulture), Width = 54, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
 
             var tbColIn = new Wpf.TextBox { Text = BrushToHex(CorVolumeDentroVA, "#E2E8F0"), Width = 84, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbColOut = new Wpf.TextBox { Text = BrushToHex(CorVolumeForaVA, "#475569"), Width = 84, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
@@ -15622,52 +16436,93 @@ namespace NinjaTrader.NinjaScript.Indicators
                 MostrarMid = (chkMid.IsChecked == true);
                 MostrarNakedPOC = (chkNPoc.IsChecked == true);
 
+                PublicarZonasCrossChart = (chkSyncPub.IsChecked == true);
+                if (cbSyncPubModo.SelectedItem is VeltrixTpoSyncPubModoV9)
+                    ModoPublicacaoSync = (VeltrixTpoSyncPubModoV9)cbSyncPubModo.SelectedItem;
+                ReceberZonasCrossChart = (chkSyncRecv.IsChecked == true);
+                SomenteZonasRecebidas = (chkSyncOnly.IsChecked == true);
+                MostrarPocVAExterna = (chkSyncPoc.IsChecked == true);
+                if (int.TryParse(tbCanalSync.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv))
+                    CanalSync = Math.Max(1, Math.Min(4, iv));
+                if (int.TryParse(tbOpVaExt.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv))
+                    OpacidadeVAExternaPct = Math.Max(0, Math.Min(60, iv));
+
                 CorVolumeDentroVA = HexToFrozenBrush(tbColIn.Text, CorVolumeDentroVA);
                 CorVolumeForaVA = HexToFrozenBrush(tbColOut.Text, CorVolumeForaVA);
                 CorPOC = HexToFrozenBrush(tbColPoc.Text, CorPOC);
                 CorRetanguloVA = HexToFrozenBrush(tbColVa.Text, CorRetanguloVA);
                 CorMid = HexToFrozenBrush(tbColMid.Text, CorMid);
+                var scVaNow = CorRetanguloVA as System.Windows.Media.SolidColorBrush;
+                if (scVaNow != null) { cachedVaColorR = scVaNow.Color.R; cachedVaColorG = scVaNow.Color.G; cachedVaColorB = scVaNow.Color.B; }
                 lastDxSig = "";
 
-                if (needRebuild) RebuildAllProfilesSafe(true);
+                if (needRebuild && !SomenteZonasRecebidas) RebuildAllProfilesSafe(true);
+                SaveAndRepublishSafe();
                 if (ChartControl != null) ChartControl.InvalidateVisual();
             };
 
-            var btnPresetEs = new Wpf.Button { Content = "ES (1 tick)", Height = 22, Padding = new Thickness(8, 1, 8, 1), Margin = new Thickness(0, 0, 6, 0), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
-            var btnPresetNq = new Wpf.Button { Content = "NQ (8 ticks / 2 pts)", Height = 22, Padding = new Thickness(8, 1, 8, 1), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
-            btnPresetEs.Click += (s2, e2) => { tbTickGrp.Text = "1"; chkLetras.IsChecked = true; chkAutoLetras.IsChecked = true; applyChanges(); };
-            btnPresetNq.Click += (s2, e2) => { tbTickGrp.Text = "8"; chkLetras.IsChecked = true; chkAutoLetras.IsChecked = true; applyChanges(); };
-            var presetRow = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
-            presetRow.Children.Add(new Wpf.TextBlock { Text = "Presets:", Foreground = mutBr, FontSize = 11.2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+            var btnPresetEs = new Wpf.Button { Content = "ES (1 tick)", Height = 22, Padding = new Thickness(9, 1, 9, 1), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnPresetNq = new Wpf.Button { Content = "NQ (8 ticks / 2 pts)", Height = 22, Padding = new Thickness(9, 1, 9, 1), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnPresetPub = new Wpf.Button { Content = "📡 Publicar Este Gráfico", Height = 22, Padding = new Thickness(9, 1, 9, 1), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnPresetRecv = new Wpf.Button { Content = "📥 Receptor Limpo (Só VA)", Height = 22, Padding = new Thickness(9, 1, 9, 1), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            btnPresetEs.Click += (s2, e2) => { tbTickGrp.Text = "1"; chkLetras.IsChecked = true; chkAutoLetras.IsChecked = true; chkSyncOnly.IsChecked = false; applyChanges(); };
+            btnPresetNq.Click += (s2, e2) => { tbTickGrp.Text = "8"; chkLetras.IsChecked = true; chkAutoLetras.IsChecked = true; chkSyncOnly.IsChecked = false; applyChanges(); };
+            btnPresetPub.Click += (s2, e2) => { chkSyncPub.IsChecked = true; chkSyncOnly.IsChecked = false; applyChanges(); };
+            btnPresetRecv.Click += (s2, e2) => { chkSyncRecv.IsChecked = true; chkSyncOnly.IsChecked = true; chkSyncPub.IsChecked = false; applyChanges(); };
+
+            var presetRow = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+            presetRow.Children.Add(new Wpf.TextBlock { Text = "Presets:", Foreground = mutBr, FontSize = 11.2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 4) });
             presetRow.Children.Add(btnPresetEs);
             presetRow.Children.Add(btnPresetNq);
+            presetRow.Children.Add(btnPresetPub);
+            presetRow.Children.Add(btnPresetRecv);
             root.Children.Add(presetRow);
 
             var grid = new Wpf.Grid();
-            grid.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = new GridLength(180) });
+            grid.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = new GridLength(195) });
             grid.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = GridLength.Auto });
 
             Action<string, UIElement> addRow = (lblTxt, ctrl) =>
             {
                 int rIdx = grid.RowDefinitions.Count;
                 grid.RowDefinitions.Add(new Wpf.RowDefinition { Height = GridLength.Auto });
-                var lbl = new Wpf.TextBlock { Text = lblTxt, Foreground = mutBr, FontSize = 11.2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2.5, 8, 2.5) };
+                var lbl = new Wpf.TextBlock { Text = lblTxt, Foreground = mutBr, FontSize = 11.2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2.5, 10, 2.5) };
                 Wpf.Grid.SetRow(lbl, rIdx); Wpf.Grid.SetColumn(lbl, 0); grid.Children.Add(lbl);
                 var fe = ctrl as FrameworkElement;
                 if (fe != null) { fe.Margin = new Thickness(0, 2.5, 0, 2.5); fe.VerticalAlignment = VerticalAlignment.Center; }
                 Wpf.Grid.SetRow(ctrl, rIdx); Wpf.Grid.SetColumn(ctrl, 1); grid.Children.Add(ctrl);
             };
 
+            Func<UIElement[], Wpf.WrapPanel> wrapGroup = (els) =>
+            {
+                var wp = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                for (int i = 0; i < els.Length; i++)
+                {
+                    var fe = els[i] as FrameworkElement;
+                    if (fe != null && i + 1 < els.Length)
+                        fe.Margin = new Thickness(0, 1, 10, 1);
+                    else if (fe != null)
+                        fe.Margin = new Thickness(0, 1, 0, 1);
+                    wp.Children.Add(els[i]);
+                }
+                return wp;
+            };
+
             addRow("Modo Exibição", cbModo);
-            addRow("Letras TPO", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkLetras, new Wpf.TextBlock { Width = 10 }, chkAutoLetras } });
+            addRow("Letras TPO", wrapGroup(new UIElement[] { chkLetras, chkAutoLetras }));
             addRow("Letra TPO (Minutos)", tbTpoMin);
             addRow("Area de Valor (%)", tbVaPct);
             addRow("Agrupar Ticks", tbTickGrp);
             addRow("Largura Histograma (%)", tbLarg);
             addRow("Opacidade Retângulo VA (%)", tbOpVa);
             addRow("Extensão", chkExt);
-            addRow("Linhas (POC / VAH / VA)", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkPoc, new Wpf.TextBlock { Width = 8 }, chkVah, new Wpf.TextBlock { Width = 8 }, chkRectVa } });
-            addRow("Extras (IB / Mid / nPOC)", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { chkIb, new Wpf.TextBlock { Width = 8 }, chkMid, new Wpf.TextBlock { Width = 8 }, chkNPoc } });
+            addRow("Linhas (POC / VAH / VA)", wrapGroup(new UIElement[] { chkPoc, chkVah, chkRectVa }));
+            addRow("Extras (IB / Mid / nPOC)", wrapGroup(new UIElement[] { chkIb, chkMid, chkNPoc }));
+
+            addRow("Espelhar (Publicar)", wrapGroup(new UIElement[] { chkSyncPub, cbSyncPubModo }));
+            addRow("Receber (Cross-Chart)", wrapGroup(new UIElement[] { chkSyncRecv, chkSyncOnly }));
+            addRow("Sync Canal / Opac% / POC", wrapGroup(new UIElement[] { tbCanalSync, new Wpf.TextBlock { Text = "Opac%:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbOpVaExt, chkSyncPoc }));
+
             addRow("Cor Vol. Dentro VA", tbColIn);
             addRow("Cor Vol. Fora VA", tbColOut);
             addRow("Cor POC", tbColPoc);
@@ -15677,22 +16532,22 @@ namespace NinjaTrader.NinjaScript.Indicators
             var scroll = new Wpf.ScrollViewer { MaxHeight = 460, VerticalScrollBarVisibility = Wpf.ScrollBarVisibility.Auto, Content = grid };
             root.Children.Add(new Wpf.Border { Background = cardBg, BorderBrush = borderBr, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 6, 10, 6), Child = scroll });
 
-            var actionRow = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
-            var btnShowAll = new Wpf.Button { Content = "Mostrar Todos Dias", Height = 23, Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 6, 0), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
-            var btnUnmergeAll = new Wpf.Button { Content = "Desfazer Todos Merge/Splits", Height = 23, Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 6, 0), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
-            var btnClearExt = new Wpf.Button { Content = "Limpar Extensões VA/POC", Height = 23, Padding = new Thickness(8, 2, 8, 2), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var actionRow = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 2) };
+            var btnShowAll = new Wpf.Button { Content = "Mostrar Todos Dias", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnUnmergeAll = new Wpf.Button { Content = "Desfazer Todos Merge/Splits", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnClearExt = new Wpf.Button { Content = "Limpar Extensões VA/POC", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
 
-            btnShowAll.Click += (s2, e2) => { lock (syncLock) { hiddenVaKeys.Clear(); hiddenProfileKeys.Clear(); } if (ChartControl != null) ChartControl.InvalidateVisual(); };
-            btnUnmergeAll.Click += (s2, e2) => { lock (syncLock) { mergeWithNextKeys.Clear(); userSplitBars.Clear(); } RebuildAllProfilesSafe(true); if (ChartControl != null) ChartControl.InvalidateVisual(); };
-            btnClearExt.Click += (s2, e2) => { lock (syncLock) { extendedVaKeys.Clear(); extendedPocKeys.Clear(); } if (ChartControl != null) ChartControl.InvalidateVisual(); };
+            btnShowAll.Click += (s2, e2) => { lock (syncLock) { hiddenVaKeys.Clear(); hiddenProfileKeys.Clear(); hiddenExternalZoneIds.Clear(); } SaveAndRepublishSafe(); if (ChartControl != null) ChartControl.InvalidateVisual(); };
+            btnUnmergeAll.Click += (s2, e2) => { lock (syncLock) { mergeWithNextKeys.Clear(); userSplitTimeKeys.Clear(); } RebuildAllProfilesSafe(true); SaveAndRepublishSafe(); if (ChartControl != null) ChartControl.InvalidateVisual(); };
+            btnClearExt.Click += (s2, e2) => { lock (syncLock) { extendedVaKeys.Clear(); extendedPocKeys.Clear(); } SaveAndRepublishSafe(); if (ChartControl != null) ChartControl.InvalidateVisual(); };
             actionRow.Children.Add(btnShowAll); actionRow.Children.Add(btnUnmergeAll); actionRow.Children.Add(btnClearExt);
             root.Children.Add(actionRow);
 
-            var btnRow = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 6, 0, 0) };
+            var btnRow = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0) };
             var okBg = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(2, 132, 199)); okBg.Freeze();
-            var btnApply = new Wpf.Button { Content = "Aplicar", Height = 24, Padding = new Thickness(12, 2, 12, 2), Margin = new Thickness(0, 0, 6, 0), Background = okBg, Foreground = txtBr, BorderBrush = accentBr, Cursor = Cursors.Hand };
-            var btnOk = new Wpf.Button { Content = "OK", Height = 24, Padding = new Thickness(12, 2, 12, 2), Margin = new Thickness(0, 0, 6, 0), Background = cardBg, Foreground = accentBr, BorderBrush = accentBr, Cursor = Cursors.Hand };
-            var btnClose = new Wpf.Button { Content = "Fechar", Height = 24, Padding = new Thickness(10, 2, 10, 2), Background = inputBg, Foreground = mutBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnApply = new Wpf.Button { Content = "Aplicar", Height = 25, Padding = new Thickness(14, 2, 14, 2), Margin = new Thickness(0, 0, 6, 0), Background = okBg, Foreground = txtBr, BorderBrush = accentBr, Cursor = Cursors.Hand };
+            var btnOk = new Wpf.Button { Content = "OK", Height = 25, Padding = new Thickness(14, 2, 14, 2), Margin = new Thickness(0, 0, 6, 0), Background = cardBg, Foreground = accentBr, BorderBrush = accentBr, Cursor = Cursors.Hand };
+            var btnClose = new Wpf.Button { Content = "Fechar", Height = 25, Padding = new Thickness(12, 2, 12, 2), Background = inputBg, Foreground = mutBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
 
             btnApply.Click += (s2, e2) => applyChanges();
             btnOk.Click += (s2, e2) => { applyChanges(); win.Close(); };
