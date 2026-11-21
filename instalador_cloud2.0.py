@@ -16770,6 +16770,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             public bool IsExhaustion;
             public bool IsImpulse;
             public bool IsEmptyFiller;
+            public string CachedTxtL;
+            public string CachedTxtR;
             public long Delta { get { return AskVol - BidVol; } }
         }
 
@@ -16828,7 +16830,16 @@ namespace NinjaTrader.NinjaScript.Indicators
             public DateTime StartUtc;
             public DateTime LastTickUtc;
             public double ElapsedSec = 1.0;
-            public readonly Dictionary<long, PriceCell> Cells = new Dictionary<long, PriceCell>(64);
+            public int DataVer = 1;
+            public bool MetricsComputed = false;
+            public long CachedGroup = -1;
+            public int CachedVer = -1;
+            public bool CachedFillEmpty = false;
+            public int CachedSigHash = 0;
+            public long CachedMaxVol = 1;
+            public long CachedMaxDelta = 1;
+            public readonly Dictionary<long, PriceCell> Cells = new Dictionary<long, PriceCell>(48);
+            public readonly List<BucketRenderCell> CachedBuckets = new List<BucketRenderCell>(32);
         }
 
         private readonly object dataLock = new object();
@@ -16841,6 +16852,9 @@ namespace NinjaTrader.NinjaScript.Indicators
         private readonly Dictionary<long, DateTime> lastBidReplenishUtc = new Dictionary<long, DateTime>(64);
         private readonly Dictionary<long, DateTime> lastAskReplenishUtc = new Dictionary<long, DateTime>(64);
         private readonly List<BucketRenderCell> tmpBuckets = new List<BucketRenderCell>(128);
+        private readonly SortedDictionary<long, BucketRenderCell> reusableBMap = new SortedDictionary<long, BucketRenderCell>();
+        private readonly List<long> reusableSortedTicks = new List<long>(128);
+        private readonly double[] reusableWeights = new double[164];
         private readonly List<FpBarData> nakedPocCandidates = new List<FpBarData>(64);
 
         // Tape reconstructor buffer (merges split child fills at same tick/side within window)
@@ -16858,6 +16872,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         private bool usesSubSeries = false;
         private int lastAnalyticsBarCount = -1;
         private DateTime lastAnalyticsRunUtc = DateTime.MinValue;
+        private bool analyticsDirty = false;
+        private long histRunningCumDelta = 0;
+        private long histPrevBarDelta = 0;
+        private int lastHistCumBarIdx = -1;
+        private bool hookDispatched = false;
 
         // Alert cooldown guards
         private DateTime lastStackedAlertUtc = DateTime.MinValue;
@@ -16887,10 +16906,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         private D2D.SolidColorBrush dxAbsSupFill, dxAbsSupEdge, dxAbsResFill, dxAbsResEdge;
         private D2D.SolidColorBrush dxUnfBr, dxRatioNeutralBr, dxRatioRejBr;
         private D2D.SolidColorBrush dxTextBright, dxTextBid, dxTextAsk, dxTextMuted;
-        private D2D.SolidColorBrush dxSpineUp, dxSpineDown, dxGridBg, dxGridBorder, dxBadgeBg, dxUserLvlBr, dxSpecGloss;
+        private D2D.SolidColorBrush dxSpineUp, dxSpineDown, dxGridBg, dxGridBorder, dxBadgeBg, dxUserLvlBr, dxSpecGloss, dxFillerFill, dxFillerEdge;
         private readonly Dictionary<uint, D2D.SolidColorBrush> dxDynBrushCache = new Dictionary<uint, D2D.SolidColorBrush>(64);
         private D2D.StrokeStyle dxDashStyle, dxDotStyle;
-        private DW.TextFormat dxFontLeft, dxFontRight, dxFontSmall, dxFontStat, dxFontHdr;
+        private DW.TextFormat dxFontLeft, dxFontRight, dxFontSmall, dxFontStat, dxFontHdr, dxFontCompact;
 
         #region Properties - 01. Left Footprint
         [Display(Name = "Left Footprint Style", GroupName = "01. Left Footprint", Order = 1)]
@@ -17262,7 +17281,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 DisplayInDataBox = false;
                 DrawOnPricePanel = true;
                 PaintPriceMarkers = false;
-                IsSuspendedWhileInactive = true;
+                IsSuspendedWhileInactive = false;
 
                 LeftStyle = VeltrixFpStyle.BidAsk;
                 LeftShape = VeltrixFpClusterShape.HeatGradient;
@@ -17414,6 +17433,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                     prevHistTickPrice = double.NaN;
                     lastProcessedSubBar = -1;
                     lastAnalyticsBarCount = -1;
+                    analyticsDirty = false;
+                    histRunningCumDelta = 0;
+                    histPrevBarDelta = 0;
+                    lastHistCumBarIdx = -1;
+                    hookDispatched = false;
                     LoadPersistedStateLocked();
                 }
                 SetZOrder(2);
@@ -17422,7 +17446,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             else if (State == State.Historical)
             {
                 SetZOrder(2);
-                HookChartContextAndToolbar();
+                if (!hookDispatched)
+                    HookChartContextAndToolbar();
             }
             else if (State == State.Transition)
             {
@@ -17430,6 +17455,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 {
                     FlushPendingTapeLocked();
                     RecomputeAnalyticsLocked(true);
+                    analyticsDirty = false;
                 }
             }
             else if (State == State.Terminated)
@@ -17830,6 +17856,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             bar.BarDelta = bar.BuyVol - bar.SellVol;
             if (bar.BarDelta < bar.MinDelta) bar.MinDelta = bar.BarDelta;
             if (bar.BarDelta > bar.MaxDelta) bar.MaxDelta = bar.BarDelta;
+            bar.DataVer++;
+            bar.MetricsComputed = false;
         }
 
         private void DistributeHistoricalBarOHLC(FpBarData bar, double o, double h, double l, double c, long vol)
@@ -17837,45 +17865,49 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (vol <= 0 || h < l) return;
             long tickL = PriceToTick(l);
             long tickH = PriceToTick(h);
-            long span = Math.Max(1L, tickH - tickL + 1L);
-            if (span > 160) span = 160; // Guard aberrant data spikes
+            long rawSpan = Math.Max(1L, tickH - tickL + 1L);
+            int tickStep = (rawSpan > 56L) ? (int)Math.Ceiling((double)rawSpan / 56.0) : 1;
+            int nBins = (int)((rawSpan + tickStep - 1L) / tickStep);
+            if (nBins < 1) nBins = 1;
+            if (nBins > 60) nBins = 60;
 
             bool bull = (c >= o);
             double bodyLow = Math.Min(o, c);
             double bodyHigh = Math.Max(o, c);
+            double ts = SafeTickSize();
             double askBias = bull ? 0.63 : 0.37;
-            if (Math.Abs(h - l) > SafeTickSize() * 0.5)
+            if (Math.Abs(h - l) > ts * 0.5)
             {
-                double closePos = (c - l) / Math.Max(SafeTickSize(), h - l);
+                double closePos = (c - l) / Math.Max(ts, h - l);
                 askBias = Math.Max(0.22, Math.Min(0.78, 0.35 + closePos * 0.30 + (bull ? 0.10 : -0.10)));
             }
 
-            double[] weights = new double[span];
             double wSum = 0;
             double mid = (o + c) * 0.5;
-            double sigma = Math.Max(SafeTickSize(), (h - l) * 0.32);
+            double sigma = Math.Max(ts, (h - l) * 0.32);
 
-            for (long i = 0; i < span; i++)
+            for (int i = 0; i < nBins; i++)
             {
-                double px = TickToPrice(tickL + i);
+                long tk = (i == nBins - 1) ? tickH : (tickL + (long)i * tickStep);
+                double px = TickToPrice(tk);
                 double d = (px - mid) / sigma;
                 double w = Math.Exp(-0.45 * d * d);
                 if (px >= bodyLow && px <= bodyHigh) w *= 1.35;
-                weights[i] = w;
+                reusableWeights[i] = w;
                 wSum += w;
             }
             if (wSum <= 0) wSum = 1.0;
 
             long distributed = 0;
-            for (long i = 0; i < span; i++)
+            for (int i = 0; i < nBins; i++)
             {
-                long cellVol = (i == span - 1) ? Math.Max(0, vol - distributed) : (long)Math.Round(vol * (weights[i] / wSum));
+                long cellVol = (i == nBins - 1) ? Math.Max(0, vol - distributed) : (long)Math.Round(vol * (reusableWeights[i] / wSum));
                 if (cellVol <= 0) continue;
                 distributed += cellVol;
 
                 long aVol = (long)Math.Round(cellVol * askBias);
                 long bVol = Math.Max(0, cellVol - aVol);
-                long tk = tickL + i;
+                long tk = (i == nBins - 1) ? tickH : (tickL + (long)i * tickStep);
 
                 PriceCell cell;
                 if (!bar.Cells.TryGetValue(tk, out cell))
@@ -17886,17 +17918,20 @@ namespace NinjaTrader.NinjaScript.Indicators
                 cell.Vol += cellVol;
                 cell.AskVol += aVol;
                 cell.BidVol += bVol;
-                cell.Trades += Math.Max(1, (int)Math.Min(100, cellVol));
+                int addTr = Math.Max(1, (int)Math.Min(100, cellVol));
+                cell.Trades += addTr;
 
                 bar.TotalVol += cellVol;
                 bar.BuyVol += aVol;
                 bar.SellVol += bVol;
-                bar.TradesCount += Math.Max(1, (int)Math.Min(100, cellVol));
+                bar.TradesCount += addTr;
             }
 
             bar.BarDelta = bar.BuyVol - bar.SellVol;
             if (bar.BarDelta < bar.MinDelta) bar.MinDelta = bar.BarDelta;
             if (bar.BarDelta > bar.MaxDelta) bar.MaxDelta = bar.BarDelta;
+            bar.DataVer++;
+            bar.MetricsComputed = false;
         }
 
         protected override void OnBarUpdate()
@@ -17909,7 +17944,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (CurrentBars[0] < 0 || CurrentBars[1] <= lastProcessedSubBar) return;
                 lastProcessedSubBar = CurrentBars[1];
 
-                // During Historical execution in NT8, CurrentBars[0] accurately points to the enclosing primary bar (even on fast Range bars sharing the same minute!)
+                // During Historical execution in NT8, CurrentBars[0] accurately points to the enclosing primary bar
                 int pIdx = CurrentBars[0];
                 if (pIdx < 0) return;
 
@@ -17931,6 +17966,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     prevHistTickPrice = px;
                     prevHistTickWasAsk = isAsk;
                     ApplyTradeToBarLocked(bar, PriceToTick(px), Math.Max(1L, sVol), isAsk, false, false);
+                    analyticsDirty = true;
                 }
                 return;
             }
@@ -17943,36 +17979,59 @@ namespace NinjaTrader.NinjaScript.Indicators
                 double o0 = Opens[0][0], h0 = Highs[0][0], l0 = Lows[0][0], c0 = Closes[0][0];
                 FpBarData bar = GetOrCreateBarLocked(CurrentBar, Times[0][0], o0, h0, l0, c0, isFirstSess);
 
+                if (State == State.Historical)
+                {
+                    if (!bar.HasLiveTape && !bar.HasHistTickTape)
+                    {
+                        long v = Math.Max(0L, (long)Math.Round(Volumes[0][0]));
+                        double ts = SafeTickSize();
+                        if (v > 0 && (bar.SeededVol != v || Math.Abs(h0 - bar.SeededH) > ts * 0.1 || Math.Abs(l0 - bar.SeededL) > ts * 0.1))
+                        {
+                            bar.Cells.Clear();
+                            bar.TotalVol = 0; bar.BuyVol = 0; bar.SellVol = 0; bar.BarDelta = 0;
+                            bar.TradesCount = 0; bar.MinDelta = 0; bar.MaxDelta = 0; bar.SpreadVol = 0;
+                            bar.Open = o0; bar.High = h0; bar.Low = l0; bar.Close = c0;
+                            DistributeHistoricalBarOHLC(bar, o0, h0, l0, c0, v);
+                            bar.SeededVol = v;
+                            bar.SeededH = h0;
+                            bar.SeededL = l0;
+                        }
+                    }
+
+                    // O(1) incremental historical CumDelta tracking (eliminates O(N * 320) load hang!)
+                    if (CurrentBar > lastHistCumBarIdx)
+                    {
+                        if (bar.IsSessionStart) histRunningCumDelta = 0;
+                        histRunningCumDelta += bar.BarDelta;
+                        bar.CumDeltaAtBar = histRunningCumDelta;
+                        bar.DeltaChange = bar.BarDelta - histPrevBarDelta;
+                        histPrevBarDelta = bar.BarDelta;
+                        if (CurrentBar > 0)
+                        {
+                            FpBarData prevBar;
+                            if (barsMap.TryGetValue(CurrentBar - 1, out prevBar))
+                            {
+                                double dt = (bar.Time - prevBar.Time).TotalSeconds;
+                                if (dt >= 1.0 && dt <= 86400.0) prevBar.ElapsedSec = dt;
+                            }
+                        }
+                        lastHistCumBarIdx = CurrentBar;
+                    }
+                    analyticsDirty = true;
+                    return;
+                }
+
                 if (State == State.Realtime && !bar.HasLiveTape && CurrentBar > 0 && IsFirstTickOfBar)
                     bar.StartUtc = DateTime.UtcNow;
 
-                // Always keep historical bar OHLC volume seeded & refreshed cleanly without requiring Tick Replay (works even when market is closed!)
-                if (State == State.Historical && !bar.HasLiveTape && !bar.HasHistTickTape)
-                {
-                    long v = Math.Max(0L, (long)Math.Round(Volumes[0][0]));
-                    double ts = SafeTickSize();
-                    if (v > 0 && (bar.SeededVol != v || Math.Abs(h0 - bar.SeededH) > ts * 0.1 || Math.Abs(l0 - bar.SeededL) > ts * 0.1))
-                    {
-                        bar.Cells.Clear();
-                        bar.TotalVol = 0; bar.BuyVol = 0; bar.SellVol = 0; bar.BarDelta = 0;
-                        bar.TradesCount = 0; bar.MinDelta = 0; bar.MaxDelta = 0; bar.SpreadVol = 0;
-                        bar.Open = o0; bar.High = h0; bar.Low = l0; bar.Close = c0;
-                        DistributeHistoricalBarOHLC(bar, o0, h0, l0, c0, v);
-                        bar.SeededVol = v;
-                        bar.SeededH = h0;
-                        bar.SeededL = l0;
-                    }
-                }
-
-                // Periodically recompute analytics on historical bars / closes or every 350ms live
-                bool shouldCompute = (State == State.Historical)
-                    || (IsFirstTickOfBar && CurrentBar != lastAnalyticsBarCount)
-                    || (State == State.Realtime && (DateTime.UtcNow - lastAnalyticsRunUtc).TotalMilliseconds >= 350.0);
+                bool shouldCompute = (IsFirstTickOfBar && CurrentBar != lastAnalyticsBarCount)
+                    || (State == State.Realtime && (DateTime.UtcNow - lastAnalyticsRunUtc).TotalMilliseconds >= 420.0);
                 if (shouldCompute)
                 {
                     lastAnalyticsBarCount = CurrentBar;
                     lastAnalyticsRunUtc = DateTime.UtcNow;
                     RecomputeAnalyticsLocked(false);
+                    analyticsDirty = false;
                     if (State == State.Realtime)
                         CheckFocusedAlertsLocked(CurrentBar);
                 }
@@ -17981,6 +18040,92 @@ namespace NinjaTrader.NinjaScript.Indicators
         #endregion
 
         #region Analytics (CumDelta, Bar VPOC/VA, Unfinished, Traps, Stacked Zones)
+        private void ComputeBarCoreMetricsLocked(FpBarData bar, double ts)
+        {
+            if (bar == null) return;
+            if (bar.Cells.Count == 0)
+            {
+                bar.MetricsComputed = true;
+                return;
+            }
+
+            long highTk = PriceToTick(bar.High);
+            long lowTk = PriceToTick(bar.Low);
+            long bestTk = highTk;
+            long bestVol = -1;
+            long maxVolCell = 0;
+
+            reusableSortedTicks.Clear();
+            foreach (KeyValuePair<long, PriceCell> kv in bar.Cells)
+            {
+                reusableSortedTicks.Add(kv.Key);
+                long cv = kv.Value.Vol;
+                if (cv > bestVol) { bestVol = cv; bestTk = kv.Key; }
+                if (cv > maxVolCell) maxVolCell = cv;
+            }
+            reusableSortedTicks.Sort();
+
+            bar.PocTick = bestTk;
+            bar.PocPrice = TickToPrice(bestTk);
+
+            // 68% Value Area around VPOC
+            long vaTarget = (long)Math.Round(bar.TotalVol * (Math.Max(50, Math.Min(90, BarVaPct)) / 100.0));
+            long vaSum = bestVol > 0 ? bestVol : 0;
+            int pocPos = reusableSortedTicks.IndexOf(bestTk);
+            int loIdx = Math.Max(0, pocPos);
+            int hiIdx = Math.Max(0, pocPos);
+            while (vaSum < vaTarget && (loIdx > 0 || hiIdx < reusableSortedTicks.Count - 1))
+            {
+                long upVol = (hiIdx + 1 < reusableSortedTicks.Count) ? bar.Cells[reusableSortedTicks[hiIdx + 1]].Vol : -1;
+                long dnVol = (loIdx - 1 >= 0) ? bar.Cells[reusableSortedTicks[loIdx - 1]].Vol : -1;
+                if (upVol >= dnVol && upVol >= 0) { hiIdx++; vaSum += upVol; }
+                else if (dnVol >= 0) { loIdx--; vaSum += dnVol; }
+                else break;
+            }
+            bar.VahPrice = (hiIdx < reusableSortedTicks.Count) ? TickToPrice(reusableSortedTicks[hiIdx]) : bar.High;
+            bar.ValPrice = (loIdx < reusableSortedTicks.Count) ? TickToPrice(reusableSortedTicks[loIdx]) : bar.Low;
+
+            // Unfinished Auction at exact candle High / Low
+            PriceCell hiCell, loCell;
+            bar.UnfinishedHigh = bar.Cells.TryGetValue(highTk, out hiCell) && hiCell.BidVol > 0 && hiCell.AskVol > 0;
+            bar.UnfinishedLow = bar.Cells.TryGetValue(lowTk, out loCell) && loCell.BidVol > 0 && loCell.AskVol > 0;
+
+            // Ratio Numbers at Top & Bottom extremes
+            if (reusableSortedTicks.Count >= 2)
+            {
+                PriceCell top0 = bar.Cells[reusableSortedTicks[reusableSortedTicks.Count - 1]];
+                PriceCell top1 = bar.Cells[reusableSortedTicks[reusableSortedTicks.Count - 2]];
+                bar.TopRatio = (double)Math.Max(1, top1.Vol) / (double)Math.Max(1, top0.Vol);
+
+                PriceCell bot0 = bar.Cells[reusableSortedTicks[0]];
+                PriceCell bot1 = bar.Cells[reusableSortedTicks[1]];
+                bar.BottomRatio = (double)Math.Max(1, bot1.Vol) / (double)Math.Max(1, bot0.Vol);
+            }
+
+            // COT High/Low (top 25% & bottom 25% of range delta)
+            double range25 = (bar.High - bar.Low) * 0.25;
+            long cotH = 0, cotL = 0;
+            for (int i = 0; i < reusableSortedTicks.Count; i++)
+            {
+                long tk = reusableSortedTicks[i];
+                double px = TickToPrice(tk);
+                PriceCell pc = bar.Cells[tk];
+                if (px >= bar.High - range25) cotH += (pc.AskVol - pc.BidVol);
+                if (px <= bar.Low + range25) cotL += (pc.AskVol - pc.BidVol);
+            }
+            bar.CotHighDelta = cotH;
+            bar.CotLowDelta = cotL;
+
+            // Exhaustion Prints at exact extremes
+            bar.HasExhaustionHigh = bar.Cells.TryGetValue(highTk, out hiCell) && hiCell.Vol > 0 && hiCell.Vol <= ExhaustionMaxVol && maxVolCell >= ExhaustionMaxVol * 3;
+            bar.HasExhaustionLow = bar.Cells.TryGetValue(lowTk, out loCell) && loCell.Vol > 0 && loCell.Vol <= ExhaustionMaxVol && maxVolCell >= ExhaustionMaxVol * 3;
+
+            // Traps (Delta Divergence: Up bar with negative delta, Down bar with positive delta & significant volume)
+            bar.HasBuyingTrap = (bar.Close > bar.Open) && (bar.BarDelta < -Math.Max(10, ImbalanceMinVol / 2)) && (bar.TotalVol >= Math.Max(20, ImbalanceMinVol));
+            bar.HasSellingTrap = (bar.Close < bar.Open) && (bar.BarDelta > Math.Max(10, ImbalanceMinVol / 2)) && (bar.TotalVol >= Math.Max(20, ImbalanceMinVol));
+            bar.MetricsComputed = true;
+        }
+
         private void RecomputeAnalyticsLocked(bool fullReset)
         {
             if (barsMap.Count == 0 || CurrentBar < 0) return;
@@ -17991,33 +18136,29 @@ namespace NinjaTrader.NinjaScript.Indicators
             derivedZones.Clear();
             nakedPocCandidates.Clear();
 
-            // Active open stacked zone trackers matching across levels for closed bars
             int maxScan = CurrentBar;
-            int minScan = fullReset ? 0 : Math.Max(0, maxScan - 320);
-            if (minScan > 0)
+            int minCumScan = fullReset ? 0 : Math.Max(0, maxScan - 180);
+            if (minCumScan > 0)
             {
                 FpBarData prevAnchor;
-                if (barsMap.TryGetValue(minScan - 1, out prevAnchor))
+                if (barsMap.TryGetValue(minCumScan - 1, out prevAnchor))
                 {
                     cumDelta = prevAnchor.CumDeltaAtBar;
                     prevDelta = prevAnchor.BarDelta;
                 }
             }
 
-            List<FpZone> activeZones = new List<FpZone>(64);
-
-            for (int b = minScan; b <= maxScan; b++)
+            // Fast linear CumDelta + ElapsedSec pass (0 allocations)
+            for (int b = minCumScan; b <= maxScan; b++)
             {
                 FpBarData bar;
                 if (!barsMap.TryGetValue(b, out bar)) continue;
-
                 if (bar.IsSessionStart) cumDelta = 0;
                 cumDelta += bar.BarDelta;
                 bar.CumDeltaAtBar = cumDelta;
                 bar.DeltaChange = bar.BarDelta - prevDelta;
                 prevDelta = bar.BarDelta;
 
-                // Elapsed time calculation for Vol/sec & DeltaRate
                 if (b < maxScan)
                 {
                     FpBarData nxt;
@@ -18027,139 +18168,66 @@ namespace NinjaTrader.NinjaScript.Indicators
                         if (dt >= 1.0 && dt <= 86400.0) bar.ElapsedSec = dt;
                     }
                 }
+            }
 
-                // Bar VPOC + Value Area + Unfinished Auction + Traps + Ratios + Exhaustion + Zones
-                if (bar.Cells.Count > 0)
+            // Recent window for Naked VPOC & Active Stacked/Absorption Zones (older bars lazily evaluated in OnRender!)
+            int detailStart = Math.Max(minCumScan, maxScan - (fullReset ? 300 : 180));
+            List<FpZone> activeZones = new List<FpZone>(64);
+
+            for (int b = detailStart; b <= maxScan; b++)
+            {
+                FpBarData bar;
+                if (!barsMap.TryGetValue(b, out bar) || bar.Cells.Count == 0) continue;
+
+                if (!bar.MetricsComputed || b == maxScan)
+                    ComputeBarCoreMetricsLocked(bar, ts);
+
+                // Naked VPOC tracking & termination check against earlier bars
+                for (int k = nakedPocCandidates.Count - 1; k >= 0; k--)
                 {
-                    long highTk = PriceToTick(bar.High);
-                    long lowTk = PriceToTick(bar.Low);
+                    FpBarData prevBar = nakedPocCandidates[k];
+                    if (prevBar.BarIdx < b && bar.Low <= prevBar.PocPrice + ts * 0.2 && bar.High >= prevBar.PocPrice - ts * 0.2)
+                        nakedPocCandidates.RemoveAt(k);
+                }
+                if (b < maxScan) nakedPocCandidates.Add(bar);
 
-                    long bestTk = highTk;
-                    long bestVol = -1;
-                    long maxVolCell = 0;
-
-                    List<long> sortedTicks = new List<long>(bar.Cells.Keys);
-                    sortedTicks.Sort();
-
-                    for (int i = 0; i < sortedTicks.Count; i++)
+                // Zone termination scan on active zones
+                for (int z = 0; z < activeZones.Count; z++)
+                {
+                    FpZone zn = activeZones[z];
+                    if (zn.Ended || zn.StartBarIdx >= b) continue;
+                    bool endSession = bar.IsSessionStart && StackedEndMode != VeltrixFpZoneEndMode.UntilSessionEnd;
+                    bool touched = (bar.Low <= zn.TopPrice + ts * 0.15 && bar.High >= zn.BottomPrice - ts * 0.15);
+                    bool brokenThrough = zn.IsSupport ? (bar.Low < zn.BottomPrice - ts * 0.4) : (bar.High > zn.TopPrice + ts * 0.4);
+                    if (endSession || (StackedEndMode == VeltrixFpZoneEndMode.ByLevelTouch && touched) || (StackedEndMode == VeltrixFpZoneEndMode.ByBarHighLow && brokenThrough))
                     {
-                        long tk = sortedTicks[i];
-                        PriceCell pc = bar.Cells[tk];
-                        if (pc.Vol > bestVol) { bestVol = pc.Vol; bestTk = tk; }
-                        if (pc.Vol > maxVolCell) maxVolCell = pc.Vol;
-                    }
-                    bar.PocTick = bestTk;
-                    bar.PocPrice = TickToPrice(bestTk);
-
-                    // 68% Value Area around VPOC
-                    long vaTarget = (long)Math.Round(bar.TotalVol * (Math.Max(50, Math.Min(90, BarVaPct)) / 100.0));
-                    long vaSum = bestVol > 0 ? bestVol : 0;
-                    int pocPos = sortedTicks.IndexOf(bestTk);
-                    int loIdx = Math.Max(0, pocPos);
-                    int hiIdx = Math.Max(0, pocPos);
-                    while (vaSum < vaTarget && (loIdx > 0 || hiIdx < sortedTicks.Count - 1))
-                    {
-                        long upVol = (hiIdx + 1 < sortedTicks.Count) ? bar.Cells[sortedTicks[hiIdx + 1]].Vol : -1;
-                        long dnVol = (loIdx - 1 >= 0) ? bar.Cells[sortedTicks[loIdx - 1]].Vol : -1;
-                        if (upVol >= dnVol && upVol >= 0) { hiIdx++; vaSum += upVol; }
-                        else if (dnVol >= 0) { loIdx--; vaSum += dnVol; }
-                        else break;
-                    }
-                    bar.VahPrice = (hiIdx < sortedTicks.Count) ? TickToPrice(sortedTicks[hiIdx]) : bar.High;
-                    bar.ValPrice = (loIdx < sortedTicks.Count) ? TickToPrice(sortedTicks[loIdx]) : bar.Low;
-
-                    // Unfinished Auction at exact candle High / Low
-                    PriceCell hiCell, loCell;
-                    bar.UnfinishedHigh = bar.Cells.TryGetValue(highTk, out hiCell) && hiCell.BidVol > 0 && hiCell.AskVol > 0;
-                    bar.UnfinishedLow = bar.Cells.TryGetValue(lowTk, out loCell) && loCell.BidVol > 0 && loCell.AskVol > 0;
-
-                    // Ratio Numbers at Top & Bottom extremes
-                    if (sortedTicks.Count >= 2)
-                    {
-                        PriceCell top0 = bar.Cells[sortedTicks[sortedTicks.Count - 1]];
-                        PriceCell top1 = bar.Cells[sortedTicks[sortedTicks.Count - 2]];
-                        long topNum = Math.Max(1, top0.Vol);
-                        long topDen = Math.Max(1, top1.Vol);
-                        bar.TopRatio = (double)topDen / (double)topNum;
-
-                        PriceCell bot0 = bar.Cells[sortedTicks[0]];
-                        PriceCell bot1 = bar.Cells[sortedTicks[1]];
-                        long botNum = Math.Max(1, bot0.Vol);
-                        long botDen = Math.Max(1, bot1.Vol);
-                        bar.BottomRatio = (double)botDen / (double)botNum;
-                    }
-
-                    // COT High/Low (top 25% & bottom 25% of range delta)
-                    double range25 = (bar.High - bar.Low) * 0.25;
-                    long cotH = 0, cotL = 0;
-                    for (int i = 0; i < sortedTicks.Count; i++)
-                    {
-                        long tk = sortedTicks[i];
-                        double px = TickToPrice(tk);
-                        PriceCell pc = bar.Cells[tk];
-                        if (px >= bar.High - range25) cotH += (pc.AskVol - pc.BidVol);
-                        if (px <= bar.Low + range25) cotL += (pc.AskVol - pc.BidVol);
-                    }
-                    bar.CotHighDelta = cotH;
-                    bar.CotLowDelta = cotL;
-
-                    // Exhaustion Prints at exact extremes
-                    bar.HasExhaustionHigh = bar.Cells.TryGetValue(highTk, out hiCell) && hiCell.Vol > 0 && hiCell.Vol <= ExhaustionMaxVol && maxVolCell >= ExhaustionMaxVol * 3;
-                    bar.HasExhaustionLow = bar.Cells.TryGetValue(lowTk, out loCell) && loCell.Vol > 0 && loCell.Vol <= ExhaustionMaxVol && maxVolCell >= ExhaustionMaxVol * 3;
-
-                    // Traps (Delta Divergence: Up bar with negative delta, Down bar with positive delta & significant volume)
-                    bar.HasBuyingTrap = (bar.Close > bar.Open) && (bar.BarDelta < -Math.Max(10, ImbalanceMinVol / 2)) && (bar.TotalVol >= Math.Max(20, ImbalanceMinVol));
-                    bar.HasSellingTrap = (bar.Close < bar.Open) && (bar.BarDelta > Math.Max(10, ImbalanceMinVol / 2)) && (bar.TotalVol >= Math.Max(20, ImbalanceMinVol));
-
-                    // Naked VPOC tracking & termination check against earlier bars
-                    for (int k = nakedPocCandidates.Count - 1; k >= 0; k--)
-                    {
-                        FpBarData prevBar = nakedPocCandidates[k];
-                        if (prevBar.BarIdx < b && bar.Low <= prevBar.PocPrice + ts * 0.2 && bar.High >= prevBar.PocPrice - ts * 0.2)
-                            nakedPocCandidates.RemoveAt(k);
-                    }
-                    if (b < maxScan) nakedPocCandidates.Add(bar);
-
-                    // Zone termination scan on active zones
-                    for (int z = 0; z < activeZones.Count; z++)
-                    {
-                        FpZone zn = activeZones[z];
-                        if (zn.Ended || zn.StartBarIdx >= b) continue;
-                        bool endSession = bar.IsSessionStart && StackedEndMode != VeltrixFpZoneEndMode.UntilSessionEnd;
-                        bool touched = (bar.Low <= zn.TopPrice + ts * 0.15 && bar.High >= zn.BottomPrice - ts * 0.15);
-                        bool brokenThrough = zn.IsSupport ? (bar.Low < zn.BottomPrice - ts * 0.4) : (bar.High > zn.TopPrice + ts * 0.4);
-                        if (endSession || (StackedEndMode == VeltrixFpZoneEndMode.ByLevelTouch && touched) || (StackedEndMode == VeltrixFpZoneEndMode.ByBarHighLow && brokenThrough))
-                        {
-                            zn.Ended = true;
-                            zn.EndBarIdx = b;
-                        }
-                    }
-
-                    // Build Stacked Imbalance S/R Zones & Absorption S/R Zones for bar b
-                    if (b <= maxScan)
-                    {
-                        DetectBarZonesLocked(bar, sortedTicks, activeZones);
+                        zn.Ended = true;
+                        zn.EndBarIdx = b;
                     }
                 }
+
+                // Build Stacked Imbalance S/R Zones & Absorption S/R Zones for bar b
+                if (ShowStackedZones || ShowAbsorptionZones)
+                    DetectBarZonesLocked(bar, activeZones);
             }
 
             derivedZones.AddRange(activeZones);
         }
 
-        private void DetectBarZonesLocked(FpBarData bar, List<long> sortedTicks, List<FpZone> activeZones)
+        private void DetectBarZonesLocked(FpBarData bar, List<FpZone> activeZones)
         {
             if (!ShowStackedZones && !ShowAbsorptionZones) return;
             double ts = SafeTickSize();
             int grpStep = Math.Max(1, TicksPerLevel);
 
-            // Bucketize bar levels into TicksPerLevel so stacked zones align visually with cluster rows
-            SortedDictionary<long, BucketRenderCell> bMap = new SortedDictionary<long, BucketRenderCell>();
-            for (int i = 0; i < sortedTicks.Count; i++)
+            // Reuse SortedDictionary + List cleanly so 0 GC garbage occurs during analytics
+            reusableBMap.Clear();
+            foreach (KeyValuePair<long, PriceCell> kv in bar.Cells)
             {
-                long tk = sortedTicks[i];
+                long tk = kv.Key;
                 long gIdx = (long)Math.Floor((double)tk / grpStep);
                 BucketRenderCell bc;
-                if (!bMap.TryGetValue(gIdx, out bc))
+                if (!reusableBMap.TryGetValue(gIdx, out bc))
                 {
                     bc = new BucketRenderCell
                     {
@@ -18168,9 +18236,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                         PriceHigh = TickToPrice((gIdx + 1) * grpStep - 1),
                         PriceMid = TickToPrice(gIdx * grpStep + grpStep / 2)
                     };
-                    bMap[gIdx] = bc;
+                    reusableBMap[gIdx] = bc;
                 }
-                PriceCell pc = bar.Cells[tk];
+                PriceCell pc = kv.Value;
                 bc.Vol += pc.Vol;
                 bc.BidVol += pc.BidVol;
                 bc.AskVol += pc.AskVol;
@@ -18179,7 +18247,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (pc.L2AbsAsk) bc.AbsAsk = true;
             }
 
-            List<BucketRenderCell> list = new List<BucketRenderCell>(bMap.Values);
+            tmpBuckets.Clear();
+            tmpBuckets.AddRange(reusableBMap.Values);
+            List<BucketRenderCell> list = tmpBuckets;
             ComputeBucketSignals(list, bar);
 
             if (ShowStackedZones)
@@ -18423,6 +18493,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (dxBadgeBg != null) { dxBadgeBg.Dispose(); dxBadgeBg = null; }
             if (dxUserLvlBr != null) { dxUserLvlBr.Dispose(); dxUserLvlBr = null; }
             if (dxSpecGloss != null) { dxSpecGloss.Dispose(); dxSpecGloss = null; }
+            if (dxFillerFill != null) { dxFillerFill.Dispose(); dxFillerFill = null; }
+            if (dxFillerEdge != null) { dxFillerEdge.Dispose(); dxFillerEdge = null; }
             foreach (var kv in dxDynBrushCache)
                 if (kv.Value != null) kv.Value.Dispose();
             dxDynBrushCache.Clear();
@@ -18433,6 +18505,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (dxFontSmall != null) { dxFontSmall.Dispose(); dxFontSmall = null; }
             if (dxFontStat != null) { dxFontStat.Dispose(); dxFontStat = null; }
             if (dxFontHdr != null) { dxFontHdr.Dispose(); dxFontHdr = null; }
+            if (dxFontCompact != null) { dxFontCompact.Dispose(); dxFontCompact = null; }
             dxRtRef = null;
             dxRtPtr = IntPtr.Zero;
             lastDxSig = "";
@@ -18525,15 +18598,41 @@ namespace NinjaTrader.NinjaScript.Indicators
             dxBadgeBg = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.05f, 0.08f, 0.14f, 0.88f));
             dxUserLvlBr = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.22f, 0.74f, 0.97f, 0.90f));
             dxSpecGloss = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(1.0f, 1.0f, 1.0f, 0.16f));
+            dxFillerFill = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.06f, 0.09f, 0.16f, 0.34f));
+            dxFillerEdge = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.15f, 0.21f, 0.32f, 0.34f));
 
             dxDashStyle = new D2D.StrokeStyle(Globals.D2DFactory, new D2D.StrokeStyleProperties { DashStyle = D2D.DashStyle.Dash });
             dxDotStyle = new D2D.StrokeStyle(Globals.D2DFactory, new D2D.StrokeStyleProperties { DashStyle = D2D.DashStyle.Dot });
 
             dxFontLeft = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, LeftFontSize);
+            dxFontLeft.TextAlignment = DW.TextAlignment.Center;
+            dxFontLeft.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontLeft.WordWrapping = DW.WordWrapping.NoWrap;
+
             dxFontRight = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, RightFontSize);
+            dxFontRight.TextAlignment = DW.TextAlignment.Center;
+            dxFontRight.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontRight.WordWrapping = DW.WordWrapping.NoWrap;
+
             dxFontSmall = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.SemiBold, DW.FontStyle.Normal, 9.5f);
+            dxFontSmall.TextAlignment = DW.TextAlignment.Center;
+            dxFontSmall.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontSmall.WordWrapping = DW.WordWrapping.NoWrap;
+
             dxFontStat = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, StatFontSize);
+            dxFontStat.TextAlignment = DW.TextAlignment.Center;
+            dxFontStat.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontStat.WordWrapping = DW.WordWrapping.NoWrap;
+
             dxFontHdr = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.Bold, DW.FontStyle.Normal, 10.0f);
+            dxFontHdr.TextAlignment = DW.TextAlignment.Center;
+            dxFontHdr.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontHdr.WordWrapping = DW.WordWrapping.NoWrap;
+
+            dxFontCompact = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(7.5f, Math.Min(9.5f, LeftFontSize - 2)));
+            dxFontCompact.TextAlignment = DW.TextAlignment.Center;
+            dxFontCompact.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontCompact.WordWrapping = DW.WordWrapping.NoWrap;
         }
 
         private string FormatCellText(VeltrixFpStyle st, BucketRenderCell bc, int div)
@@ -18569,13 +18668,8 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private void DrawTextCentered(string text, DW.TextFormat tf, SharpDX.RectangleF rect, D2D.Brush br)
         {
-            if (string.IsNullOrEmpty(text) || rect.Width < 4f || rect.Height < 4f) return;
-            using (var layout = new DW.TextLayout(Globals.DirectWriteFactory, text, tf, Math.Max(4f, rect.Width), Math.Max(4f, rect.Height)))
-            {
-                layout.TextAlignment = DW.TextAlignment.Center;
-                layout.ParagraphAlignment = DW.ParagraphAlignment.Center;
-                RenderTarget.DrawTextLayout(new SharpDX.Vector2(rect.X, rect.Y), layout, br);
-            }
+            if (string.IsNullOrEmpty(text) || tf == null || rect.Width < 3f || rect.Height < 3f) return;
+            RenderTarget.DrawText(text, tf, rect, br);
         }
 
         private List<string> GetEnabledStatRowLabels()
@@ -18601,12 +18695,15 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (RenderTarget == null || chartControl == null || ChartBars == null || chartScale == null || Bars == null || CurrentBar < 0)
                 return;
+            if (ChartBars.ToIndex < 0 || ChartBars.FromIndex < 0 || ChartBars.ToIndex < ChartBars.FromIndex)
+                return;
 
             lastRenderedChartScale = chartScale;
             EnsureDxResources();
 
+            int maxChartIdx = (ChartBars.Bars != null) ? Math.Min(CurrentBar, ChartBars.Bars.Count - 1) : CurrentBar;
             int fromIdx = Math.Max(0, ChartBars.FromIndex - 1);
-            int toIdx = Math.Min(CurrentBar, ChartBars.ToIndex + 1);
+            int toIdx = Math.Min(maxChartIdx, ChartBars.ToIndex + 1);
             if (toIdx < fromIdx) return;
 
             float panelLeft = (float)ChartPanel.X;
@@ -18620,8 +18717,10 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             double ts = SafeTickSize();
             int baseGroup = Math.Max(1, TicksPerLevel);
-            float singleTickPx = Math.Abs((float)chartScale.GetYByValue(Closes[0][0]) - (float)chartScale.GetYByValue(Closes[0][0] + ts));
-            if (singleTickPx < 0.05f) singleTickPx = 1f;
+            // Thread-safe vertical pixel step using visible scale midpoint (never reads Closes[0][0] on UI thread!)
+            double refPrice = (chartScale.MaxValue + chartScale.MinValue) * 0.5;
+            float singleTickPx = Math.Abs((float)chartScale.GetYByValue(refPrice) - (float)chartScale.GetYByValue(refPrice + ts));
+            if (singleTickPx < 0.04f) singleTickPx = 1f;
 
             int effGroup = baseGroup;
             if (AutoZoomLOD)
@@ -18631,29 +18730,116 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             float rowHeightPx = singleTickPx * effGroup;
 
+            bool hasLCol = (LeftStyle != VeltrixFpStyle.None);
+            bool hasRCol = (RightStyle != VeltrixFpStyle.None);
+            int sigHash = ((int)LeftStyle * 397) ^ ((int)RightStyle * 73) ^ (LeftValuesDivider * 17) ^ (RightValuesDivider * 31)
+                ^ ((int)ImbalanceDirection * 131) ^ (ImbalancePct * 7) ^ (ImbalanceMinVol * 13)
+                ^ (AbsorptionPct * 19) ^ (AbsorptionFilter * 23)
+                ^ (ShowImbalance ? 1 : 2) ^ (ShowAbsorption ? 4 : 8) ^ (ShowBarVpoc ? 16 : 32) ^ (ShowBarValueArea ? 64 : 128);
+
             lock (dataLock)
             {
-                // Pre-compute visible chart-wide max cluster metric & grid maxima
+                if (analyticsDirty)
+                {
+                    RecomputeAnalyticsLocked(false);
+                    analyticsDirty = false;
+                }
+
+                // Pre-compute visible chart-wide max cluster metric, lazy metrics & cached buckets (0 GC on pan/stretch!)
                 long chartMaxBucketVol = 1;
                 long chartMaxDeltaAbs = 1;
                 long gridMaxVol = 1, gridMaxDelta = 1;
-                int visibleBarCount = toIdx - fromIdx + 1;
-                float defaultPitch = (visibleBarCount > 1)
-                    ? Math.Abs((float)chartControl.GetXByBarIndex(ChartBars, toIdx) - (float)chartControl.GetXByBarIndex(ChartBars, fromIdx)) / Math.Max(1, visibleBarCount - 1)
-                    : (float)Math.Max(20, MinBarWidthHintPx);
+                float xFirst = (float)chartControl.GetXByBarIndex(ChartBars, fromIdx);
+                float xLast = (float)chartControl.GetXByBarIndex(ChartBars, toIdx);
+                float defaultPitch = (toIdx > fromIdx && Math.Abs(xLast - xFirst) > 1f)
+                    ? (Math.Abs(xLast - xFirst) / (float)(toIdx - fromIdx))
+                    : (float)Math.Max(14, MinBarWidthHintPx);
+                if (defaultPitch < 2f) defaultPitch = 4f;
+                float cullMargin = Math.Max(320f, defaultPitch * 1.5f);
 
                 for (int b = fromIdx; b <= toIdx; b++)
                 {
                     FpBarData bar;
                     if (!barsMap.TryGetValue(b, out bar)) continue;
+                    if (!bar.MetricsComputed) ComputeBarCoreMetricsLocked(bar, ts);
                     if (bar.TotalVol > gridMaxVol) gridMaxVol = bar.TotalVol;
                     if (Math.Abs(bar.BarDelta) > gridMaxDelta) gridMaxDelta = Math.Abs(bar.BarDelta);
-                    foreach (KeyValuePair<long, PriceCell> kv in bar.Cells)
+
+                    if (bar.CachedGroup != effGroup || bar.CachedVer != bar.DataVer || bar.CachedFillEmpty != FillEmptyPriceLevels || bar.CachedSigHash != sigHash)
                     {
-                        if (kv.Value.Vol > chartMaxBucketVol) chartMaxBucketVol = kv.Value.Vol;
-                        long dA = Math.Abs(kv.Value.AskVol - kv.Value.BidVol);
-                        if (dA > chartMaxDeltaAbs) chartMaxDeltaAbs = dA;
+                        reusableBMap.Clear();
+                        long lowTick = PriceToTick(bar.Low);
+                        long highTick = PriceToTick(bar.High);
+                        long minG = (long)Math.Floor((double)lowTick / effGroup);
+                        long maxG = (long)Math.Floor((double)highTick / effGroup);
+                        if (FillEmptyPriceLevels && maxG >= minG && (maxG - minG) <= 160)
+                        {
+                            for (long g = minG; g <= maxG; g++)
+                            {
+                                reusableBMap[g] = new BucketRenderCell
+                                {
+                                    GroupIdx = g,
+                                    PriceLow = (g * effGroup - 0.5) * ts,
+                                    PriceHigh = ((g + 1) * effGroup - 0.5) * ts,
+                                    PriceMid = (g * effGroup + effGroup * 0.5) * ts,
+                                    IsEmptyFiller = true
+                                };
+                            }
+                        }
+
+                        foreach (KeyValuePair<long, PriceCell> kv in bar.Cells)
+                        {
+                            long tk = kv.Key;
+                            long gIdx = (long)Math.Floor((double)tk / effGroup);
+                            BucketRenderCell bc;
+                            if (!reusableBMap.TryGetValue(gIdx, out bc))
+                            {
+                                bc = new BucketRenderCell
+                                {
+                                    GroupIdx = gIdx,
+                                    PriceLow = (gIdx * effGroup - 0.5) * ts,
+                                    PriceHigh = ((gIdx + 1) * effGroup - 0.5) * ts,
+                                    PriceMid = (gIdx * effGroup + effGroup * 0.5) * ts
+                                };
+                                reusableBMap[gIdx] = bc;
+                            }
+                            PriceCell pc = kv.Value;
+                            bc.Vol += pc.Vol;
+                            bc.BidVol += pc.BidVol;
+                            bc.AskVol += pc.AskVol;
+                            bc.Trades += pc.Trades;
+                            if (bc.Vol > 0) bc.IsEmptyFiller = false;
+                            if (pc.L2AbsBid) bc.AbsBid = true;
+                            if (pc.L2AbsAsk) bc.AbsAsk = true;
+                        }
+
+                        bar.CachedBuckets.Clear();
+                        bar.CachedBuckets.AddRange(reusableBMap.Values);
+                        ComputeBucketSignals(bar.CachedBuckets, bar);
+
+                        long bMaxV = 1, bMaxD = 1;
+                        for (int i = 0; i < bar.CachedBuckets.Count; i++)
+                        {
+                            BucketRenderCell c = bar.CachedBuckets[i];
+                            if (c.Vol > bMaxV) bMaxV = c.Vol;
+                            long ad = Math.Abs(c.Delta);
+                            if (ad > bMaxD) bMaxD = ad;
+                            if (!c.IsEmptyFiller && c.Vol > 0)
+                            {
+                                c.CachedTxtL = hasLCol ? FormatCellText(LeftStyle, c, LeftValuesDivider) : null;
+                                c.CachedTxtR = hasRCol ? FormatCellText(RightStyle, c, RightValuesDivider) : null;
+                            }
+                        }
+                        bar.CachedMaxVol = bMaxV;
+                        bar.CachedMaxDelta = bMaxD;
+                        bar.CachedGroup = effGroup;
+                        bar.CachedVer = bar.DataVer;
+                        bar.CachedFillEmpty = FillEmptyPriceLevels;
+                        bar.CachedSigHash = sigHash;
                     }
+
+                    if (bar.CachedMaxVol > chartMaxBucketVol) chartMaxBucketVol = bar.CachedMaxVol;
+                    if (bar.CachedMaxDelta > chartMaxDeltaAbs) chartMaxDeltaAbs = bar.CachedMaxDelta;
                 }
 
                 // 1) Render Interactive User Key Levels (underlay)
@@ -18662,7 +18848,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                     float ly = (float)chartScale.GetYByValue(userLevels[u]);
                     if (ly < panelTop || ly > plotBottom) continue;
                     RenderTarget.DrawLine(new SharpDX.Vector2(panelLeft, ly), new SharpDX.Vector2(panelRight - 5f, ly), dxUserLvlBr, 1.4f, dxDashStyle);
-                    string lbl = "📌 FP LVL " + Instrument.MasterInstrument.FormatPrice(userLevels[u]);
+                    string pFmt = (Instrument != null && Instrument.MasterInstrument != null)
+                        ? Instrument.MasterInstrument.FormatPrice(userLevels[u])
+                        : userLevels[u].ToString("0.##", CultureInfo.InvariantCulture);
+                    string lbl = "📌 FP LVL " + pFmt;
                     RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(panelRight - 145f, ly - 15f, 138f, 14f), RadiusX = 3f, RadiusY = 3f }, dxBadgeBg);
                     DrawTextCentered(lbl, dxFontSmall, new SharpDX.RectangleF(panelRight - 145f, ly - 15f, 138f, 14f), dxUserLvlBr);
                 }
@@ -18731,104 +18920,53 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ToRgb(ColNegativeDelta, out negR, out negG, out negB);
                 ToRgb(ColNeutralCluster, out neuR, out neuG, out neuB);
 
-                // 4) Per-Bar Footprint Cluster Loop (Strictly Visible Viewport)
+                // 4) Per-Bar Footprint Cluster Loop (Strictly Visible Viewport, 0 Alloc, Responsive Width 2px..500px+)
                 for (int b = fromIdx; b <= toIdx; b++)
                 {
                     FpBarData bar;
                     if (!barsMap.TryGetValue(b, out bar)) continue;
 
                     float cx = (float)chartControl.GetXByBarIndex(ChartBars, b);
-                    if (cx < panelLeft - 95f || cx > panelRight + 95f) continue;
+                    if (cx < panelLeft - cullMargin || cx > panelRight + cullMargin) continue;
 
-                    float nxtX = (b < toIdx) ? (float)chartControl.GetXByBarIndex(ChartBars, b + 1) : (cx + defaultPitch);
-                    float prvX = (b > fromIdx) ? (float)chartControl.GetXByBarIndex(ChartBars, b - 1) : (cx - defaultPitch);
-                    float pitchPx = Math.Max(8f, Math.Min(Math.Abs(nxtX - cx), Math.Abs(cx - prvX)));
-                    float availW = Math.Max(8f, pitchPx - BarOuterMarginPx);
+                    float dNext = (b < toIdx) ? Math.Abs((float)chartControl.GetXByBarIndex(ChartBars, b + 1) - cx) : defaultPitch;
+                    float dPrev = (b > fromIdx) ? Math.Abs(cx - (float)chartControl.GetXByBarIndex(ChartBars, b - 1)) : defaultPitch;
+                    if (dNext < 2f) dNext = defaultPitch;
+                    if (dPrev < 2f) dPrev = defaultPitch;
+                    float pitchPx = Math.Max(3f, Math.Min(dNext, dPrev));
+                    float marginPx = (pitchPx >= 26f) ? Math.Min((float)BarOuterMarginPx, pitchPx * 0.14f) : Math.Max(0.8f, pitchPx * 0.10f);
+                    float availW = Math.Max(2.2f, pitchPx - marginPx);
 
-                    bool hasL = (LeftStyle != VeltrixFpStyle.None);
-                    bool hasR = (RightStyle != VeltrixFpStyle.None);
+                    bool hasL = hasLCol;
+                    bool hasR = hasRCol;
                     float barLeftEdge = cx - availW * 0.5f;
                     float railW = 0f;
                     float railGap = 0f;
                     float midSpineW = 0f;
 
-                    if (CandleSpineMode == VeltrixFpCandleSpineMode.LeftSlimRail && availW >= 24f)
+                    if (CandleSpineMode == VeltrixFpCandleSpineMode.LeftSlimRail && availW >= 26f)
                     {
-                        railW = Math.Min(5.5f, Math.Max(3.5f, availW * 0.06f));
-                        railGap = 4.0f;
+                        railW = Math.Min(5.5f, Math.Max(3.0f, availW * 0.06f));
+                        railGap = Math.Min(4.0f, Math.Max(2.0f, availW * 0.04f));
                     }
-                    else if (CandleSpineMode == VeltrixFpCandleSpineMode.CenterMicroWick && hasL && hasR)
+                    else if (CandleSpineMode == VeltrixFpCandleSpineMode.CenterMicroWick && hasL && hasR && availW >= 14f)
                     {
-                        midSpineW = 3.0f;
+                        midSpineW = Math.Min(3.0f, Math.Max(1.5f, availW * 0.05f));
                     }
 
                     float clusterStartX = barLeftEdge + railW + railGap;
-                    float clusterTotalW = Math.Max(6f, availW - railW - railGap);
+                    float clusterTotalW = Math.Max(2.2f, availW - railW - railGap);
+                    float colGap = (hasL && hasR) ? ((clusterTotalW >= 12f) ? 2.0f : ((clusterTotalW >= 5f) ? 1.0f : 0f)) : 0f;
                     float leftX = clusterStartX;
-                    float leftW = hasL ? (hasR ? (clusterTotalW - midSpineW - 2f) * 0.55f : clusterTotalW) : 0f;
-                    float rightX = hasL ? (leftX + leftW + midSpineW + 2f) : clusterStartX;
-                    float rightW = hasR ? (hasL ? Math.Max(4f, clusterTotalW - leftW - midSpineW - 2f) : clusterTotalW) : 0f;
+                    float leftW = hasL ? (hasR ? Math.Max(1.2f, (clusterTotalW - midSpineW - colGap) * 0.55f) : clusterTotalW) : 0f;
+                    float rightX = hasL ? (leftX + leftW + midSpineW + colGap) : clusterStartX;
+                    float rightW = hasR ? (hasL ? Math.Max(1.2f, clusterTotalW - leftW - midSpineW - colGap) : clusterTotalW) : 0f;
 
-                    // Re-bucket cells at effective Group LOD
-                    SortedDictionary<long, BucketRenderCell> bMap = new SortedDictionary<long, BucketRenderCell>();
-                    long lowTick = PriceToTick(bar.Low);
-                    long highTick = PriceToTick(bar.High);
-                    long minG = (long)Math.Floor((double)lowTick / effGroup);
-                    long maxG = (long)Math.Floor((double)highTick / effGroup);
-                    if (FillEmptyPriceLevels && maxG >= minG && (maxG - minG) <= 180)
-                    {
-                        for (long g = minG; g <= maxG; g++)
-                        {
-                            bMap[g] = new BucketRenderCell
-                            {
-                                GroupIdx = g,
-                                PriceLow = (g * effGroup - 0.5) * ts,
-                                PriceHigh = ((g + 1) * effGroup - 0.5) * ts,
-                                PriceMid = (g * effGroup + effGroup * 0.5) * ts,
-                                IsEmptyFiller = true
-                            };
-                        }
-                    }
+                    List<BucketRenderCell> buckets = bar.CachedBuckets;
+                    long barMaxVol = bar.CachedMaxVol;
+                    long barMaxDelta = bar.CachedMaxDelta;
 
-                    foreach (KeyValuePair<long, PriceCell> kv in bar.Cells)
-                    {
-                        long tk = kv.Key;
-                        long gIdx = (long)Math.Floor((double)tk / effGroup);
-                        BucketRenderCell bc;
-                        if (!bMap.TryGetValue(gIdx, out bc))
-                        {
-                            bc = new BucketRenderCell
-                            {
-                                GroupIdx = gIdx,
-                                PriceLow = (gIdx * effGroup - 0.5) * ts,
-                                PriceHigh = ((gIdx + 1) * effGroup - 0.5) * ts,
-                                PriceMid = (gIdx * effGroup + effGroup * 0.5) * ts
-                            };
-                            bMap[gIdx] = bc;
-                        }
-                        PriceCell pc = kv.Value;
-                        bc.Vol += pc.Vol;
-                        bc.BidVol += pc.BidVol;
-                        bc.AskVol += pc.AskVol;
-                        bc.Trades += pc.Trades;
-                        if (bc.Vol > 0) bc.IsEmptyFiller = false;
-                        if (pc.L2AbsBid) bc.AbsBid = true;
-                        if (pc.L2AbsAsk) bc.AbsAsk = true;
-                    }
-
-                    tmpBuckets.Clear();
-                    tmpBuckets.AddRange(bMap.Values);
-                    ComputeBucketSignals(tmpBuckets, bar);
-
-                    long barMaxVol = 1, barMaxDelta = 1;
-                    for (int i = 0; i < tmpBuckets.Count; i++)
-                    {
-                        if (tmpBuckets[i].Vol > barMaxVol) barMaxVol = tmpBuckets[i].Vol;
-                        long ad = Math.Abs(tmpBuckets[i].Delta);
-                        if (ad > barMaxDelta) barMaxDelta = ad;
-                    }
-
-                    // Sleek Candle Spine (LeftSlimRail or CenterMicroWick - never obscures cluster numbers!)
+                    // Sleek Candle Spine (LeftSlimRail / CenterMicroWick / Compact zoomed-out hairline)
                     if (CandleSpineMode == VeltrixFpCandleSpineMode.LeftSlimRail && railW > 0f)
                     {
                         float rxCenter = barLeftEdge + railW * 0.5f;
@@ -18845,36 +18983,46 @@ namespace NinjaTrader.NinjaScript.Indicators
                     }
                     else if (CandleSpineMode == VeltrixFpCandleSpineMode.CenterMicroWick && midSpineW > 0f)
                     {
-                        float spineCx = leftX + leftW + 1f + midSpineW * 0.5f;
+                        float spineCx = leftX + leftW + colGap * 0.5f + midSpineW * 0.5f;
                         float yH = Math.Max(panelTop + 2f, (float)chartScale.GetYByValue(bar.High));
                         float yL = Math.Min(plotBottom - 2f, (float)chartScale.GetYByValue(bar.Low));
                         D2D.SolidColorBrush spBr = (bar.Close >= bar.Open) ? dxSpineUp : dxSpineDown;
                         RenderTarget.DrawLine(new SharpDX.Vector2(spineCx, yH), new SharpDX.Vector2(spineCx, yL), spBr, 1.6f);
                     }
-
-                    bool drawTextL = LeftShowValues && rowHeightPx >= 11f && leftW >= 32f;
-                    bool drawTextR = RightShowValues && rowHeightPx >= 11f && rightW >= 22f;
-
-                    for (int i = 0; i < tmpBuckets.Count; i++)
+                    else if (availW < 26f && CandleSpineMode != VeltrixFpCandleSpineMode.None)
                     {
-                        BucketRenderCell bc = tmpBuckets[i];
+                        float yH = Math.Max(panelTop + 2f, (float)chartScale.GetYByValue(bar.High));
+                        float yL = Math.Min(plotBottom - 2f, (float)chartScale.GetYByValue(bar.Low));
+                        D2D.SolidColorBrush spBr = (bar.Close >= bar.Open) ? dxSpineUp : dxSpineDown;
+                        RenderTarget.DrawLine(new SharpDX.Vector2(barLeftEdge, yH), new SharpDX.Vector2(barLeftEdge, yL), spBr, 1.1f);
+                    }
+
+                    bool drawTextL = LeftShowValues && rowHeightPx >= 9.5f && leftW >= 20f;
+                    bool drawTextR = RightShowValues && rowHeightPx >= 9.5f && rightW >= 14f;
+
+                    for (int i = 0; i < buckets.Count; i++)
+                    {
+                        BucketRenderCell bc = buckets[i];
                         if (!bc.IsEmptyFiller && bc.Vol < DisplayVolFilter) continue;
                         if (OnlyImbalance && !bc.BuyImb && !bc.SellImb) continue;
                         if (OnlyAbsorption && !bc.AbsBid && !bc.AbsAsk) continue;
 
-                        float yTopCell = (float)chartScale.GetYByValue(bc.PriceHigh) + 0.8f;
-                        float yBotCell = (float)chartScale.GetYByValue(bc.PriceLow) - 0.8f;
-                        float cellH = Math.Max(2.5f, yBotCell - yTopCell);
+                        float rawYTop = (float)chartScale.GetYByValue(bc.PriceHigh);
+                        float rawYBot = (float)chartScale.GetYByValue(bc.PriceLow);
+                        float insetY = ((rawYBot - rawYTop) > 5f) ? 0.75f : 0.2f;
+                        float yTopCell = rawYTop + insetY;
+                        float yBotCell = rawYBot - insetY;
+                        float cellH = Math.Max(2.0f, yBotCell - yTopCell);
                         float cy = yTopCell + cellH * 0.5f;
                         float ry = yTopCell;
                         if (ry + cellH < panelTop || ry > plotBottom) continue;
 
-                        // LEFT SIDE CLUSTER
-                        if (hasL && leftW >= 4f)
+                        // LEFT SIDE CLUSTER (visible at ALL zoom/stretch levels down to 1.2px!)
+                        if (hasL && leftW >= 1.2f)
                             RenderSideCell(bc, true, leftX, ry, leftW, cellH, drawTextL && !(HideZeroText && bc.Vol == 0), barMaxVol, barMaxDelta, chartMaxBucketVol, chartMaxDeltaAbs, posR, posG, posB, negR, negG, negB, neuR, neuG, neuB);
 
-                        // RIGHT SIDE CLUSTER
-                        if (hasR && rightW >= 4f)
+                        // RIGHT SIDE CLUSTER (visible at ALL zoom/stretch levels down to 1.2px!)
+                        if (hasR && rightW >= 1.2f)
                             RenderSideCell(bc, false, rightX, ry, rightW, cellH, drawTextR && !(HideZeroText && bc.Vol == 0), barMaxVol, barMaxDelta, chartMaxBucketVol, chartMaxDeltaAbs, posR, posG, posB, negR, negG, negB, neuR, neuG, neuB);
 
                         // Inner Value Area Neon Accent Bar (NO ugly floating outer wire!)
@@ -19086,9 +19234,10 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             if (bc.IsEmptyFiller || bc.Vol <= 0)
             {
+                if (w < 10f || h < 5f) return;
                 var eRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(x, y, w, h), RadiusX = 2.0f, RadiusY = 2.0f };
-                RenderTarget.FillRoundedRectangle(eRect, GetDynBrush(15, 24, 42, 0.34f));
-                RenderTarget.DrawRoundedRectangle(eRect, GetDynBrush(38, 54, 82, 0.35f), 0.7f);
+                RenderTarget.FillRoundedRectangle(eRect, dxFillerFill);
+                RenderTarget.DrawRoundedRectangle(eRect, dxFillerEdge, 0.7f);
                 return;
             }
 
@@ -19096,7 +19245,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             long denVal = (scSrc == VeltrixFpScaleSource.Delta)
                 ? (scope == VeltrixFpScaleScope.Chart ? chartMaxDelta : barMaxDelta)
                 : (scope == VeltrixFpScaleScope.Chart ? chartMaxVol : barMaxVol);
-            double norm = Math.Max(0.10, Math.Min(1.0, (double)numVal / Math.Max(1.0, (double)denVal)));
+            double norm = Math.Max(0.12, Math.Min(1.0, (double)numVal / Math.Max(1.0, (double)denVal)));
 
             byte cr = neuR, cg = neuG, cb = neuB;
             if (cSrc == VeltrixFpColorSource.Delta)
@@ -19110,30 +19259,41 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else { cr = negR; cg = negG; cb = negB; }
             }
 
-            float vaMult = (ShowBarValueArea && !bc.InValueArea) ? 0.56f : 1.0f;
-            float baseAlpha = (float)((shape == VeltrixFpClusterShape.HeatGradient ? (0.20 + 0.62 * norm) : (0.22 + 0.54 * norm)) * vaMult);
+            float vaMult = (ShowBarValueArea && !bc.InValueArea) ? ((w < 14f) ? 0.76f : 0.58f) : 1.0f;
+            float compactBoost = (w < 14f) ? 0.24f : 0f;
+            float baseAlpha = Math.Min(0.95f, (float)((shape == VeltrixFpClusterShape.HeatGradient ? (0.22 + 0.62 * norm) : (0.24 + 0.56 * norm)) * vaMult) + compactBoost);
             D2D.SolidColorBrush fillBr = GetDynBrush(cr, cg, cb, baseAlpha);
-            D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, Math.Min(0.96f, baseAlpha + 0.28f));
 
             float drawX = x;
             float drawW = w;
             if (shape == VeltrixFpClusterShape.Histogram)
             {
-                drawW = Math.Max(4f, (float)(w * norm));
+                drawW = Math.Min(w, Math.Max(Math.Min(w, 2.0f), (float)(w * norm)));
                 drawX = isLeft ? (x + w - drawW) : x;
             }
 
+            bool compactMode = (w < 12f || h < 7f);
             if (style == VeltrixFpStyle.Ladder || style == VeltrixFpStyle.SplitDeltaImbalance)
             {
                 long totSide = Math.Max(1L, bc.BidVol + bc.AskVol);
                 float bidW = drawW * (float)((double)bc.BidVol / totSide);
                 float askW = drawW - bidW;
-                if (bidW >= 1f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX, y, bidW, h), GetDynBrush(negR, negG, negB, baseAlpha));
-                if (askW >= 1f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX + bidW, y, askW, h), GetDynBrush(posR, posG, posB, baseAlpha));
-                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 2.0f, RadiusY = 2.0f }, edgeBr, 0.9f);
+                if (bidW >= 0.8f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX, y, bidW, h), GetDynBrush(negR, negG, negB, baseAlpha));
+                if (askW >= 0.8f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX + bidW, y, askW, h), GetDynBrush(posR, posG, posB, baseAlpha));
+                if (!compactMode)
+                {
+                    D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, Math.Min(0.96f, baseAlpha + 0.28f));
+                    RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 2.0f, RadiusY = 2.0f }, edgeBr, 0.9f);
+                }
+            }
+            else if (compactMode)
+            {
+                // GPU fast-path for compressed / zoomed-out clusters: razor-sharp solid heat bricks
+                RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX, y, drawW, h), fillBr);
             }
             else
             {
+                D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, Math.Min(0.96f, baseAlpha + 0.28f));
                 var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 2.4f, RadiusY = 2.4f };
                 RenderTarget.FillRoundedRectangle(rRect, fillBr);
                 if (ShowSpecularGloss && norm >= 0.42 && h >= 8f)
@@ -19143,9 +19303,12 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             if (drawText)
             {
-                string txt = FormatCellText(style, bc, div);
+                string txt = isLeft ? (bc.CachedTxtL ?? FormatCellText(style, bc, div)) : (bc.CachedTxtR ?? FormatCellText(style, bc, div));
+                DW.TextFormat drawTf = isLeft
+                    ? ((w < 34f || h < 13f) ? dxFontCompact : tf)
+                    : ((w < 24f || h < 13f) ? dxFontCompact : tf);
                 D2D.SolidColorBrush txtBr = (bc.BuyImb && bc.AskVol >= ImbalanceMinVol) ? dxTextAsk : ((bc.SellImb && bc.BidVol >= ImbalanceMinVol) ? dxTextBid : dxTextBright);
-                DrawTextCentered(txt, tf, new SharpDX.RectangleF(x, y, w, h), txtBr);
+                DrawTextCentered(txt, drawTf, new SharpDX.RectangleF(x, y, w, h), txtBr);
             }
         }
 
@@ -19283,6 +19446,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private void HookChartContextAndToolbar()
         {
             if (ChartControl == null) return;
+            hookDispatched = true;
             ChartControl.Dispatcher.BeginInvoke(new Action(delegate
             {
                 try

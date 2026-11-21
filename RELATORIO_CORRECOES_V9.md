@@ -722,4 +722,24 @@ git push origin main
   - Arquivos atualizados em `C:\Users\alanb\Documents\NinjaTrader 8\bin\Custom\Indicators\VeltrixQuant\`, `DrawingTools\` e `templates\Chart\` (`8` templates verificados contra `Default.xml` + `TestXmlV4`).
   - Revalidação final pós-edição: `py_compile` OK, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` e **`COMBINED_18_PASS`** (`combined_rc=0`) no `csc.exe` `.NET 4.0`.
 
+---
+
+## 49. 21/11/2026 07:59 — Otimização O(N) de Carregamento Histórico & Zero-Alloc SharpDX + Resiliência Horizontal (`FootprintPro`)
+
+- **Arquivo Modificado:** [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py) (`CODE_FOOTPRINT_PRO` — Indicador `#17`).
+- **Causas Raiz Diagnosticadas:**
+  1. **Lentidão extrema no carregamento histórico (mesmo sem Tick Replay):** `OnBarUpdate()` executava `RecomputeAnalyticsLocked(false)` (varredura de até `320` barras anteriores com ordenação de chaves e alocação de `SortedDictionary` + `List` por barra) em **todas** as barras históricas (`State.Historical`), criando complexidade quadrática `O(N * 320)`, enquanto `DistributeHistoricalBarOHLC` alocava `double[]` e iterava até `160` níveis em cada barra (e truncava candles muito altos acima de 160 ticks).
+  2. **Peso na renderização (`60 FPS` lag) e perda dos clusters ao esticar/comprimir horizontalmente:** `DrawTextCentered` criava e descartava um objeto COM `DW.TextLayout` para cada célula/badge em todo frame, e `OnRender` alocava `new SortedDictionary<long, BucketRenderCell>` por barra visível, usava `Closes[0][0]` na thread de render, cortava barras largas fora de `±95px`, deixava deltas `0px` (`nxtX == cx`) derrubarem `pitchPx` para `8px` e ocultava os clusters quando `leftW < 4f` ou `availW < 18px`.
+- **Correções Aplicadas:**
+  - **Carregamento Histórico Instantâneo (`O(N)`):** Removida a chamada de `RecomputeAnalyticsLocked` de dentro do loop `State.Historical` em `OnBarUpdate()`; adicionado acumulador incremental `O(1)` (`histRunningCumDelta`, `histPrevBarDelta`, `lastHistCumBarIdx`), `DistributeHistoricalBarOHLC` cobrindo `[Low..High]` completos com passo adaptativo (`<= 56` bins) e `reusableWeights`, e extração de `ComputeBarCoreMetricsLocked` sob demanda (`MetricsComputed`) na janela recente (`<= 300` barras no `State.Transition`) ou ao rolar no gráfico. Ajustado `IsSuspendedWhileInactive = false` somente no `FootprintPro`.
+  - **Cache por Barra & Pipeline Zero-Alloc GPU (`OnRender` / `RenderSideCell`):**
+    - `FpBarData` agora mantém cache por barra (`CachedBuckets`, `CachedMaxVol`, `CachedMaxDelta`, `CachedTxtL`, `CachedTxtR`) invalidado apenas quando `DataVer`, `effGroup`, `FillEmptyPriceLevels` ou `sigHash` mudam, reutilizando `reusableBMap` e `reusableSortedTicks`.
+    - `EnsureDxResources()` pré-configura alinhamento (`Center`) e `DW.WordWrapping.NoWrap` nos `DW.TextFormat` (`dxFontLeft`, `dxFontRight`, `dxFontSmall`, `dxFontStat`, `dxFontHdr`, `dxFontCompact`) além de `dxFillerFill`/`dxFillerEdge`, substituindo `DW.TextLayout` por `RenderTarget.DrawText(...)` direto em `DrawTextCentered`.
+  - **Clusters 100% Visíveis em Qualquer Zoom/Estiramento Horizontal:**
+    - Cálculo de altura por tick em thread segura via ponto médio da escala (`(chartScale.MaxValue + chartScale.MinValue) * 0.5`), limites `ChartBars` validados, margem horizontal dinâmica (`cullMargin = Math.Max(320f, defaultPitch * 1.5f)`) para barras esticadas e filtragem de deltas `< 2px` em barras com timestamps iguais.
+    - Largura adaptativa mantendo colunas Esquerda/Direita visíveis até `1.2px` (`availW >= 2.2px`), fonte compacta `dxFontCompact` em larguras médias, aumento automático de opacidade + `FillRectangle` rápido no modo compacto (`w < 12f || h < 7f`) e descarte rápido de fillers vazios quando comprimido.
+- **Validação Técnica Pós-Edição:**
+  - `verify_installer_cs.py`: `py_compile: OK`, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` (incluindo **`FootprintPro.cs`**) e **`COMBINED_18_PASS`** (`combined_rc=0`) contra DLLs `.NET 4.0` locais do NinjaTrader 8.
+
+
 
