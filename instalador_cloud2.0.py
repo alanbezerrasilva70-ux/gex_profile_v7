@@ -16905,7 +16905,8 @@ namespace NinjaTrader.NinjaScript.Indicators
         private D2D.SolidColorBrush dxBuyZoneFill, dxBuyZoneEdge, dxSellZoneFill, dxSellZoneEdge;
         private D2D.SolidColorBrush dxAbsSupFill, dxAbsSupEdge, dxAbsResFill, dxAbsResEdge;
         private D2D.SolidColorBrush dxUnfBr, dxRatioNeutralBr, dxRatioRejBr;
-        private D2D.SolidColorBrush dxTextBright, dxTextBid, dxTextAsk, dxTextMuted;
+        private D2D.SolidColorBrush dxTextBright, dxTextBid, dxTextAsk, dxAbsTextBr, dxTextMuted;
+        private D2D.SolidColorBrush dxStatTextBr, dxStatPosTextBr, dxStatNegTextBr, dxStatLegendTextBr;
         private D2D.SolidColorBrush dxSpineUp, dxSpineDown, dxGridBg, dxGridBorder, dxBadgeBg, dxUserLvlBr, dxSpecGloss, dxFillerFill, dxFillerEdge;
         private D2D.SolidColorBrush dxGlassRimHighlight, dxGlassBotShadow, dxTextShadow, dxCellBackdrop, dxStatCardBg, dxStatLegendBg, dxStatCardBorder;
         private D2D.GradientStopCollection dxGlassTopStops;
@@ -16913,7 +16914,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private readonly Dictionary<uint, D2D.SolidColorBrush> dxDynBrushCache = new Dictionary<uint, D2D.SolidColorBrush>(64);
         private readonly List<D2D.SolidColorBrush> retiredDynBrushes = new List<D2D.SolidColorBrush>(64);
         private D2D.StrokeStyle dxDashStyle, dxDotStyle;
-        private DW.TextFormat dxFontLeft, dxFontRight, dxFontSmall, dxFontStat, dxFontHdr, dxFontCompact, dxFontMid, dxFontLegend;
+        private DW.TextFormat dxFontLeft, dxFontRight, dxFontSmall, dxFontStat, dxFontStatCompact, dxFontHdr, dxFontCompact, dxFontMid, dxFontLeftMid, dxFontLeftCompact, dxFontRightMid, dxFontRightCompact, dxFontLegend;
 
         #region Properties - 01. Left Footprint
         [Display(Name = "Left Footprint Style", GroupName = "01. Left Footprint", Order = 1)]
@@ -16938,7 +16939,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Left Values Divider", GroupName = "01. Left Footprint", Order = 7)]
         public int LeftValuesDivider { get; set; }
 
-        [Range(8, 22)]
+        [Range(8, 26)]
         [Display(Name = "Left Font Size (px)", GroupName = "01. Left Footprint", Order = 8)]
         public int LeftFontSize { get; set; }
         #endregion
@@ -16966,7 +16967,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Right Values Divider", GroupName = "02. Right Footprint", Order = 7)]
         public int RightValuesDivider { get; set; }
 
-        [Range(8, 22)]
+        [Range(8, 26)]
         [Display(Name = "Right Font Size (px)", GroupName = "02. Right Footprint", Order = 8)]
         public int RightFontSize { get; set; }
         #endregion
@@ -17130,6 +17131,18 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         [Display(Name = "Hide Text on Zero-Volume Filler Cells", GroupName = "06. Candle Internals", Order = 12)]
         public bool HideZeroText { get; set; }
+
+        [Range(2, 24)]
+        [Display(Name = "Center Candle Slot Gap (px)", GroupName = "06. Candle Internals", Order = 13)]
+        public int CenterCandleGapPx { get; set; }
+
+        [Range(0, 200)]
+        [Display(Name = "Neon Glow / Illumination (%)", GroupName = "06. Candle Internals", Order = 14)]
+        public int GlowIntensityPct { get; set; }
+
+        [Range(8, 18)]
+        [Display(Name = "Badge / Imb / Abs Font Size (px)", GroupName = "06. Candle Internals", Order = 15)]
+        public int BadgeFontSize { get; set; }
         #endregion
 
         #region Properties - 07. Bar Statistic (Above/Below Candle)
@@ -17162,7 +17175,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Cell Height (px)", GroupName = "08. Statistic Grid", Order = 3)]
         public int StatCellHeightPx { get; set; }
 
-        [Range(9, 22)]
+        [Range(8, 24)]
         [Display(Name = "Grid Font Size (px)", GroupName = "08. Statistic Grid", Order = 4)]
         public int StatFontSize { get; set; }
 
@@ -17204,6 +17217,10 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         [Display(Name = "Row: Predicted Bar Est.", GroupName = "08. Statistic Grid", Order = 17)]
         public bool GridShowPredicted { get; set; }
+
+        [Range(8, 20)]
+        [Display(Name = "Grid Legend Font Size (px)", GroupName = "08. Statistic Grid", Order = 18)]
+        public int StatLegendFontSize { get; set; }
         #endregion
 
         #region Properties - 09. Signals & Alerts (Focused 4)
@@ -17238,8 +17255,8 @@ namespace NinjaTrader.NinjaScript.Indicators
         [XmlIgnore] [Display(Name = "Positive Delta (Emerald)", GroupName = "10. Colors & Studio", Order = 2)] public System.Windows.Media.Brush ColPositiveDelta { get; set; }
         [XmlIgnore] [Display(Name = "Negative Delta (Coral Red)", GroupName = "10. Colors & Studio", Order = 3)] public System.Windows.Media.Brush ColNegativeDelta { get; set; }
         [XmlIgnore] [Display(Name = "Neutral Cluster (Electric Blue)", GroupName = "10. Colors & Studio", Order = 4)] public System.Windows.Media.Brush ColNeutralCluster { get; set; }
-        [XmlIgnore] [Display(Name = "Bid Execution Highlight", GroupName = "10. Colors & Studio", Order = 5)] public System.Windows.Media.Brush ColBidText { get; set; }
-        [XmlIgnore] [Display(Name = "Ask Execution Highlight", GroupName = "10. Colors & Studio", Order = 6)] public System.Windows.Media.Brush ColAskText { get; set; }
+        [XmlIgnore] [Display(Name = "Sell Imbalance / Bid Text", GroupName = "10. Colors & Studio", Order = 5)] public System.Windows.Media.Brush ColBidText { get; set; }
+        [XmlIgnore] [Display(Name = "Buy Imbalance / Ask Text", GroupName = "10. Colors & Studio", Order = 6)] public System.Windows.Media.Brush ColAskText { get; set; }
         [XmlIgnore] [Display(Name = "Cluster Values Text", GroupName = "10. Colors & Studio", Order = 7)] public System.Windows.Media.Brush ColValuesText { get; set; }
         [XmlIgnore] [Display(Name = "Bar VPOC Glow (Gold)", GroupName = "10. Colors & Studio", Order = 8)] public System.Windows.Media.Brush ColPocGlow { get; set; }
         [XmlIgnore] [Display(Name = "Bar VA Bracket (Sky)", GroupName = "10. Colors & Studio", Order = 9)] public System.Windows.Media.Brush ColValueAreaBar { get; set; }
@@ -17251,6 +17268,12 @@ namespace NinjaTrader.NinjaScript.Indicators
         [XmlIgnore] [Display(Name = "Ratio Neutral (Sky)", GroupName = "10. Colors & Studio", Order = 15)] public System.Windows.Media.Brush ColRatioNeutral { get; set; }
         [XmlIgnore] [Display(Name = "Ratio Rejection (Orange)", GroupName = "10. Colors & Studio", Order = 16)] public System.Windows.Media.Brush ColRatioReject { get; set; }
         [XmlIgnore] [Display(Name = "Statistic Grid Background", GroupName = "10. Colors & Studio", Order = 17)] public System.Windows.Media.Brush ColStatGridBg { get; set; }
+        [XmlIgnore] [Display(Name = "Absorption Text / ABS Badge", GroupName = "10. Colors & Studio", Order = 18)] public System.Windows.Media.Brush ColAbsText { get; set; }
+        [XmlIgnore] [Display(Name = "Grid Numbers Text (Base)", GroupName = "10. Colors & Studio", Order = 19)] public System.Windows.Media.Brush ColStatText { get; set; }
+        [XmlIgnore] [Display(Name = "Grid Positive Numbers (+)", GroupName = "10. Colors & Studio", Order = 20)] public System.Windows.Media.Brush ColStatPosText { get; set; }
+        [XmlIgnore] [Display(Name = "Grid Negative Numbers (-)", GroupName = "10. Colors & Studio", Order = 21)] public System.Windows.Media.Brush ColStatNegText { get; set; }
+        [XmlIgnore] [Display(Name = "Grid Legend Labels Text", GroupName = "10. Colors & Studio", Order = 22)] public System.Windows.Media.Brush ColStatLegendText { get; set; }
+        [XmlIgnore] [Display(Name = "Grid Pill Card Fill", GroupName = "10. Colors & Studio", Order = 23)] public System.Windows.Media.Brush ColStatCardBg { get; set; }
 
         [Browsable(false)] public string ColPositiveDeltaSerialize { get { return Serialize.BrushToString(ColPositiveDelta ?? FreezeHex("#10B981")); } set { if (!string.IsNullOrEmpty(value)) ColPositiveDelta = Serialize.StringToBrush(value); } }
         [Browsable(false)] public string ColNegativeDeltaSerialize { get { return Serialize.BrushToString(ColNegativeDelta ?? FreezeHex("#F43F5E")); } set { if (!string.IsNullOrEmpty(value)) ColNegativeDelta = Serialize.StringToBrush(value); } }
@@ -17268,6 +17291,12 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Browsable(false)] public string ColRatioNeutralSerialize { get { return Serialize.BrushToString(ColRatioNeutral ?? FreezeHex("#60A5FA")); } set { if (!string.IsNullOrEmpty(value)) ColRatioNeutral = Serialize.StringToBrush(value); } }
         [Browsable(false)] public string ColRatioRejectSerialize { get { return Serialize.BrushToString(ColRatioReject ?? FreezeHex("#FB923C")); } set { if (!string.IsNullOrEmpty(value)) ColRatioReject = Serialize.StringToBrush(value); } }
         [Browsable(false)] public string ColStatGridBgSerialize { get { return Serialize.BrushToString(ColStatGridBg ?? FreezeHex("#090D16")); } set { if (!string.IsNullOrEmpty(value)) ColStatGridBg = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColAbsTextSerialize { get { return Serialize.BrushToString(ColAbsText ?? FreezeHex("#67E8F9")); } set { if (!string.IsNullOrEmpty(value)) ColAbsText = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColStatTextSerialize { get { return Serialize.BrushToString(ColStatText ?? FreezeHex("#F8FAFC")); } set { if (!string.IsNullOrEmpty(value)) ColStatText = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColStatPosTextSerialize { get { return Serialize.BrushToString(ColStatPosText ?? FreezeHex("#6EE7B7")); } set { if (!string.IsNullOrEmpty(value)) ColStatPosText = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColStatNegTextSerialize { get { return Serialize.BrushToString(ColStatNegText ?? FreezeHex("#FCA5A5")); } set { if (!string.IsNullOrEmpty(value)) ColStatNegText = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColStatLegendTextSerialize { get { return Serialize.BrushToString(ColStatLegendText ?? FreezeHex("#F1F5F9")); } set { if (!string.IsNullOrEmpty(value)) ColStatLegendText = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColStatCardBgSerialize { get { return Serialize.BrushToString(ColStatCardBg ?? FreezeHex("#0E1625")); } set { if (!string.IsNullOrEmpty(value)) ColStatCardBg = Serialize.StringToBrush(value); } }
 
         [Browsable(false)] public string InstanceStateKey { get; set; }
         [Browsable(false)] public string EstadoPersistenteSerialize { get; set; }
@@ -17352,6 +17381,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ShowSpecularGloss = true;
                 FillEmptyPriceLevels = false;
                 HideZeroText = true;
+                CenterCandleGapPx = 11;
+                GlowIntensityPct = 125;
+                BadgeFontSize = 10;
 
                 ShowBarRatioNumbers = true;
                 RatioLowBound = 0.71;
@@ -17363,6 +17395,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 StatLegendPos = VeltrixFpLegendPos.Left;
                 StatCellHeightPx = 25;
                 StatFontSize = 12;
+                StatLegendFontSize = 11;
                 GridShowVolume = true;
                 GridShowBuyVol = false;
                 GridShowSellVol = false;
@@ -17402,6 +17435,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ColRatioNeutral = FreezeHex("#60A5FA");
                 ColRatioReject = FreezeHex("#FB923C");
                 ColStatGridBg = FreezeHex("#090D16");
+                ColAbsText = FreezeHex("#67E8F9");
+                ColStatText = FreezeHex("#F8FAFC");
+                ColStatPosText = FreezeHex("#6EE7B7");
+                ColStatNegText = FreezeHex("#FCA5A5");
+                ColStatLegendText = FreezeHex("#F1F5F9");
+                ColStatCardBg = FreezeHex("#0E1625");
                 InstanceStateKey = "";
                 EstadoPersistenteSerialize = "";
             }
@@ -18489,7 +18528,12 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (dxTextBright != null) { dxTextBright.Dispose(); dxTextBright = null; }
             if (dxTextBid != null) { dxTextBid.Dispose(); dxTextBid = null; }
             if (dxTextAsk != null) { dxTextAsk.Dispose(); dxTextAsk = null; }
+            if (dxAbsTextBr != null) { dxAbsTextBr.Dispose(); dxAbsTextBr = null; }
             if (dxTextMuted != null) { dxTextMuted.Dispose(); dxTextMuted = null; }
+            if (dxStatTextBr != null) { dxStatTextBr.Dispose(); dxStatTextBr = null; }
+            if (dxStatPosTextBr != null) { dxStatPosTextBr.Dispose(); dxStatPosTextBr = null; }
+            if (dxStatNegTextBr != null) { dxStatNegTextBr.Dispose(); dxStatNegTextBr = null; }
+            if (dxStatLegendTextBr != null) { dxStatLegendTextBr.Dispose(); dxStatLegendTextBr = null; }
             if (dxSpineUp != null) { dxSpineUp.Dispose(); dxSpineUp = null; }
             if (dxSpineDown != null) { dxSpineDown.Dispose(); dxSpineDown = null; }
             if (dxGridBg != null) { dxGridBg.Dispose(); dxGridBg = null; }
@@ -18518,9 +18562,14 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (dxFontRight != null) { dxFontRight.Dispose(); dxFontRight = null; }
             if (dxFontSmall != null) { dxFontSmall.Dispose(); dxFontSmall = null; }
             if (dxFontStat != null) { dxFontStat.Dispose(); dxFontStat = null; }
+            if (dxFontStatCompact != null) { dxFontStatCompact.Dispose(); dxFontStatCompact = null; }
             if (dxFontHdr != null) { dxFontHdr.Dispose(); dxFontHdr = null; }
             if (dxFontCompact != null) { dxFontCompact.Dispose(); dxFontCompact = null; }
             if (dxFontMid != null) { dxFontMid.Dispose(); dxFontMid = null; }
+            if (dxFontLeftMid != null) { dxFontLeftMid.Dispose(); dxFontLeftMid = null; }
+            if (dxFontLeftCompact != null) { dxFontLeftCompact.Dispose(); dxFontLeftCompact = null; }
+            if (dxFontRightMid != null) { dxFontRightMid.Dispose(); dxFontRightMid = null; }
+            if (dxFontRightCompact != null) { dxFontRightCompact.Dispose(); dxFontRightCompact = null; }
             if (dxFontLegend != null) { dxFontLegend.Dispose(); dxFontLegend = null; }
             dxRtRef = null;
             dxRtPtr = IntPtr.Zero;
@@ -18579,12 +18628,15 @@ namespace NinjaTrader.NinjaScript.Indicators
             string sig = BrushToHex(ColPositiveDelta, "#10B981") + "|" + BrushToHex(ColNegativeDelta, "#F43F5E") + "|"
                 + BrushToHex(ColNeutralCluster, "#3B82F6") + "|" + BrushToHex(ColBidText, "#FCA5A5") + "|"
                 + BrushToHex(ColAskText, "#6EE7B7") + "|" + BrushToHex(ColValuesText, "#F8FAFC") + "|"
-                + BrushToHex(ColPocGlow, "#FACC15") + "|" + BrushToHex(ColValueAreaBar, "#38BDF8") + "|"
+                + BrushToHex(ColAbsText, "#67E8F9") + "|" + BrushToHex(ColPocGlow, "#FACC15") + "|" + BrushToHex(ColValueAreaBar, "#38BDF8") + "|"
                 + BrushToHex(ColBuyZone, "#10B981") + "|" + BrushToHex(ColSellZone, "#EF4444") + "|"
                 + BrushToHex(ColAbsSupport, "#06B6D4") + "|" + BrushToHex(ColAbsResistance, "#EC4899") + "|"
                 + BrushToHex(ColUnfinished, "#F59E0B") + "|" + BrushToHex(ColRatioNeutral, "#60A5FA") + "|"
                 + BrushToHex(ColRatioReject, "#FB923C") + "|" + BrushToHex(ColStatGridBg, "#090D16") + "|"
-                + ZoneOpacityPct + "|" + LeftFontSize + "|" + RightFontSize + "|" + StatFontSize;
+                + BrushToHex(ColStatText, "#F8FAFC") + "|" + BrushToHex(ColStatPosText, "#6EE7B7") + "|"
+                + BrushToHex(ColStatNegText, "#FCA5A5") + "|" + BrushToHex(ColStatLegendText, "#F1F5F9") + "|"
+                + BrushToHex(ColStatCardBg, "#0E1625") + "|"
+                + ZoneOpacityPct + "|" + GlowIntensityPct + "|" + LeftFontSize + "|" + RightFontSize + "|" + BadgeFontSize + "|" + StatFontSize + "|" + StatLegendFontSize;
 
             if (sig == lastDxSig && dxPosDeltaBr != null && object.ReferenceEquals(RenderTarget, dxRtRef) && curPtr == dxRtPtr)
                 return;
@@ -18618,7 +18670,12 @@ namespace NinjaTrader.NinjaScript.Indicators
             dxTextBright = new D2D.SolidColorBrush(RenderTarget, ToC4(ColValuesText, 0.99f, new SharpDX.Color4(0.98f, 0.99f, 1.0f, 0.99f)));
             dxTextBid = new D2D.SolidColorBrush(RenderTarget, ToC4(ColBidText, 0.98f, new SharpDX.Color4(0.99f, 0.65f, 0.65f, 0.98f)));
             dxTextAsk = new D2D.SolidColorBrush(RenderTarget, ToC4(ColAskText, 0.98f, new SharpDX.Color4(0.43f, 0.91f, 0.72f, 0.98f)));
+            dxAbsTextBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColAbsText, 0.99f, new SharpDX.Color4(0.40f, 0.91f, 0.98f, 0.99f)));
             dxTextMuted = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.62f, 0.70f, 0.82f, 0.94f));
+            dxStatTextBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColStatText, 0.99f, new SharpDX.Color4(0.98f, 0.99f, 1.0f, 0.99f)));
+            dxStatPosTextBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColStatPosText, 0.99f, new SharpDX.Color4(0.43f, 0.91f, 0.72f, 0.99f)));
+            dxStatNegTextBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColStatNegText, 0.99f, new SharpDX.Color4(0.99f, 0.65f, 0.65f, 0.99f)));
+            dxStatLegendTextBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColStatLegendText, 0.99f, new SharpDX.Color4(0.95f, 0.97f, 0.99f, 0.99f)));
 
             dxSpineUp = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.16f, 0.85f, 0.56f, 0.92f));
             dxSpineDown = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.96f, 0.28f, 0.42f, 0.92f));
@@ -18626,22 +18683,23 @@ namespace NinjaTrader.NinjaScript.Indicators
             dxGridBorder = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.19f, 0.30f, 0.46f, 0.85f));
             dxBadgeBg = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.045f, 0.070f, 0.125f, 0.92f));
             dxUserLvlBr = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.22f, 0.74f, 0.97f, 0.94f));
-            dxSpecGloss = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(1.0f, 1.0f, 1.0f, 0.22f));
+            dxSpecGloss = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(1.0f, 1.0f, 1.0f, 0.28f));
             dxFillerFill = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.05f, 0.08f, 0.14f, 0.30f));
             dxFillerEdge = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.16f, 0.22f, 0.34f, 0.32f));
 
-            dxGlassRimHighlight = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.94f, 0.98f, 1.0f, 0.46f));
+            float glowScale = Math.Max(0.20f, Math.Min(1.80f, GlowIntensityPct / 100f));
+            dxGlassRimHighlight = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.96f, 0.99f, 1.0f, Math.Min(0.92f, 0.56f * glowScale)));
             dxGlassBotShadow = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.01f, 0.02f, 0.05f, 0.64f));
             dxTextShadow = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.01f, 0.02f, 0.05f, 0.90f));
             dxCellBackdrop = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.035f, 0.055f, 0.105f, 0.66f));
-            dxStatCardBg = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.055f, 0.085f, 0.145f, 0.78f));
+            dxStatCardBg = new D2D.SolidColorBrush(RenderTarget, ToC4(ColStatCardBg, 0.80f, new SharpDX.Color4(0.055f, 0.085f, 0.145f, 0.80f)));
             dxStatLegendBg = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.030f, 0.048f, 0.092f, 0.96f));
             dxStatCardBorder = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.18f, 0.27f, 0.40f, 0.65f));
 
             dxGlassTopStops = new D2D.GradientStopCollection(RenderTarget, new D2D.GradientStop[]
             {
-                new D2D.GradientStop { Position = 0.00f, Color = new SharpDX.Color4(1.0f, 1.0f, 1.0f, 0.30f) },
-                new D2D.GradientStop { Position = 0.48f, Color = new SharpDX.Color4(1.0f, 1.0f, 1.0f, 0.09f) },
+                new D2D.GradientStop { Position = 0.00f, Color = new SharpDX.Color4(1.0f, 1.0f, 1.0f, Math.Min(0.66f, 0.40f * glowScale)) },
+                new D2D.GradientStop { Position = 0.46f, Color = new SharpDX.Color4(1.0f, 1.0f, 1.0f, Math.Min(0.28f, 0.14f * glowScale)) },
                 new D2D.GradientStop { Position = 1.00f, Color = new SharpDX.Color4(1.0f, 1.0f, 1.0f, 0.00f) }
             });
             dxGlassTopGrad = new D2D.LinearGradientBrush(RenderTarget, new D2D.LinearGradientBrushProperties
@@ -18663,32 +18721,57 @@ namespace NinjaTrader.NinjaScript.Indicators
             dxFontRight.ParagraphAlignment = DW.ParagraphAlignment.Center;
             dxFontRight.WordWrapping = DW.WordWrapping.NoWrap;
 
-            dxFontSmall = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.SemiBold, DW.FontStyle.Normal, 9.5f);
+            dxFontSmall = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(8.0f, (float)BadgeFontSize));
             dxFontSmall.TextAlignment = DW.TextAlignment.Center;
             dxFontSmall.ParagraphAlignment = DW.ParagraphAlignment.Center;
             dxFontSmall.WordWrapping = DW.WordWrapping.NoWrap;
 
-            dxFontStat = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.Bold, DW.FontStyle.Normal, Math.Max(10.5f, StatFontSize + 0.5f));
+            dxFontStat = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.Bold, DW.FontStyle.Normal, Math.Max(8.5f, StatFontSize + 0.5f));
             dxFontStat.TextAlignment = DW.TextAlignment.Center;
             dxFontStat.ParagraphAlignment = DW.ParagraphAlignment.Center;
             dxFontStat.WordWrapping = DW.WordWrapping.NoWrap;
+
+            dxFontStatCompact = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(8.0f, StatFontSize - 2.0f));
+            dxFontStatCompact.TextAlignment = DW.TextAlignment.Center;
+            dxFontStatCompact.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontStatCompact.WordWrapping = DW.WordWrapping.NoWrap;
 
             dxFontHdr = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.Bold, DW.FontStyle.Normal, 10.5f);
             dxFontHdr.TextAlignment = DW.TextAlignment.Center;
             dxFontHdr.ParagraphAlignment = DW.ParagraphAlignment.Center;
             dxFontHdr.WordWrapping = DW.WordWrapping.NoWrap;
 
-            dxFontCompact = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(9.0f, Math.Min(11.0f, LeftFontSize - 1.5f)));
+            dxFontCompact = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(8.5f, Math.Min(11.0f, LeftFontSize - 1.5f)));
             dxFontCompact.TextAlignment = DW.TextAlignment.Center;
             dxFontCompact.ParagraphAlignment = DW.ParagraphAlignment.Center;
             dxFontCompact.WordWrapping = DW.WordWrapping.NoWrap;
 
-            dxFontMid = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(9.5f, LeftFontSize - 1.0f));
+            dxFontMid = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(9.0f, LeftFontSize - 1.0f));
             dxFontMid.TextAlignment = DW.TextAlignment.Center;
             dxFontMid.ParagraphAlignment = DW.ParagraphAlignment.Center;
             dxFontMid.WordWrapping = DW.WordWrapping.NoWrap;
 
-            dxFontLegend = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.Bold, DW.FontStyle.Normal, 11.0f);
+            dxFontLeftMid = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(8.5f, LeftFontSize - 1.5f));
+            dxFontLeftMid.TextAlignment = DW.TextAlignment.Center;
+            dxFontLeftMid.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontLeftMid.WordWrapping = DW.WordWrapping.NoWrap;
+
+            dxFontLeftCompact = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(8.0f, LeftFontSize - 3.0f));
+            dxFontLeftCompact.TextAlignment = DW.TextAlignment.Center;
+            dxFontLeftCompact.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontLeftCompact.WordWrapping = DW.WordWrapping.NoWrap;
+
+            dxFontRightMid = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(8.5f, RightFontSize - 1.5f));
+            dxFontRightMid.TextAlignment = DW.TextAlignment.Center;
+            dxFontRightMid.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontRightMid.WordWrapping = DW.WordWrapping.NoWrap;
+
+            dxFontRightCompact = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, Math.Max(8.0f, RightFontSize - 3.0f));
+            dxFontRightCompact.TextAlignment = DW.TextAlignment.Center;
+            dxFontRightCompact.ParagraphAlignment = DW.ParagraphAlignment.Center;
+            dxFontRightCompact.WordWrapping = DW.WordWrapping.NoWrap;
+
+            dxFontLegend = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.Bold, DW.FontStyle.Normal, Math.Max(8.0f, (float)StatLegendFontSize));
             dxFontLegend.TextAlignment = DW.TextAlignment.Leading;
             dxFontLegend.ParagraphAlignment = DW.ParagraphAlignment.Center;
             dxFontLegend.WordWrapping = DW.WordWrapping.NoWrap;
@@ -19025,31 +19108,43 @@ namespace NinjaTrader.NinjaScript.Indicators
                     float barLeftEdge = cx - availW * 0.5f;
                     float railW = 0f;
                     float railGap = 0f;
-                    float midSpineW = 0f;
 
                     if (CandleSpineMode == VeltrixFpCandleSpineMode.LeftSlimRail && availW >= 26f)
                     {
                         railW = Math.Min(5.5f, Math.Max(3.0f, availW * 0.06f));
                         railGap = Math.Min(4.0f, Math.Max(2.0f, availW * 0.04f));
                     }
-                    else if (CandleSpineMode == VeltrixFpCandleSpineMode.CenterMicroWick && hasL && hasR && availW >= 14f)
-                    {
-                        midSpineW = Math.Min(3.0f, Math.Max(1.5f, availW * 0.05f));
-                    }
 
                     float clusterStartX = barLeftEdge + railW + railGap;
                     float clusterTotalW = Math.Max(2.2f, availW - railW - railGap);
-                    float colGap = (hasL && hasR) ? ((clusterTotalW >= 14f) ? 3.5f : ((clusterTotalW >= 5f) ? 1.5f : 0f)) : 0f;
-                    float leftX = clusterStartX;
-                    float leftW = hasL ? (hasR ? Math.Max(1.2f, (clusterTotalW - midSpineW - colGap) * 0.55f) : clusterTotalW) : 0f;
-                    float rightX = hasL ? (leftX + leftW + midSpineW + colGap) : clusterStartX;
-                    float rightW = hasR ? (hasL ? Math.Max(1.2f, clusterTotalW - leftW - midSpineW - colGap) : clusterTotalW) : 0f;
+                    bool useCenteredSlot = (hasL && hasR && railW <= 0f);
+                    float colGap, leftX, leftW, rightX, rightW;
+                    if (useCenteredSlot)
+                    {
+                        float baseGap = Math.Max(2f, (float)CenterCandleGapPx);
+                        colGap = (availW >= 54f) ? Math.Min(availW * 0.28f, baseGap)
+                            : ((availW >= 24f) ? Math.Min(baseGap, Math.Max(4.5f, availW * 0.18f))
+                            : ((availW >= 10f) ? 2.5f : 0.8f));
+                        float halfSpan = Math.Max(1.2f, (availW - colGap) * 0.5f);
+                        leftW = halfSpan;
+                        leftX = cx - colGap * 0.5f - leftW;
+                        rightX = cx + colGap * 0.5f;
+                        rightW = halfSpan;
+                    }
+                    else
+                    {
+                        colGap = (hasL && hasR) ? ((clusterTotalW >= 14f) ? 3.5f : ((clusterTotalW >= 5f) ? 1.5f : 0f)) : 0f;
+                        leftX = clusterStartX;
+                        leftW = hasL ? (hasR ? Math.Max(1.2f, (clusterTotalW - colGap) * 0.5f) : clusterTotalW) : 0f;
+                        rightX = hasL ? (leftX + leftW + colGap) : clusterStartX;
+                        rightW = hasR ? (hasL ? Math.Max(1.2f, clusterTotalW - leftW - colGap) : clusterTotalW) : 0f;
+                    }
 
                     List<BucketRenderCell> buckets = bar.CachedBuckets;
                     long barMaxVol = bar.CachedMaxVol;
                     long barMaxDelta = bar.CachedMaxDelta;
 
-                    // Sleek Candle Spine (LeftSlimRail / CenterMicroWick / Compact zoomed-out hairline)
+                    // Sleek Candle Spine (LeftSlimRail / CenterMicroWick centered in slot / Compact zoomed-out hairline)
                     if (CandleSpineMode == VeltrixFpCandleSpineMode.LeftSlimRail && railW > 0f)
                     {
                         float rxCenter = barLeftEdge + railW * 0.5f;
@@ -19064,13 +19159,22 @@ namespace NinjaTrader.NinjaScript.Indicators
                         var railRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(barLeftEdge, bTop, railW, Math.Max(3f, bBot - bTop)), RadiusX = 1.5f, RadiusY = 1.5f };
                         RenderTarget.FillRoundedRectangle(railRect, spBr);
                     }
-                    else if (CandleSpineMode == VeltrixFpCandleSpineMode.CenterMicroWick && midSpineW > 0f)
+                    else if (CandleSpineMode == VeltrixFpCandleSpineMode.CenterMicroWick && availW >= 14f)
                     {
-                        float spineCx = leftX + leftW + colGap * 0.5f + midSpineW * 0.5f;
+                        float spineCx = useCenteredSlot ? cx : (hasL && hasR ? (leftX + leftW + colGap * 0.5f) : (clusterStartX + clusterTotalW * 0.5f));
                         float yH = Math.Max(panelTop + 2f, (float)chartScale.GetYByValue(bar.High));
                         float yL = Math.Min(plotBottom - 2f, (float)chartScale.GetYByValue(bar.Low));
+                        float yO = Math.Max(panelTop + 2f, Math.Min(plotBottom - 2f, (float)chartScale.GetYByValue(bar.Open)));
+                        float yC = Math.Max(panelTop + 2f, Math.Min(plotBottom - 2f, (float)chartScale.GetYByValue(bar.Close)));
                         D2D.SolidColorBrush spBr = (bar.Close >= bar.Open) ? dxSpineUp : dxSpineDown;
                         RenderTarget.DrawLine(new SharpDX.Vector2(spineCx, yH), new SharpDX.Vector2(spineCx, yL), spBr, 1.6f);
+                        if (useCenteredSlot && colGap >= 5f)
+                        {
+                            float bodyW = Math.Min(5.0f, Math.Max(2.4f, colGap * 0.44f));
+                            float bTop = Math.Min(yO, yC);
+                            float bBot = Math.Max(yO, yC);
+                            RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(spineCx - bodyW * 0.5f, bTop, bodyW, Math.Max(3f, bBot - bTop)), RadiusX = 1.2f, RadiusY = 1.2f }, spBr);
+                        }
                     }
                     else if (availW < 26f && CandleSpineMode != VeltrixFpCandleSpineMode.None)
                     {
@@ -19082,6 +19186,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                     bool drawTextL = LeftShowValues && rowHeightPx >= 9.5f && leftW >= 20f;
                     bool drawTextR = RightShowValues && rowHeightPx >= 9.5f && rightW >= 14f;
+                    float gMul = ShowSpecularGloss ? Math.Max(0f, Math.Min(2.0f, GlowIntensityPct / 100f)) : 0f;
 
                     for (int i = 0; i < buckets.Count; i++)
                     {
@@ -19122,11 +19227,20 @@ namespace NinjaTrader.NinjaScript.Indicators
                             byte ib = bc.BuyImb ? posB : negB;
                             D2D.SolidColorBrush imbBr = bc.BuyImb ? dxBuyZoneEdge : dxSellZoneEdge;
 
-                            // Glow cell frame whenever Imbalance fires
+                            // Multi-layer Neon Bloom + crisp core edge whenever Imbalance fires
                             float targetX = bc.BuyImb ? (hasR ? rightX : leftX) : leftX;
                             float targetW = bc.BuyImb ? (hasR ? rightW : leftW) : (hasL ? leftW : rightW);
                             if (targetW >= 6f)
-                                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(targetX, ry, targetW, cellH), RadiusX = 2.5f, RadiusY = 2.5f }, imbBr, 1.5f);
+                            {
+                                var imbRR = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(targetX, ry, targetW, cellH), RadiusX = 3.2f, RadiusY = 3.2f };
+                                if (gMul > 0.05f)
+                                {
+                                    byte brI = (byte)Math.Min(255, ir + 60), bgI = (byte)Math.Min(255, ig + 60), bbI = (byte)Math.Min(255, ib + 60);
+                                    RenderTarget.DrawRoundedRectangle(imbRR, GetDynBrush(ir, ig, ib, Math.Min(0.45f, 0.22f * gMul)), 5.8f);
+                                    RenderTarget.DrawRoundedRectangle(imbRR, GetDynBrush(brI, bgI, bbI, Math.Min(0.68f, 0.36f * gMul)), 3.0f);
+                                }
+                                RenderTarget.DrawRoundedRectangle(imbRR, imbBr, 1.55f);
+                            }
 
                             if (ImbMarkerType == VeltrixFpMarkerType.NeonAuraBadge || ImbMarkerType == VeltrixFpMarkerType.GlowingOrb)
                             {
@@ -19143,12 +19257,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                             }
                             else if (ImbMarkerType == VeltrixFpMarkerType.LightningPill)
                             {
-                                float pw = Math.Max(18f, mRad * 2.4f);
+                                float pw = Math.Max(22f, mRad * 2.6f);
                                 float px = bc.BuyImb ? mx : (mx - pw);
-                                var pillR = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(px, cy - 6.5f, pw, 13f), RadiusX = 4f, RadiusY = 4f };
-                                RenderTarget.FillRoundedRectangle(pillR, GetDynBrush(ir, ig, ib, 0.38f));
+                                float ph = Math.Max(13f, BadgeFontSize + 3.5f);
+                                var pillR = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(px, cy - ph * 0.5f, pw, ph), RadiusX = 4f, RadiusY = 4f };
+                                RenderTarget.FillRoundedRectangle(pillR, GetDynBrush(ir, ig, ib, 0.42f));
                                 RenderTarget.DrawRoundedRectangle(pillR, imbBr, 1.3f);
-                                DrawTextCentered(bc.BuyImb ? "▲IMB" : "▼IMB", dxFontSmall, new SharpDX.RectangleF(px, cy - 6.5f, pw, 13f), dxTextBright);
+                                DrawTextCentered(bc.BuyImb ? "▲IMB" : "▼IMB", dxFontSmall, new SharpDX.RectangleF(px, cy - ph * 0.5f, pw, ph), bc.BuyImb ? dxTextAsk : dxTextBid);
                             }
                         }
 
@@ -19161,37 +19276,52 @@ namespace NinjaTrader.NinjaScript.Indicators
                             float aRad = Math.Max(4.5f, Math.Min(13f, AbsMarkerSizePx * 0.5f));
                             float ax = bc.AbsBid ? (leftX + 5f) : (hasR ? rightX + rightW - 5f : leftX + leftW - 5f);
 
-                            float fullSpanW = (hasL ? leftW : 0f) + (hasR ? rightW + (hasL ? midSpineW + colGap : 0f) : 0f);
                             float boxStart = hasL ? leftX : rightX;
+                            float fullSpanW = (hasL && hasR) ? ((rightX + rightW) - leftX) : (hasL ? leftW : rightW);
                             if (fullSpanW >= 6f)
-                                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(boxStart, ry, fullSpanW, cellH), RadiusX = 4.0f, RadiusY = 4.0f }, GetDynBrush(ar, ag, ab, 0.85f), 1.7f);
+                            {
+                                var absRR = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(boxStart, ry, fullSpanW, cellH), RadiusX = 4.0f, RadiusY = 4.0f };
+                                if (gMul > 0.05f)
+                                {
+                                    RenderTarget.DrawRoundedRectangle(absRR, GetDynBrush(ar, ag, ab, Math.Min(0.45f, 0.24f * gMul)), 6.0f);
+                                    RenderTarget.DrawRoundedRectangle(absRR, GetDynBrush((byte)Math.Min(255, ar + 50), (byte)Math.Min(255, ag + 50), (byte)Math.Min(255, ab + 50), Math.Min(0.65f, 0.38f * gMul)), 3.2f);
+                                }
+                                RenderTarget.DrawRoundedRectangle(absRR, GetDynBrush(ar, ag, ab, 0.92f), 1.7f);
+                            }
 
                             if (AbsMarkerType == VeltrixFpAbsVisual.ShieldPulseRing || AbsMarkerType == VeltrixFpAbsVisual.GlowingDoubleOrb)
                             {
-                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), aRad * 1.45f, aRad * 1.45f), GetDynBrush(ar, ag, ab, 0.22f));
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), aRad * 1.45f, aRad * 1.45f), GetDynBrush(ar, ag, ab, 0.26f));
                                 RenderTarget.DrawEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), aRad * 1.05f, aRad * 1.05f), absBr, 1.8f);
                                 RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), aRad * 0.52f, aRad * 0.52f), absBr);
-                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), Math.Max(1.5f, aRad * 0.22f), Math.Max(1.5f, aRad * 0.22f)), dxTextBright);
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), Math.Max(1.5f, aRad * 0.22f), Math.Max(1.5f, aRad * 0.22f)), dxAbsTextBr);
                             }
                             else if (AbsMarkerType == VeltrixFpAbsVisual.HexagonBadge)
                             {
-                                float bw = Math.Max(22f, aRad * 2.5f);
-                                var badgeR = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(ax - bw * 0.5f, cy - 6.5f, bw, 13f), RadiusX = 4f, RadiusY = 4f };
-                                RenderTarget.FillRoundedRectangle(badgeR, GetDynBrush(ar, ag, ab, 0.42f));
+                                float bw = Math.Max(24f, aRad * 2.6f);
+                                float bh = Math.Max(13f, BadgeFontSize + 3.5f);
+                                var badgeR = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(ax - bw * 0.5f, cy - bh * 0.5f, bw, bh), RadiusX = 4f, RadiusY = 4f };
+                                RenderTarget.FillRoundedRectangle(badgeR, GetDynBrush(ar, ag, ab, 0.45f));
                                 RenderTarget.DrawRoundedRectangle(badgeR, absBr, 1.4f);
-                                DrawTextCentered("ABS", dxFontSmall, new SharpDX.RectangleF(ax - bw * 0.5f, cy - 6.5f, bw, 13f), dxTextBright);
+                                DrawTextCentered("ABS", dxFontSmall, new SharpDX.RectangleF(ax - bw * 0.5f, cy - bh * 0.5f, bw, bh), dxAbsTextBr);
                             }
                         }
 
-                        // Bar VPOC Luxury Gold Glass Crown & Beacon Tabs
+                        // Bar VPOC Luxury Gold Glass Crown & Beacon Tabs (multi-pass bloom across center corridor!)
                         if (ShowBarVpoc && bc.IsVpoc && !bc.IsEmptyFiller)
                         {
+                            byte pr, pg, pb;
+                            ToRgb(ColPocGlow, out pr, out pg, out pb);
                             float vx = hasL ? leftX : rightX;
-                            float vw = (hasL ? leftW : 0f) + (hasR ? rightW + (hasL ? midSpineW + colGap : 0f) : 0f);
+                            float vw = (hasL && hasR) ? ((rightX + rightW) - leftX) : (hasL ? leftW : rightW);
                             var vpRect = new SharpDX.RectangleF(vx - 1.0f, ry - 0.5f, Math.Max(4f, vw + 2f), cellH + 1.0f);
-                            RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = vpRect, RadiusX = 4.2f, RadiusY = 4.2f }, GetDynBrush(250, 204, 21, 0.14f));
-                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(vx - 1.5f, ry - 0.8f, Math.Max(4f, vw + 3f), cellH + 1.6f), RadiusX = 4.5f, RadiusY = 4.5f }, GetDynBrush(250, 204, 21, 0.28f), 3.0f);
-                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = vpRect, RadiusX = 4.0f, RadiusY = 4.0f }, dxPocBr, 1.5f);
+                            RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = vpRect, RadiusX = 4.2f, RadiusY = 4.2f }, GetDynBrush(pr, pg, pb, 0.16f));
+                            if (gMul > 0.05f)
+                            {
+                                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(vx - 1.8f, ry - 1.0f, Math.Max(4f, vw + 3.6f), cellH + 2.0f), RadiusX = 4.8f, RadiusY = 4.8f }, GetDynBrush(pr, pg, pb, Math.Min(0.42f, 0.22f * gMul)), 5.8f);
+                                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(vx - 1.4f, ry - 0.8f, Math.Max(4f, vw + 2.8f), cellH + 1.6f), RadiusX = 4.5f, RadiusY = 4.5f }, GetDynBrush(pr, pg, pb, Math.Min(0.72f, 0.38f * gMul)), 3.0f);
+                            }
+                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = vpRect, RadiusX = 4.0f, RadiusY = 4.0f }, dxPocBr, 1.55f);
                             if (cellH >= 6f && vw >= 10f)
                             {
                                 float tabH = Math.Max(4f, cellH - 4f);
@@ -19204,7 +19334,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     // Sleek Anti-Collision Telemetry Pills Above & Below Candle
                     float yBarTop = Math.Max(panelTop + 4f, (float)chartScale.GetYByValue(bar.High + ts * 0.5));
                     float yBarBot = Math.Min(plotBottom - 4f, (float)chartScale.GetYByValue(bar.Low - ts * 0.5));
-                    float badgeCx = clusterStartX + clusterTotalW * 0.5f;
+                    float badgeCx = useCenteredSlot ? cx : (clusterStartX + clusterTotalW * 0.5f);
                     float topBadgeY = yBarTop - 20f;
                     float botBadgeY = yBarBot + 6f;
 
@@ -19392,14 +19522,26 @@ namespace NinjaTrader.NinjaScript.Indicators
                 drawX = isLeft ? (x + w - drawW) : x;
             }
 
+            float glowMul = ShowSpecularGloss ? Math.Max(0f, Math.Min(2.0f, GlowIntensityPct / 100f)) : 0f;
+            byte glowR = (byte)Math.Min(255, cr + 55);
+            byte glowG = (byte)Math.Min(255, cg + 55);
+            byte glowB = (byte)Math.Min(255, cb + 55);
+            double lumWeight = (shape == VeltrixFpClusterShape.HeatGradient) ? heat : ((norm >= 0.45) ? norm : (norm * 0.70));
+
             bool compactMode = (w < 12f || h < 7f);
             if (style == VeltrixFpStyle.Ladder || style == VeltrixFpStyle.SplitDeltaImbalance)
             {
                 long totSide = Math.Max(1L, bc.BidVol + bc.AskVol);
                 float bidW = drawW * (float)((double)bc.BidVol / totSide);
                 float askW = drawW - bidW;
+                var ladRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 3.8f, RadiusY = 3.8f };
+                if (!compactMode && glowMul > 0.08f && lumWeight >= 0.35)
+                {
+                    RenderTarget.DrawRoundedRectangle(ladRect, GetDynBrush(cr, cg, cb, Math.Min(0.42f, (float)((0.08 + 0.16 * lumWeight) * glowMul))), 4.8f);
+                    RenderTarget.DrawRoundedRectangle(ladRect, GetDynBrush(glowR, glowG, glowB, Math.Min(0.60f, (float)((0.12 + 0.24 * lumWeight) * glowMul))), 2.4f);
+                }
                 if (!compactMode)
-                    RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 3.8f, RadiusY = 3.8f }, dxCellBackdrop);
+                    RenderTarget.FillRoundedRectangle(ladRect, dxCellBackdrop);
                 if (bidW >= 0.8f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX + 1f, y + 1f, Math.Max(0.5f, bidW - 1f), Math.Max(1f, h - 2f)), GetDynBrush(negR, negG, negB, baseAlpha));
                 if (askW >= 0.8f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX + bidW, y + 1f, Math.Max(0.5f, askW - 1f), Math.Max(1f, h - 2f)), GetDynBrush(posR, posG, posB, baseAlpha));
                 if (!compactMode)
@@ -19409,11 +19551,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                         dxGlassTopGrad.StartPoint = new SharpDX.Vector2(drawX, y);
                         dxGlassTopGrad.EndPoint = new SharpDX.Vector2(drawX, y + h * 0.58f);
                         RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX + 0.8f, y + 0.8f, Math.Max(1f, drawW - 1.6f), Math.Max(2f, h * 0.52f)), RadiusX = 3.0f, RadiusY = 3.0f }, dxGlassTopGrad);
-                        RenderTarget.DrawLine(new SharpDX.Vector2(drawX + 3f, y + 1.0f), new SharpDX.Vector2(drawX + drawW - 3f, y + 1.0f), dxGlassRimHighlight, 1.1f);
+                        RenderTarget.DrawLine(new SharpDX.Vector2(drawX + 3f, y + 1.0f), new SharpDX.Vector2(drawX + drawW - 3f, y + 1.0f), dxGlassRimHighlight, 1.2f);
+                        if (glowMul > 0.08f && drawW >= 12f)
+                            RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX + 3f, y + h - 3.0f, Math.Max(2f, drawW - 6f), 1.8f), RadiusX = 0.9f, RadiusY = 0.9f }, GetDynBrush(glowR, glowG, glowB, Math.Min(0.92f, (float)((0.20 + 0.54 * lumWeight) * glowMul))));
                         RenderTarget.DrawLine(new SharpDX.Vector2(drawX + 3f, y + h - 1.0f), new SharpDX.Vector2(drawX + drawW - 3f, y + h - 1.0f), dxGlassBotShadow, 1.2f);
                     }
-                    D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, Math.Min(0.95f, baseAlpha + 0.30f));
-                    RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 3.8f, RadiusY = 3.8f }, edgeBr, 0.9f);
+                    D2D.SolidColorBrush edgeBr = GetDynBrush(glowR, glowG, glowB, Math.Min(0.96f, baseAlpha + 0.34f));
+                    RenderTarget.DrawRoundedRectangle(ladRect, edgeBr, 1.0f);
                 }
             }
             else if (compactMode)
@@ -19422,39 +19566,54 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             else
             {
-                var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = (shape == VeltrixFpClusterShape.Brick ? 2.8f : 4.0f), RadiusY = (shape == VeltrixFpClusterShape.Brick ? 2.8f : 4.0f) };
-                // Layer 1: Dark Smoked Glass Backing + Translucent Chroma Body
+                var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = (shape == VeltrixFpClusterShape.Brick ? 3.0f : 4.2f), RadiusY = (shape == VeltrixFpClusterShape.Brick ? 3.0f : 4.2f) };
+
+                // Layer 0: Soft Multi-Pass Outer Neon Aura Halo (genuine backlit illumination around hot / VA / imbalanced cards)
+                if (ShowSpecularGloss && glowMul > 0.08f && drawW >= 10f && (lumWeight >= 0.32 || bc.InValueArea || bc.BuyImb || bc.SellImb || bc.AbsBid || bc.AbsAsk || bc.IsVpoc))
+                {
+                    RenderTarget.DrawRoundedRectangle(rRect, GetDynBrush(cr, cg, cb, Math.Min(0.45f, (float)((0.08 + 0.18 * lumWeight) * glowMul))), 5.0f);
+                    RenderTarget.DrawRoundedRectangle(rRect, GetDynBrush(glowR, glowG, glowB, Math.Min(0.65f, (float)((0.13 + 0.27 * lumWeight) * glowMul))), 2.5f);
+                }
+
+                // Layer 1: Dark Smoked Glass Backing + Translucent Chroma Body + Inset Luminous Core
                 RenderTarget.FillRoundedRectangle(rRect, dxCellBackdrop);
                 RenderTarget.FillRoundedRectangle(rRect, fillBr);
+                if (ShowSpecularGloss && glowMul > 0.08f && drawW >= 14f && h >= 8f && lumWeight >= 0.35)
+                {
+                    var coreRR = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX + 2.2f, y + 2.0f, Math.Max(2f, drawW - 4.4f), Math.Max(2f, h - 4.0f)), RadiusX = 2.6f, RadiusY = 2.6f };
+                    RenderTarget.FillRoundedRectangle(coreRR, GetDynBrush(glowR, glowG, glowB, Math.Min(0.36f, (float)((0.05 + 0.22 * lumWeight) * glowMul))));
+                }
 
-                // Layer 2: True 3D Glassmorphism Specular Dome + Bevel Rims
+                // Layer 2: Crystalline 3D Specular Dome + Bright Top Rim + Bottom LED Neon Underglow Strip
                 if (ShowSpecularGloss && h >= 8f && drawW >= 12f && dxGlassTopGrad != null)
                 {
                     dxGlassTopGrad.StartPoint = new SharpDX.Vector2(drawX, y);
                     dxGlassTopGrad.EndPoint = new SharpDX.Vector2(drawX, y + h * 0.58f);
                     var domeR = new D2D.RoundedRectangle
                     {
-                        Rect = new SharpDX.RectangleF(drawX + 1.0f, y + 0.8f, Math.Max(2f, drawW - 2.0f), Math.Max(2.5f, h * 0.52f)),
+                        Rect = new SharpDX.RectangleF(drawX + 1.0f, y + 0.8f, Math.Max(2f, drawW - 2.0f), Math.Max(2.5f, h * 0.54f)),
                         RadiusX = 3.0f,
                         RadiusY = 3.0f
                     };
                     RenderTarget.FillRoundedRectangle(domeR, dxGlassTopGrad);
                     if (drawW >= 14f)
                     {
-                        RenderTarget.DrawLine(new SharpDX.Vector2(drawX + 3.5f, y + 1.1f), new SharpDX.Vector2(drawX + drawW - 3.5f, y + 1.1f), dxGlassRimHighlight, 1.1f);
-                        RenderTarget.DrawLine(new SharpDX.Vector2(drawX + 3.5f, y + h - 1.1f), new SharpDX.Vector2(drawX + drawW - 3.5f, y + h - 1.1f), dxGlassBotShadow, 1.3f);
+                        RenderTarget.DrawLine(new SharpDX.Vector2(drawX + 3.5f, y + 1.1f), new SharpDX.Vector2(drawX + drawW - 3.5f, y + 1.1f), dxGlassRimHighlight, 1.25f);
+                        if (glowMul > 0.08f)
+                            RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX + 3.2f, y + h - 3.0f, Math.Max(2f, drawW - 6.4f), 1.9f), RadiusX = 0.9f, RadiusY = 0.9f }, GetDynBrush(glowR, glowG, glowB, Math.Min(0.95f, (float)((0.20 + 0.58 * lumWeight) * glowMul))));
+                        RenderTarget.DrawLine(new SharpDX.Vector2(drawX + 3.5f, y + h - 1.0f), new SharpDX.Vector2(drawX + drawW - 3.5f, y + h - 1.0f), dxGlassBotShadow, 1.3f);
                     }
                 }
 
-                // Layer 3: Shape-specific Border / Accent Cap
-                float edgeAlpha = (shape == VeltrixFpClusterShape.HeatGradient) ? Math.Min(0.98f, 0.25f + 0.72f * (float)heat) : Math.Min(0.95f, baseAlpha + 0.28f);
-                float edgeW = (shape == VeltrixFpClusterShape.HeatGradient && heat >= 0.65) ? 1.45f : ((norm >= 0.65 || bc.InValueArea) ? 1.1f : 0.75f);
-                D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, edgeAlpha);
+                // Layer 3: Luminous Crystal Edge Border / Accent Cap
+                float edgeAlpha = (shape == VeltrixFpClusterShape.HeatGradient) ? Math.Min(0.99f, 0.30f + 0.68f * (float)heat) : Math.Min(0.98f, baseAlpha + 0.34f);
+                float edgeW = (shape == VeltrixFpClusterShape.HeatGradient && heat >= 0.60) ? 1.5f : ((norm >= 0.55 || bc.InValueArea) ? 1.15f : 0.85f);
+                D2D.SolidColorBrush edgeBr = GetDynBrush(glowR, glowG, glowB, edgeAlpha);
                 RenderTarget.DrawRoundedRectangle(rRect, edgeBr, edgeW);
                 if (shape == VeltrixFpClusterShape.Histogram && drawW >= 5f)
                 {
-                    float tipX = isLeft ? drawX : (drawX + drawW - 2.0f);
-                    RenderTarget.FillRectangle(new SharpDX.RectangleF(tipX, y + 1.5f, 2.0f, Math.Max(2f, h - 3f)), edgeBr);
+                    float tipX = isLeft ? drawX : (drawX + drawW - 2.2f);
+                    RenderTarget.FillRectangle(new SharpDX.RectangleF(tipX, y + 1.5f, 2.2f, Math.Max(2f, h - 3f)), edgeBr);
                 }
             }
 
@@ -19463,16 +19622,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                 string txt = isLeft ? (bc.CachedTxtL ?? FormatCellText(style, bc, div)) : (bc.CachedTxtR ?? FormatCellText(style, bc, div));
                 if (!string.IsNullOrEmpty(txt))
                 {
-                    // Smart auto-fit typography + K compression so digits NEVER overflow cluster card edges!
-                    float charWNormal = (isLeft ? LeftFontSize : RightFontSize) * 0.60f;
-                    float charWMid = Math.Max(8.5f, LeftFontSize - 1.5f) * 0.58f;
+                    // Per-side auto-fit typography + K compression so digits NEVER overflow cluster card edges!
+                    float sideFont = isLeft ? (float)LeftFontSize : (float)RightFontSize;
+                    float charWNormal = sideFont * 0.60f;
+                    float charWMid = Math.Max(8.5f, sideFont - 1.5f) * 0.58f;
                     float maxTextW = Math.Max(6f, w - 4f);
                     DW.TextFormat drawTf = tf;
+                    DW.TextFormat tfMid = isLeft ? dxFontLeftMid : dxFontRightMid;
+                    DW.TextFormat tfComp = isLeft ? dxFontLeftCompact : dxFontRightCompact;
 
                     if (txt.Length * charWNormal > maxTextW)
                     {
                         if (txt.Length * charWMid <= maxTextW && h >= 12f)
-                            drawTf = dxFontMid;
+                            drawTf = tfMid;
                         else
                         {
                             // If BidAsk has long numbers (>8 chars) that still clip tightly, compact safely with K
@@ -19487,15 +19649,17 @@ namespace NinjaTrader.NinjaScript.Indicators
                                 long raw = (style == VeltrixFpStyle.Volume) ? (bc.Vol / d) : (bc.Delta / d);
                                 txt = FormatCompactNum(raw, style != VeltrixFpStyle.Volume, true);
                             }
-                            drawTf = (txt.Length * charWMid <= maxTextW && h >= 12f) ? dxFontMid : dxFontCompact;
+                            drawTf = (txt.Length * charWMid <= maxTextW && h >= 12f) ? tfMid : tfComp;
                         }
                     }
-                    else if (h < 13f)
+                    else if (h < 12.5f && sideFont > 11f)
                     {
-                        drawTf = dxFontCompact;
+                        drawTf = tfComp;
                     }
 
-                    D2D.SolidColorBrush txtBr = (bc.BuyImb && bc.AskVol >= ImbalanceMinVol) ? dxTextAsk : ((bc.SellImb && bc.BidVol >= ImbalanceMinVol) ? dxTextBid : dxTextBright);
+                    D2D.SolidColorBrush txtBr = (ShowAbsorption && (bc.AbsBid || bc.AbsAsk)) ? dxAbsTextBr
+                        : ((ShowImbalance && bc.BuyImb && bc.AskVol >= ImbalanceMinVol) ? dxTextAsk
+                        : ((ShowImbalance && bc.SellImb && bc.BidVol >= ImbalanceMinVol) ? dxTextBid : dxTextBright));
                     var tRect = new SharpDX.RectangleF(x + 2f, y, Math.Max(4f, w - 4f), h);
                     if (w >= 26f && h >= 11f)
                         DrawTextShadowed(txt, drawTf, tRect, txtBr);
@@ -19574,6 +19738,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     float cardW = cardR - cardX;
                     if (cardW < 10f) continue;
 
+                    float statGlow = ShowSpecularGloss ? Math.Max(0f, Math.Min(2.0f, GlowIntensityPct / 100f)) : 0f;
                     for (int r = 0; r < rows.Count; r++)
                         {
                             float ry = dockY + gridTopPad + r * StatCellHeightPx;
@@ -19583,45 +19748,52 @@ namespace NinjaTrader.NinjaScript.Indicators
                             string val = "";
                             D2D.SolidColorBrush cellBg = null;
                             D2D.SolidColorBrush cellEdge = null;
-                            D2D.SolidColorBrush cellFg = dxTextBright;
+                            D2D.SolidColorBrush cellFg = dxStatTextBr;
+                            byte acR = 56, acG = 189, acB = 248;
+                            double glowFactor = 0.25;
 
                             if (key == "Volume")
                             {
                                 val = FormatCompactNum(bar.TotalVol, false, cardW < 44f);
                                 double rn = Math.Max(0.08, Math.Min(1.0, (double)bar.TotalVol / Math.Max(1L, maxVol)));
+                                glowFactor = rn;
                                 cellBg = GetDynBrush(56, 189, 248, (float)(0.16 + 0.42 * rn));
-                                cellEdge = GetDynBrush(56, 189, 248, (float)(0.35 + 0.52 * rn));
+                                cellEdge = GetDynBrush(56, 189, 248, (float)(0.38 + 0.54 * rn));
                             }
                             else if (key == "Buy Vol")
                             {
                                 val = FormatCompactNum(bar.BuyVol, false, cardW < 44f);
                                 double rn = Math.Max(0.08, Math.Min(1.0, (double)bar.BuyVol / Math.Max(1L, maxVol)));
+                                acR = posR; acG = posG; acB = posB; glowFactor = rn;
                                 cellBg = GetDynBrush(posR, posG, posB, (float)(0.16 + 0.40 * rn));
-                                cellEdge = GetDynBrush(posR, posG, posB, (float)(0.35 + 0.48 * rn));
-                                cellFg = dxTextAsk;
+                                cellEdge = GetDynBrush(posR, posG, posB, (float)(0.38 + 0.50 * rn));
+                                cellFg = dxStatPosTextBr;
                             }
                             else if (key == "Sell Vol")
                             {
                                 val = FormatCompactNum(bar.SellVol, false, cardW < 44f);
                                 double rn = Math.Max(0.08, Math.Min(1.0, (double)bar.SellVol / Math.Max(1L, maxVol)));
+                                acR = negR; acG = negG; acB = negB; glowFactor = rn;
                                 cellBg = GetDynBrush(negR, negG, negB, (float)(0.16 + 0.40 * rn));
-                                cellEdge = GetDynBrush(negR, negG, negB, (float)(0.35 + 0.48 * rn));
-                                cellFg = dxTextBid;
+                                cellEdge = GetDynBrush(negR, negG, negB, (float)(0.38 + 0.50 * rn));
+                                cellFg = dxStatNegTextBr;
                             }
                             else if (key == "Trades")
                             {
                                 val = FormatCompactNum(bar.TradesCount, false, cardW < 42f);
                                 double rn = Math.Max(0.08, Math.Min(1.0, (double)bar.TradesCount / Math.Max(1L, maxTrades)));
+                                acR = 129; acG = 140; acB = 248; glowFactor = rn * 0.75;
                                 cellBg = GetDynBrush(129, 140, 248, (float)(0.14 + 0.34 * rn));
-                                cellEdge = GetDynBrush(129, 140, 248, (float)(0.32 + 0.45 * rn));
+                                cellEdge = GetDynBrush(129, 140, 248, (float)(0.34 + 0.46 * rn));
                             }
                             else if (key == "Delta")
                             {
                                 val = FormatCompactNum(bar.BarDelta, true, cardW < 46f);
                                 double rn = Math.Max(0.08, Math.Min(1.0, Math.Abs((double)bar.BarDelta) / Math.Max(1L, maxDelta)));
                                 bool posD = bar.BarDelta >= 0;
-                                cellBg = posD ? GetDynBrush(posR, posG, posB, (float)(0.22 + 0.46 * rn)) : GetDynBrush(negR, negG, negB, (float)(0.22 + 0.46 * rn));
-                                cellEdge = posD ? GetDynBrush(posR, posG, posB, (float)(0.45 + 0.45 * rn)) : GetDynBrush(negR, negG, negB, (float)(0.45 + 0.45 * rn));
+                                acR = posD ? posR : negR; acG = posD ? posG : negG; acB = posD ? posB : negB; glowFactor = Math.Max(0.35, rn);
+                                cellBg = GetDynBrush(acR, acG, acB, (float)(0.22 + 0.46 * rn));
+                                cellEdge = GetDynBrush(acR, acG, acB, (float)(0.45 + 0.45 * rn));
                             }
                             else if (key == "Delta %")
                             {
@@ -19629,57 +19801,64 @@ namespace NinjaTrader.NinjaScript.Indicators
                                 val = (pct > 0 ? "+" : "") + pct.ToString(CultureInfo.InvariantCulture) + "%";
                                 bool posP = pct >= 0;
                                 double pNorm = Math.Min(1.0, Math.Abs(pct) / 100.0);
-                                cellBg = posP ? GetDynBrush(posR, posG, posB, (float)(0.14 + 0.34 * pNorm)) : GetDynBrush(negR, negG, negB, (float)(0.14 + 0.34 * pNorm));
-                                cellEdge = posP ? GetDynBrush(posR, posG, posB, (float)(0.30 + 0.45 * pNorm)) : GetDynBrush(negR, negG, negB, (float)(0.30 + 0.45 * pNorm));
-                                cellFg = posP ? dxTextAsk : dxTextBid;
+                                acR = posP ? posR : negR; acG = posP ? posG : negG; acB = posP ? posB : negB; glowFactor = pNorm;
+                                cellBg = GetDynBrush(acR, acG, acB, (float)(0.14 + 0.34 * pNorm));
+                                cellEdge = GetDynBrush(acR, acG, acB, (float)(0.32 + 0.46 * pNorm));
+                                cellFg = posP ? dxStatPosTextBr : dxStatNegTextBr;
                             }
                             else if (key == "Cum Delta")
                             {
                                 val = FormatCompactNum(bar.CumDeltaAtBar, true, cardW < 52f);
                                 bool posC = bar.CumDeltaAtBar >= 0;
                                 double cNorm = Math.Min(1.0, Math.Abs((double)bar.CumDeltaAtBar) / Math.Max(1L, maxCumAbs));
-                                cellBg = posC ? GetDynBrush(6, 182, 212, (float)(0.14 + 0.32 * cNorm)) : GetDynBrush(244, 63, 94, (float)(0.14 + 0.32 * cNorm));
-                                cellEdge = posC ? GetDynBrush(6, 182, 212, (float)(0.34 + 0.45 * cNorm)) : GetDynBrush(244, 63, 94, (float)(0.34 + 0.45 * cNorm));
-                                cellFg = posC ? GetDynBrush(103, 232, 249, 0.98f) : dxTextBid;
+                                acR = posC ? (byte)6 : negR; acG = posC ? (byte)182 : negG; acB = posC ? (byte)212 : negB; glowFactor = cNorm;
+                                cellBg = GetDynBrush(acR, acG, acB, (float)(0.14 + 0.32 * cNorm));
+                                cellEdge = GetDynBrush(acR, acG, acB, (float)(0.36 + 0.46 * cNorm));
+                                cellFg = posC ? dxStatPosTextBr : dxStatNegTextBr;
                             }
                             else if (key == "Min/Max Δ")
                             {
                                 bool tight = cardW < 52f;
                                 val = FormatCompactNum(bar.MinDelta, false, tight) + "/" + FormatCompactNum(bar.MaxDelta, false, tight);
+                                acR = 139; acG = 92; acB = 246;
                                 cellBg = GetDynBrush(139, 92, 246, 0.16f);
-                                cellEdge = GetDynBrush(139, 92, 246, 0.42f);
+                                cellEdge = GetDynBrush(139, 92, 246, 0.44f);
                             }
                             else if (key == "Δ Change")
                             {
                                 val = FormatCompactNum(bar.DeltaChange, true, cardW < 48f);
                                 bool posDc = bar.DeltaChange >= 0;
-                                cellBg = posDc ? GetDynBrush(16, 185, 129, 0.16f) : GetDynBrush(244, 63, 94, 0.16f);
-                                cellEdge = posDc ? GetDynBrush(16, 185, 129, 0.38f) : GetDynBrush(244, 63, 94, 0.38f);
-                                cellFg = posDc ? dxTextAsk : dxTextBid;
+                                acR = posDc ? posR : negR; acG = posDc ? posG : negG; acB = posDc ? posB : negB;
+                                cellBg = GetDynBrush(acR, acG, acB, 0.18f);
+                                cellEdge = GetDynBrush(acR, acG, acB, 0.42f);
+                                cellFg = posDc ? dxStatPosTextBr : dxStatNegTextBr;
                             }
                             else if (key == "Δ Rate/s")
                             {
                                 double dr = bar.BarDelta / Math.Max(1.0, bar.ElapsedSec);
                                 val = dr.ToString("0.0", CultureInfo.InvariantCulture);
-                                cellBg = (dr >= 0) ? GetDynBrush(52, 211, 153, 0.16f) : GetDynBrush(251, 113, 133, 0.16f);
-                                cellEdge = (dr >= 0) ? GetDynBrush(52, 211, 153, 0.38f) : GetDynBrush(251, 113, 133, 0.38f);
-                                cellFg = (dr >= 0) ? dxTextAsk : dxTextBid;
+                                acR = (dr >= 0) ? posR : negR; acG = (dr >= 0) ? posG : negG; acB = (dr >= 0) ? posB : negB;
+                                cellBg = GetDynBrush(acR, acG, acB, 0.18f);
+                                cellEdge = GetDynBrush(acR, acG, acB, 0.42f);
+                                cellFg = (dr >= 0) ? dxStatPosTextBr : dxStatNegTextBr;
                             }
                             else if (key == "Vol / sec")
                             {
                                 double vs = bar.TotalVol / Math.Max(1.0, bar.ElapsedSec);
                                 val = vs >= 1000.0 ? (vs / 1000.0).ToString("0.0", CultureInfo.InvariantCulture) + "K" : vs.ToString("0.0", CultureInfo.InvariantCulture);
                                 double vNorm = Math.Min(1.0, vs / Math.Max(1.0, maxVps));
+                                acR = 251; acG = 191; acB = 36; glowFactor = vNorm;
                                 cellBg = GetDynBrush(251, 191, 36, (float)(0.12 + 0.34 * vNorm));
-                                cellEdge = GetDynBrush(251, 191, 36, (float)(0.28 + 0.50 * vNorm));
-                                cellFg = (vNorm >= 0.55) ? dxPocBr : dxTextBright;
+                                cellEdge = GetDynBrush(251, 191, 36, (float)(0.30 + 0.52 * vNorm));
+                                cellFg = (vNorm >= 0.55) ? dxPocBr : dxStatTextBr;
                             }
                             else if (key == "COT H / L")
                             {
                                 bool tight = cardW < 50f;
                                 val = FormatCompactNum(bar.CotHighDelta, false, tight) + "/" + FormatCompactNum(bar.CotLowDelta, false, tight);
+                                acR = 236; acG = 72; acB = 153;
                                 cellBg = GetDynBrush(236, 72, 153, 0.16f);
-                                cellEdge = GetDynBrush(236, 72, 153, 0.38f);
+                                cellEdge = GetDynBrush(236, 72, 153, 0.42f);
                             }
                             else if (key == "Predicted")
                             {
@@ -19688,20 +19867,24 @@ namespace NinjaTrader.NinjaScript.Indicators
                                     double rate = bar.TotalVol / Math.Max(1.0, bar.ElapsedSec);
                                     long est = (long)Math.Round(bar.TotalVol + rate * 10.0);
                                     val = "~" + FormatCompactNum(est, false, cardW < 50f);
-                                    cellBg = GetDynBrush(250, 204, 21, 0.26f);
+                                    acR = 250; acG = 204; acB = 21; glowFactor = 0.85;
+                                    cellBg = GetDynBrush(250, 204, 21, 0.28f);
                                     cellEdge = dxPocBr;
                                     cellFg = dxPocBr;
                                 }
                                 else
                                 {
                                     val = "—";
+                                    acR = 71; acG = 85; acB = 105; glowFactor = 0.05;
                                     cellBg = GetDynBrush(30, 41, 59, 0.14f);
                                     cellFg = dxTextMuted;
                                 }
                             }
 
-                            // Full 3D Glass Capsule Card
+                            // Full 3D Luminous Neon Glass Capsule Card
                             var cRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cardX, cardY, cardW, cardH), RadiusX = 5.0f, RadiusY = 5.0f };
+                            if (ShowSpecularGloss && statGlow > 0.08f && glowFactor >= 0.35 && cardW >= 18f)
+                                RenderTarget.DrawRoundedRectangle(cRect, GetDynBrush(acR, acG, acB, Math.Min(0.45f, (float)((0.07 + 0.20 * glowFactor) * statGlow))), 3.8f);
                             RenderTarget.FillRoundedRectangle(cRect, dxStatCardBg);
                             if (cellBg != null)
                                 RenderTarget.FillRoundedRectangle(cRect, cellBg);
@@ -19711,18 +19894,21 @@ namespace NinjaTrader.NinjaScript.Indicators
                                 dxGlassTopGrad.StartPoint = new SharpDX.Vector2(cardX, cardY);
                                 dxGlassTopGrad.EndPoint = new SharpDX.Vector2(cardX, cardY + cardH * 0.62f);
                                 RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cardX + 1.0f, cardY + 0.8f, Math.Max(2f, cardW - 2.0f), Math.Max(2.5f, cardH * 0.56f)), RadiusX = 4.0f, RadiusY = 4.0f }, dxGlassTopGrad);
-                                RenderTarget.DrawLine(new SharpDX.Vector2(cardX + 4.5f, cardY + 1.0f), new SharpDX.Vector2(cardX + cardW - 4.5f, cardY + 1.0f), dxGlassRimHighlight, 1.15f);
+                                RenderTarget.DrawLine(new SharpDX.Vector2(cardX + 4.5f, cardY + 1.0f), new SharpDX.Vector2(cardX + cardW - 4.5f, cardY + 1.0f), dxGlassRimHighlight, 1.2f);
+                                if (statGlow > 0.08f && glowFactor >= 0.18)
+                                    RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cardX + 4.5f, cardY + cardH - 2.9f, Math.Max(2f, cardW - 9.0f), 1.8f), RadiusX = 0.9f, RadiusY = 0.9f }, GetDynBrush((byte)Math.Min(255, acR + 45), (byte)Math.Min(255, acG + 45), (byte)Math.Min(255, acB + 45), Math.Min(0.92f, (float)((0.18 + 0.52 * glowFactor) * statGlow))));
                                 RenderTarget.DrawLine(new SharpDX.Vector2(cardX + 4.5f, cardY + cardH - 1.0f), new SharpDX.Vector2(cardX + cardW - 4.5f, cardY + cardH - 1.0f), dxGlassBotShadow, 1.35f);
                             }
-                            RenderTarget.DrawRoundedRectangle(cRect, cellEdge ?? dxStatCardBorder, cellEdge != null ? 1.1f : 0.75f);
+                            RenderTarget.DrawRoundedRectangle(cRect, cellEdge ?? dxStatCardBorder, cellEdge != null ? 1.15f : 0.75f);
 
-                            DW.TextFormat rowTf = (val.Length * (Math.Max(10.5f, StatFontSize + 0.5f) * 0.54f) > cardW - 6f || cardW < 34f) ? dxFontCompact : dxFontStat;
+                            DW.TextFormat rowTf = (val.Length * (Math.Max(8.5f, StatFontSize + 0.5f) * 0.54f) > cardW - 6f || cardW < 34f) ? dxFontStatCompact : dxFontStat;
                             DrawTextCentered(val, rowTf, new SharpDX.RectangleF(cardX + 2f, cardY, Math.Max(4f, cardW - 4f), cardH), cellFg);
                         }
                     }
             }
 
             // Matching 3D Glass Pill Cards for Legend Labels (Zero divider line or ugly box!)
+            float legGlow = ShowSpecularGloss ? Math.Max(0f, Math.Min(2.0f, GlowIntensityPct / 100f)) : 0f;
             for (int r = 0; r < rows.Count; r++)
             {
                 float ry = dockY + gridTopPad + r * StatCellHeightPx;
@@ -19742,18 +19928,20 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else if (key == "Predicted") { lr = 250; lg = 204; lb = 21; }
 
                 var lRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(legCardX, cardY, legCardW, cardH), RadiusX = 5.0f, RadiusY = 5.0f };
+                if (ShowSpecularGloss && legGlow > 0.08f)
+                    RenderTarget.DrawRoundedRectangle(lRect, GetDynBrush(lr, lg, lb, Math.Min(0.32f, 0.14f * legGlow)), 3.2f);
                 RenderTarget.FillRoundedRectangle(lRect, dxStatCardBg);
-                RenderTarget.FillRoundedRectangle(lRect, GetDynBrush(lr, lg, lb, 0.14f));
+                RenderTarget.FillRoundedRectangle(lRect, GetDynBrush(lr, lg, lb, 0.16f));
                 if (ShowSpecularGloss && cardH >= 12f && dxGlassTopGrad != null)
                 {
                     dxGlassTopGrad.StartPoint = new SharpDX.Vector2(legCardX, cardY);
                     dxGlassTopGrad.EndPoint = new SharpDX.Vector2(legCardX, cardY + cardH * 0.62f);
                     RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(legCardX + 1.0f, cardY + 0.8f, Math.Max(2f, legCardW - 2.0f), Math.Max(2.5f, cardH * 0.56f)), RadiusX = 4.0f, RadiusY = 4.0f }, dxGlassTopGrad);
-                    RenderTarget.DrawLine(new SharpDX.Vector2(legCardX + 4.5f, cardY + 1.0f), new SharpDX.Vector2(legCardX + legCardW - 4.5f, cardY + 1.0f), dxGlassRimHighlight, 1.1f);
+                    RenderTarget.DrawLine(new SharpDX.Vector2(legCardX + 4.5f, cardY + 1.0f), new SharpDX.Vector2(legCardX + legCardW - 4.5f, cardY + 1.0f), dxGlassRimHighlight, 1.15f);
                 }
-                RenderTarget.DrawRoundedRectangle(lRect, GetDynBrush(lr, lg, lb, 0.42f), 0.9f);
+                RenderTarget.DrawRoundedRectangle(lRect, GetDynBrush(lr, lg, lb, 0.48f), 1.0f);
                 RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(legCardX + 5f, cardY + 4f, 3.8f, Math.Max(6f, cardH - 8f)), RadiusX = 1.9f, RadiusY = 1.9f }, GetDynBrush(lr, lg, lb, 0.98f));
-                DrawTextCentered(key, dxFontLegend, new SharpDX.RectangleF(legCardX + 13f, cardY, legCardW - 15f, cardH), dxTextBright);
+                DrawTextCentered(key, dxFontLegend, new SharpDX.RectangleF(legCardX + 13f, cardY, legCardW - 15f, cardH), dxStatLegendTextBr);
             }
         }
         #endregion
@@ -19955,7 +20143,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             var win = new Window
             {
                 Title = "VeltrixQuant — FootprintPro Studio",
-                Width = 590,
+                Width = 665,
                 SizeToContent = SizeToContent.Height,
                 MaxHeight = 760,
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,
@@ -19967,7 +20155,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             var root = new Wpf.StackPanel { Margin = new Thickness(12) };
             root.Children.Add(new Wpf.TextBlock
             {
-                Text = "🐾 FootprintPro Studio — Ordem, Absorção L2 & Design Studio",
+                Text = "🐾 FootprintPro Studio — Ordem, Absorção L2, Iluminação & Design Studio",
                 Foreground = accBr,
                 FontSize = 13.5,
                 FontWeight = FontWeights.Bold,
@@ -19991,16 +20179,24 @@ namespace NinjaTrader.NinjaScript.Indicators
             var tbDVol = new Wpf.TextBox { Text = DisplayVolFilter.ToString(CultureInfo.InvariantCulture), Width = 54, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var cbAlgo = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpOrderflowAlgo)), SelectedItem = OrderflowAlgo, Width = 128 };
             var tbTapeMs = new Wpf.TextBox { Text = ReconstructTapeMs.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var chkGloss = new Wpf.CheckBox { IsChecked = ShowSpecularGloss, Content = "3D Glass Bevel", Foreground = txtBr };
+            var chkGloss = new Wpf.CheckBox { IsChecked = ShowSpecularGloss, Content = "3D Neon Glass", Foreground = txtBr };
+            var tbGlowPct = new Wpf.TextBox { Text = GlowIntensityPct.ToString(CultureInfo.InvariantCulture), Width = 40, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbCenterGap = new Wpf.TextBox { Text = CenterCandleGapPx.ToString(CultureInfo.InvariantCulture), Width = 36, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var chkFillEmpty = new Wpf.CheckBox { IsChecked = FillEmptyPriceLevels, Content = "Fill Gaps", Foreground = txtBr };
-            var cbSpine = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpCandleSpineMode)), SelectedItem = CandleSpineMode, Width = 128 };
+            var cbSpine = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpCandleSpineMode)), SelectedItem = CandleSpineMode, Width = 124 };
             var cbHistMode = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpHistoryMode)), SelectedItem = HistoryMode, Width = 136 };
 
             var chkImb = new Wpf.CheckBox { IsChecked = ShowImbalance, Content = "Imbalances", Foreground = txtBr };
             var chkOnlyImb = new Wpf.CheckBox { IsChecked = OnlyImbalance, Content = "Only Imb", Foreground = txtBr };
             var cbImbDir = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpImbalanceDir)), SelectedItem = ImbalanceDirection, Width = 104 };
             var cbImbVis = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpMarkerType)), SelectedItem = ImbMarkerType, Width = 126 };
-            var tbImbSize = new Wpf.TextBox { Text = ImbMarkerSizePx.ToString(CultureInfo.InvariantCulture), Width = 40, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbImbSize = new Wpf.TextBox { Text = ImbMarkerSizePx.ToString(CultureInfo.InvariantCulture), Width = 38, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbBadgeFont = new Wpf.TextBox { Text = BadgeFontSize.ToString(CultureInfo.InvariantCulture), Width = 36, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbBadgeFont2 = new Wpf.TextBox { Text = BadgeFontSize.ToString(CultureInfo.InvariantCulture), Width = 36, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            bool syncingBadge = false;
+            tbBadgeFont.TextChanged += (s2, e2) => { if (!syncingBadge) { syncingBadge = true; tbBadgeFont2.Text = tbBadgeFont.Text; syncingBadge = false; } };
+            tbBadgeFont2.TextChanged += (s2, e2) => { if (!syncingBadge) { syncingBadge = true; tbBadgeFont.Text = tbBadgeFont2.Text; syncingBadge = false; } };
+
             var tbImbPct = new Wpf.TextBox { Text = ImbalancePct.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbImbVol = new Wpf.TextBox { Text = ImbalanceMinVol.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var chkStkZ = new Wpf.CheckBox { IsChecked = ShowStackedZones, Content = "Stacked S/R Zones", Foreground = txtBr };
@@ -20022,15 +20218,19 @@ namespace NinjaTrader.NinjaScript.Indicators
             var chkExh = new Wpf.CheckBox { IsChecked = ShowExhaustion, Content = "Exhaustion", Foreground = txtBr };
             var chkTrap = new Wpf.CheckBox { IsChecked = ShowBuyingSellingTraps, Content = "Traps", Foreground = txtBr };
             var chkRatio = new Wpf.CheckBox { IsChecked = ShowBarRatioNumbers, Content = "Ratio Numbers", Foreground = txtBr };
-            var chkStatG = new Wpf.CheckBox { IsChecked = ShowStatGrid, Content = "Bottom Stat Grid", Foreground = txtBr };
-            var tbStatH = new Wpf.TextBox { Text = StatCellHeightPx.ToString(CultureInfo.InvariantCulture), Width = 40, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var tbStatFont = new Wpf.TextBox { Text = StatFontSize.ToString(CultureInfo.InvariantCulture), Width = 40, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var cbStatPos = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpLegendPos)), SelectedItem = StatLegendPos, Width = 78 };
+            var chkStatG = new Wpf.CheckBox { IsChecked = ShowStatGrid, Content = "Bottom Grid", Foreground = txtBr };
+            var tbStatH = new Wpf.TextBox { Text = StatCellHeightPx.ToString(CultureInfo.InvariantCulture), Width = 36, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbStatFont = new Wpf.TextBox { Text = StatFontSize.ToString(CultureInfo.InvariantCulture), Width = 36, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbLegFont = new Wpf.TextBox { Text = StatLegendFontSize.ToString(CultureInfo.InvariantCulture), Width = 36, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var cbStatPos = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpLegendPos)), SelectedItem = StatLegendPos, Width = 74 };
             var chkGVol = new Wpf.CheckBox { IsChecked = GridShowVolume, Content = "Vol", Foreground = txtBr };
+            var chkGBuyVol = new Wpf.CheckBox { IsChecked = GridShowBuyVol, Content = "Buy", Foreground = txtBr };
+            var chkGSellVol = new Wpf.CheckBox { IsChecked = GridShowSellVol, Content = "Sell", Foreground = txtBr };
+            var chkGTrades = new Wpf.CheckBox { IsChecked = GridShowTrades, Content = "Trades", Foreground = txtBr };
             var chkGDel = new Wpf.CheckBox { IsChecked = GridShowDelta, Content = "Delta", Foreground = txtBr };
             var chkGCum = new Wpf.CheckBox { IsChecked = GridShowCumDelta, Content = "CumΔ", Foreground = txtBr };
             var chkGVs = new Wpf.CheckBox { IsChecked = GridShowVolPerSec, Content = "Vol/s", Foreground = txtBr };
-            var chkGPred = new Wpf.CheckBox { IsChecked = GridShowPredicted, Content = "Predicted", Foreground = txtBr };
+            var chkGPred = new Wpf.CheckBox { IsChecked = GridShowPredicted, Content = "Pred", Foreground = txtBr };
             var chkGCot = new Wpf.CheckBox { IsChecked = GridShowCotHighLow, Content = "COT H/L", Foreground = txtBr };
 
             var chkAlStk = new Wpf.CheckBox { IsChecked = AlertStackedZone, Content = "Alert Stacked", Foreground = txtBr };
@@ -20038,14 +20238,28 @@ namespace NinjaTrader.NinjaScript.Indicators
             var chkAlTrp = new Wpf.CheckBox { IsChecked = AlertTrap, Content = "Alert Traps", Foreground = txtBr };
             var chkAlAud = new Wpf.CheckBox { IsChecked = EnableAudioAlerts, Content = "Audio", Foreground = txtBr };
 
-            var tbColPos = new Wpf.TextBox { Text = BrushToHex(ColPositiveDelta, "#10B981"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var tbColNeg = new Wpf.TextBox { Text = BrushToHex(ColNegativeDelta, "#F43F5E"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var tbColPoc = new Wpf.TextBox { Text = BrushToHex(ColPocGlow, "#FACC15"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var tbColBuyZ = new Wpf.TextBox { Text = BrushToHex(ColBuyZone, "#10B981"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var tbColSelZ = new Wpf.TextBox { Text = BrushToHex(ColSellZone, "#EF4444"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var tbColAbsS = new Wpf.TextBox { Text = BrushToHex(ColAbsSupport, "#06B6D4"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var tbColAbsR = new Wpf.TextBox { Text = BrushToHex(ColAbsResistance, "#EC4899"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
-            var tbColGridBg = new Wpf.TextBox { Text = BrushToHex(ColStatGridBg, "#090D16"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            Func<string, Wpf.TextBox> makeHexBox = (hex) => new Wpf.TextBox { Text = hex, Width = 74, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbColValTxt = makeHexBox(BrushToHex(ColValuesText, "#F8FAFC"));
+            var tbColAskTxt = makeHexBox(BrushToHex(ColAskText, "#6EE7B7"));
+            var tbColBidTxt = makeHexBox(BrushToHex(ColBidText, "#FCA5A5"));
+            var tbColAbsTxt = makeHexBox(BrushToHex(ColAbsText, "#67E8F9"));
+            var tbColPos = makeHexBox(BrushToHex(ColPositiveDelta, "#10B981"));
+            var tbColNeg = makeHexBox(BrushToHex(ColNegativeDelta, "#F43F5E"));
+            var tbColNeu = makeHexBox(BrushToHex(ColNeutralCluster, "#3B82F6"));
+            var tbColPoc = makeHexBox(BrushToHex(ColPocGlow, "#FACC15"));
+            var tbColRatN = makeHexBox(BrushToHex(ColRatioNeutral, "#60A5FA"));
+            var tbColRatR = makeHexBox(BrushToHex(ColRatioReject, "#FB923C"));
+
+            var tbColStatTxt = makeHexBox(BrushToHex(ColStatText, "#F8FAFC"));
+            var tbColStatPos = makeHexBox(BrushToHex(ColStatPosText, "#6EE7B7"));
+            var tbColStatNeg = makeHexBox(BrushToHex(ColStatNegText, "#FCA5A5"));
+            var tbColStatLeg = makeHexBox(BrushToHex(ColStatLegendText, "#F1F5F9"));
+            var tbColGridBg = makeHexBox(BrushToHex(ColStatGridBg, "#090D16"));
+            var tbColCardBg = makeHexBox(BrushToHex(ColStatCardBg, "#0E1625"));
+            var tbColBuyZ = makeHexBox(BrushToHex(ColBuyZone, "#10B981"));
+            var tbColSelZ = makeHexBox(BrushToHex(ColSellZone, "#EF4444"));
+            var tbColAbsS = makeHexBox(BrushToHex(ColAbsSupport, "#06B6D4"));
+            var tbColAbsR = makeHexBox(BrushToHex(ColAbsResistance, "#EC4899"));
 
             Action applyChanges = () =>
             {
@@ -20057,8 +20271,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 RightShowValues = (chkRVal.IsChecked == true);
 
                 int iv;
-                if (int.TryParse(tbLFont.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) LeftFontSize = Math.Max(8, Math.Min(22, iv));
-                if (int.TryParse(tbRFont.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) RightFontSize = Math.Max(8, Math.Min(22, iv));
+                if (int.TryParse(tbLFont.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) LeftFontSize = Math.Max(8, Math.Min(26, iv));
+                if (int.TryParse(tbRFont.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) RightFontSize = Math.Max(8, Math.Min(26, iv));
+                if (int.TryParse(tbCenterGap.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) CenterCandleGapPx = Math.Max(2, Math.Min(24, iv));
+                if (int.TryParse(tbGlowPct.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) GlowIntensityPct = Math.Max(0, Math.Min(200, iv));
+                if (int.TryParse(tbBadgeFont.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) BadgeFontSize = Math.Max(8, Math.Min(18, iv));
                 if (int.TryParse(tbTicks.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) TicksPerLevel = Math.Max(1, Math.Min(100, iv));
                 AutoZoomLOD = (chkLod.IsChecked == true);
                 if (int.TryParse(tbTMin.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) TradeMin = Math.Max(1, Math.Min(10000, iv));
@@ -20099,9 +20316,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ShowBarRatioNumbers = (chkRatio.IsChecked == true);
                 ShowStatGrid = (chkStatG.IsChecked == true);
                 if (int.TryParse(tbStatH.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) StatCellHeightPx = Math.Max(18, Math.Min(42, iv));
-                if (int.TryParse(tbStatFont.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) StatFontSize = Math.Max(9, Math.Min(22, iv));
+                if (int.TryParse(tbStatFont.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) StatFontSize = Math.Max(8, Math.Min(24, iv));
+                if (int.TryParse(tbLegFont.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) StatLegendFontSize = Math.Max(8, Math.Min(20, iv));
                 if (cbStatPos.SelectedItem is VeltrixFpLegendPos) StatLegendPos = (VeltrixFpLegendPos)cbStatPos.SelectedItem;
                 GridShowVolume = (chkGVol.IsChecked == true);
+                GridShowBuyVol = (chkGBuyVol.IsChecked == true);
+                GridShowSellVol = (chkGSellVol.IsChecked == true);
+                GridShowTrades = (chkGTrades.IsChecked == true);
                 GridShowDelta = (chkGDel.IsChecked == true);
                 GridShowCumDelta = (chkGCum.IsChecked == true);
                 GridShowVolPerSec = (chkGVs.IsChecked == true);
@@ -20113,14 +20334,26 @@ namespace NinjaTrader.NinjaScript.Indicators
                 AlertTrap = (chkAlTrp.IsChecked == true);
                 EnableAudioAlerts = (chkAlAud.IsChecked == true);
 
+                ColValuesText = HexToFrozenBrush(tbColValTxt.Text, ColValuesText);
+                ColAskText = HexToFrozenBrush(tbColAskTxt.Text, ColAskText);
+                ColBidText = HexToFrozenBrush(tbColBidTxt.Text, ColBidText);
+                ColAbsText = HexToFrozenBrush(tbColAbsTxt.Text, ColAbsText);
                 ColPositiveDelta = HexToFrozenBrush(tbColPos.Text, ColPositiveDelta);
                 ColNegativeDelta = HexToFrozenBrush(tbColNeg.Text, ColNegativeDelta);
+                ColNeutralCluster = HexToFrozenBrush(tbColNeu.Text, ColNeutralCluster);
                 ColPocGlow = HexToFrozenBrush(tbColPoc.Text, ColPocGlow);
+                ColRatioNeutral = HexToFrozenBrush(tbColRatN.Text, ColRatioNeutral);
+                ColRatioReject = HexToFrozenBrush(tbColRatR.Text, ColRatioReject);
+                ColStatText = HexToFrozenBrush(tbColStatTxt.Text, ColStatText);
+                ColStatPosText = HexToFrozenBrush(tbColStatPos.Text, ColStatPosText);
+                ColStatNegText = HexToFrozenBrush(tbColStatNeg.Text, ColStatNegText);
+                ColStatLegendText = HexToFrozenBrush(tbColStatLeg.Text, ColStatLegendText);
+                ColStatGridBg = HexToFrozenBrush(tbColGridBg.Text, ColStatGridBg);
+                ColStatCardBg = HexToFrozenBrush(tbColCardBg.Text, ColStatCardBg);
                 ColBuyZone = HexToFrozenBrush(tbColBuyZ.Text, ColBuyZone);
                 ColSellZone = HexToFrozenBrush(tbColSelZ.Text, ColSellZone);
                 ColAbsSupport = HexToFrozenBrush(tbColAbsS.Text, ColAbsSupport);
                 ColAbsResistance = HexToFrozenBrush(tbColAbsR.Text, ColAbsResistance);
-                ColStatGridBg = HexToFrozenBrush(tbColGridBg.Text, ColStatGridBg);
 
                 lock (dataLock) { RecomputeAnalyticsLocked(true); }
                 lastDxSig = "";
@@ -20143,10 +20376,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             addAssetPreset("FX 6E/6J", 2, 20, 30, 15);
             root.Children.Add(presetPanel);
 
-            Func<Wpf.Grid> makeGrid = () =>
+            Func<double, Wpf.Grid> makeGridW = (colW) =>
             {
                 var g = new Wpf.Grid { Margin = new Thickness(6) };
-                g.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = new GridLength(165) });
+                g.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = new GridLength(colW) });
                 g.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = GridLength.Auto });
                 return g;
             };
@@ -20154,10 +20387,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 int rIdx = g.RowDefinitions.Count;
                 g.RowDefinitions.Add(new Wpf.RowDefinition { Height = GridLength.Auto });
-                var lbl = new Wpf.TextBlock { Text = lblTxt, Foreground = mutBr, FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 3, 10, 3) };
+                var lbl = new Wpf.TextBlock { Text = lblTxt, Foreground = mutBr, FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2.5, 8, 2.5) };
                 Wpf.Grid.SetRow(lbl, rIdx); Wpf.Grid.SetColumn(lbl, 0); g.Children.Add(lbl);
                 var fe = ctrl as FrameworkElement;
-                if (fe != null) { fe.Margin = new Thickness(0, 3, 0, 3); fe.VerticalAlignment = VerticalAlignment.Center; }
+                if (fe != null) { fe.Margin = new Thickness(0, 2.5, 0, 2.5); fe.VerticalAlignment = VerticalAlignment.Center; }
                 Wpf.Grid.SetRow(ctrl, rIdx); Wpf.Grid.SetColumn(ctrl, 1); g.Children.Add(ctrl);
             };
             Func<UIElement[], Wpf.WrapPanel> wp = (els) =>
@@ -20166,7 +20399,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 for (int i = 0; i < els.Length; i++)
                 {
                     var fe = els[i] as FrameworkElement;
-                    if (fe != null) fe.Margin = new Thickness(0, 0, 8, 2);
+                    if (fe != null) fe.Margin = new Thickness(0, 0, 7, 2);
                     p.Children.Add(els[i]);
                 }
                 return p;
@@ -20174,19 +20407,76 @@ namespace NinjaTrader.NinjaScript.Indicators
             Func<Wpf.TextBox, Wpf.StackPanel> colorRow = (tb) =>
             {
                 var sp = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal };
-                var sw = new Wpf.Border { Width = 16, Height = 16, CornerRadius = new CornerRadius(3), Margin = new Thickness(0, 0, 6, 0), BorderBrush = bdBr, BorderThickness = new Thickness(1), Background = HexToFrozenBrush(tb.Text, cardBr) };
+                var sw = new Wpf.Border
+                {
+                    Width = 18,
+                    Height = 18,
+                    CornerRadius = new CornerRadius(3.5),
+                    Margin = new Thickness(0, 0, 6, 0),
+                    BorderBrush = bdBr,
+                    BorderThickness = new Thickness(1),
+                    Background = HexToFrozenBrush(tb.Text, cardBr),
+                    Cursor = Cursors.Hand,
+                    ToolTip = "Clique para escolher na paleta ou digite #RRGGBB"
+                };
                 tb.TextChanged += (s2, e2) => { sw.Background = HexToFrozenBrush(tb.Text, sw.Background); };
+                sw.MouseLeftButtonDown += (s2, e2) =>
+                {
+                    string[] palette = new string[]
+                    {
+                        "#FFFFFF", "#F8FAFC", "#CBD5E1", "#94A3B8", "#475569", "#090D16",
+                        "#6EE7B7", "#10B981", "#22C55E", "#84CC16", "#A3E635", "#34D399",
+                        "#67E8F9", "#06B6D4", "#38BDF8", "#3B82F6", "#60A5FA", "#818CF8",
+                        "#FCA5A5", "#F43F5E", "#EF4444", "#FB923C", "#F59E0B", "#FACC15",
+                        "#FDE047", "#F472B6", "#EC4899", "#D946EF", "#A78BFA", "#0E1625"
+                    };
+                    bool closed = false;
+                    var pickWin = new Window
+                    {
+                        Title = "Paleta de Cores",
+                        Width = 224,
+                        SizeToContent = SizeToContent.Height,
+                        WindowStyle = WindowStyle.ToolWindow,
+                        ResizeMode = ResizeMode.NoResize,
+                        WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                        Owner = win,
+                        Background = bgBr,
+                        Topmost = true
+                    };
+                    var wrap = new Wpf.WrapPanel { Margin = new Thickness(8) };
+                    for (int pi = 0; pi < palette.Length; pi++)
+                    {
+                        string pHex = palette[pi];
+                        var chip = new Wpf.Border
+                        {
+                            Width = 26,
+                            Height = 26,
+                            Margin = new Thickness(3),
+                            CornerRadius = new CornerRadius(4),
+                            BorderBrush = bdBr,
+                            BorderThickness = new Thickness(1),
+                            Background = HexToFrozenBrush(pHex, cardBr),
+                            Cursor = Cursors.Hand,
+                            ToolTip = pHex
+                        };
+                        chip.MouseLeftButtonDown += (s3, e3) => { tb.Text = pHex; if (!closed) { closed = true; try { pickWin.Close(); } catch { } } };
+                        wrap.Children.Add(chip);
+                    }
+                    pickWin.Content = wrap;
+                    pickWin.Deactivated += (s3, e3) => { if (!closed) { closed = true; try { pickWin.Close(); } catch { } } };
+                    pickWin.Show();
+                };
                 sp.Children.Add(sw); sp.Children.Add(tb); return sp;
             };
 
-            var tabs = new Wpf.TabControl { Background = cardBr, BorderBrush = bdBr, BorderThickness = new Thickness(1), MaxHeight = 460 };
+            var tabs = new Wpf.TabControl { Background = cardBr, BorderBrush = bdBr, BorderThickness = new Thickness(1), MaxHeight = 470 };
 
             // Tab 1: Clusters & Filters
-            var g1 = makeGrid();
+            var g1 = makeGridW(170);
             addRow(g1, "Left Style / Shape", wp(new UIElement[] { cbLStyle, cbLShape }));
             addRow(g1, "Right Style / Shape", wp(new UIElement[] { cbRStyle, cbRShape }));
-            addRow(g1, "Spine & Gaps / Gloss", wp(new UIElement[] { cbSpine, chkFillEmpty, chkGloss }));
-            addRow(g1, "Values & Font L / R", wp(new UIElement[] { chkLVal, chkRVal, new Wpf.TextBlock { Text = "L:", Foreground = mutBr }, tbLFont, new Wpf.TextBlock { Text = "R:", Foreground = mutBr }, tbRFont }));
+            addRow(g1, "Spine / Gap(px) / Neon", wp(new UIElement[] { cbSpine, new Wpf.TextBlock { Text = "Gap:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbCenterGap, chkGloss, new Wpf.TextBlock { Text = "Glow%:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbGlowPct, chkFillEmpty }));
+            addRow(g1, "Values & Font L / R", wp(new UIElement[] { chkLVal, chkRVal, new Wpf.TextBlock { Text = "L:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbLFont, new Wpf.TextBlock { Text = "R:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbRFont }));
             addRow(g1, "Ticks / Level & LOD", wp(new UIElement[] { tbTicks, chkLod }));
             addRow(g1, "Lot Filter Min / Max", wp(new UIElement[] { tbTMin, new Wpf.TextBlock { Text = "/", Foreground = mutBr }, tbTMax, new Wpf.TextBlock { Text = "MinV:", Foreground = mutBr }, tbDVol }));
             addRow(g1, "Orderflow / History", wp(new UIElement[] { cbAlgo, cbHistMode }));
@@ -20194,9 +20484,9 @@ namespace NinjaTrader.NinjaScript.Indicators
             tabs.Items.Add(new Wpf.TabItem { Header = "Clusters & Tape", Background = inputBr, Foreground = txtBr, Content = g1 });
 
             // Tab 2: Imbalance & Absorption
-            var g2 = makeGrid();
+            var g2 = makeGridW(170);
             addRow(g2, "Imbalance Toggles", wp(new UIElement[] { chkImb, chkOnlyImb, cbImbDir }));
-            addRow(g2, "Imb Visual / Size(px)", wp(new UIElement[] { cbImbVis, tbImbSize }));
+            addRow(g2, "Imb Visual / Size / Font", wp(new UIElement[] { cbImbVis, new Wpf.TextBlock { Text = "Orb:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbImbSize, new Wpf.TextBlock { Text = "TxtPx:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbBadgeFont2 }));
             addRow(g2, "Imb % / Min Vol", wp(new UIElement[] { tbImbPct, new Wpf.TextBlock { Text = "% |", Foreground = mutBr }, tbImbVol }));
             addRow(g2, "Stacked S/R Zones", wp(new UIElement[] { chkStkZ, new Wpf.TextBlock { Text = "Lvl:", Foreground = mutBr }, tbStkCnt, new Wpf.TextBlock { Text = "Vol:", Foreground = mutBr }, tbStkVol }));
             addRow(g2, "Absorption Mode", wp(new UIElement[] { chkAbs, chkAbsL2, chkAbsZ }));
@@ -20205,25 +20495,56 @@ namespace NinjaTrader.NinjaScript.Indicators
             tabs.Items.Add(new Wpf.TabItem { Header = "Imbalance & L2 Abs", Background = inputBr, Foreground = txtBr, Content = g2 });
 
             // Tab 3: Signals & Bottom Grid
-            var g3 = makeGrid();
+            var g3 = makeGridW(170);
             addRow(g3, "Bar POC & Value Area", wp(new UIElement[] { chkVpoc, chkNPoc, chkBVa }));
-            addRow(g3, "Orderflow Signals", wp(new UIElement[] { chkUa, chkExh, chkTrap, chkRatio }));
-            addRow(g3, "Stat Grid / Row H / Font", wp(new UIElement[] { chkStatG, new Wpf.TextBlock { Text = "H:", Foreground = mutBr }, tbStatH, new Wpf.TextBlock { Text = "F:", Foreground = mutBr }, tbStatFont, cbStatPos }));
-            addRow(g3, "Grid Metrics", wp(new UIElement[] { chkGVol, chkGDel, chkGCum, chkGVs, chkGPred, chkGCot }));
+            addRow(g3, "Signals & Badge Font", wp(new UIElement[] { chkUa, chkExh, chkTrap, chkRatio, new Wpf.TextBlock { Text = "BadgePx:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbBadgeFont }));
+            addRow(g3, "Stat Grid / Row H / Font", wp(new UIElement[] { chkStatG, new Wpf.TextBlock { Text = "H:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbStatH, new Wpf.TextBlock { Text = "NumPx:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbStatFont, new Wpf.TextBlock { Text = "LegPx:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbLegFont, cbStatPos }));
+            addRow(g3, "Grid Metrics", wp(new UIElement[] { chkGVol, chkGBuyVol, chkGSellVol, chkGTrades, chkGDel, chkGCum, chkGVs, chkGPred, chkGCot }));
             addRow(g3, "Focused 4 Alerts", wp(new UIElement[] { chkAlStk, chkAlAbs, chkAlTrp, chkAlAud }));
             tabs.Items.Add(new Wpf.TabItem { Header = "Signals & Grid", Background = inputBr, Foreground = txtBr, Content = g3 });
 
-            // Tab 4: Color Studio
-            var g4 = makeGrid();
-            addRow(g4, "Positive Delta / Ask", colorRow(tbColPos));
-            addRow(g4, "Negative Delta / Bid", colorRow(tbColNeg));
-            addRow(g4, "Bar VPOC Glow", colorRow(tbColPoc));
-            addRow(g4, "Stacked Buy Zone", colorRow(tbColBuyZ));
-            addRow(g4, "Stacked Sell Zone", colorRow(tbColSelZ));
-            addRow(g4, "Abs Support (Cyan)", colorRow(tbColAbsS));
-            addRow(g4, "Abs Resistance (Pink)", colorRow(tbColAbsR));
-            addRow(g4, "Stat Grid Background", colorRow(tbColGridBg));
-            tabs.Items.Add(new Wpf.TabItem { Header = "Color Studio", Background = inputBr, Foreground = txtBr, Content = g4 });
+            // Tab 4: Color Studio (2 columns: Clusters/Imbalance/Absorption vs Bottom Grid & Zones)
+            var colorWrap = new Wpf.Grid { Margin = new Thickness(4) };
+            colorWrap.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = new GridLength(305) });
+            colorWrap.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = new GridLength(14) });
+            colorWrap.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = new GridLength(305) });
+
+            var colLeftPanel = new Wpf.StackPanel();
+            colLeftPanel.Children.Add(new Wpf.TextBlock { Text = "Números dos Clusters, Imbalance & Abs", Foreground = accBr, FontWeight = FontWeights.Bold, FontSize = 11.2, Margin = new Thickness(6, 2, 0, 4) });
+            var g4L = makeGridW(172);
+            addRow(g4L, "Texto Normal (Cluster)", colorRow(tbColValTxt));
+            addRow(g4L, "Imbalance Compra / Ask", colorRow(tbColAskTxt));
+            addRow(g4L, "Imbalance Venda / Bid", colorRow(tbColBidTxt));
+            addRow(g4L, "Texto Absorção / ABS", colorRow(tbColAbsTxt));
+            addRow(g4L, "Delta Positivo (Bloco)", colorRow(tbColPos));
+            addRow(g4L, "Delta Negativo (Bloco)", colorRow(tbColNeg));
+            addRow(g4L, "Bloco Neutro (Cluster)", colorRow(tbColNeu));
+            addRow(g4L, "Bar VPOC Glow (Ouro)", colorRow(tbColPoc));
+            addRow(g4L, "Ratio Neutro", colorRow(tbColRatN));
+            addRow(g4L, "Ratio Rejeição", colorRow(tbColRatR));
+            colLeftPanel.Children.Add(g4L);
+            Wpf.Grid.SetColumn(colLeftPanel, 0);
+            colorWrap.Children.Add(colLeftPanel);
+
+            var colRightPanel = new Wpf.StackPanel();
+            colRightPanel.Children.Add(new Wpf.TextBlock { Text = "Statistic Grid, Legenda & Zonas S/R", Foreground = accBr, FontWeight = FontWeights.Bold, FontSize = 11.2, Margin = new Thickness(6, 2, 0, 4) });
+            var g4R = makeGridW(172);
+            addRow(g4R, "Grid Números (Base)", colorRow(tbColStatTxt));
+            addRow(g4R, "Grid Positivos (+)", colorRow(tbColStatPos));
+            addRow(g4R, "Grid Negativos (-)", colorRow(tbColStatNeg));
+            addRow(g4R, "Grid Legenda (Nomes)", colorRow(tbColStatLeg));
+            addRow(g4R, "Grid Fundo (Dock)", colorRow(tbColGridBg));
+            addRow(g4R, "Grid Cards (Pílulas)", colorRow(tbColCardBg));
+            addRow(g4R, "Stacked Buy Zone", colorRow(tbColBuyZ));
+            addRow(g4R, "Stacked Sell Zone", colorRow(tbColSelZ));
+            addRow(g4R, "Abs Support Shield", colorRow(tbColAbsS));
+            addRow(g4R, "Abs Resist Shield", colorRow(tbColAbsR));
+            colRightPanel.Children.Add(g4R);
+            Wpf.Grid.SetColumn(colRightPanel, 2);
+            colorWrap.Children.Add(colRightPanel);
+
+            var cScroll = new Wpf.ScrollViewer { MaxHeight = 435, VerticalScrollBarVisibility = Wpf.ScrollBarVisibility.Auto, Content = colorWrap };
+            tabs.Items.Add(new Wpf.TabItem { Header = "Color Studio", Background = inputBr, Foreground = txtBr, Content = cScroll });
 
             root.Children.Add(tabs);
 
@@ -20901,9 +21222,9 @@ def _build_nt8_chart_template(bpt, bpv, days_back, indicators_xml, panel_heights
     tr_val = "true" if is_tick_replay else "false"
     panels_xml = "\n".join(_xml_chart_panel(h) for h in panel_heights)
     inds_xml = "\n".join(indicators_xml)
-    down_hex = "#36DC2626" if candle_transparent else "#FFDC2626"
-    up_hex = "#3616A34A" if candle_transparent else "#FF16A34A"
-    stroke_col = "#48475569" if candle_transparent else "#FF334155"
+    down_hex = "#E8F43F5E" if candle_transparent else "#FFDC2626"
+    up_hex = "#E810B981" if candle_transparent else "#FF16A34A"
+    stroke_col = "#D0CBD5E1" if candle_transparent else "#FF334155"
     stroke_ser = f'&lt;Pen Brush="{stroke_col}" Thickness="1" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;'
     th_items = "\n".join(
         f"""        <TimeHighlighter{k}>
@@ -21176,6 +21497,9 @@ def build_chart_templates():
         "          <CandleSpineMode>None</CandleSpineMode>\n"
         "          <FillEmptyPriceLevels>false</FillEmptyPriceLevels>\n"
         "          <HideZeroText>true</HideZeroText>\n"
+        "          <CenterCandleGapPx>11</CenterCandleGapPx>\n"
+        "          <GlowIntensityPct>125</GlowIntensityPct>\n"
+        "          <BadgeFontSize>10</BadgeFontSize>\n"
         "          <ShowImbalance>true</ShowImbalance>\n"
         "          <ImbMarkerType>NeonAuraBadge</ImbMarkerType>\n"
         "          <ImbMarkerSizePx>10</ImbMarkerSizePx>\n"
@@ -21189,7 +21513,8 @@ def build_chart_templates():
         "          <LeftFontSize>12</LeftFontSize>\n"
         "          <RightFontSize>12</RightFontSize>\n"
         "          <StatCellHeightPx>25</StatCellHeightPx>\n"
-        "          <StatFontSize>12</StatFontSize>\n",
+        "          <StatFontSize>12</StatFontSize>\n"
+        "          <StatLegendFontSize>11</StatLegendFontSize>\n",
         zorder=30001
     )
     hm_flod_20r_side = hm_flod_20r.replace(
@@ -21207,7 +21532,7 @@ def build_chart_templates():
         "VeltrixQuant - 05 Flodometer + Delta Cumulativo (1m).xml": _build_nt8_chart_template(4, 1, 2, [hm_flod_1m, vwap_1m, imb_1m, delta_1m], [480, 140], False, 300),
         "VeltrixQuant - 06 Solitario Flodometer L2 Puro (30s).xml": _build_nt8_chart_template(3, 30, 2, [hm_flod], [620], False, 300),
         "VeltrixQuant - 07 Solitario TPO + VolumeProfile + VWAP (30m).xml": _build_nt8_chart_template(4, 30, 10, [tpo_30m, vwap_30m], [620], False, 140),
-        "VeltrixQuant - 08 Footprint Pro + Flodometer + Watchdog (20 Range).xml": _build_nt8_chart_template(2, 20, 3, [fp_20r, hm_flod_20r_side, wd_20r, imb_20r, vwap_20r, risk_20r], [620], False, 240, bar_distance=94.0, candle_width=1.8, candle_transparent=True),
+        "VeltrixQuant - 08 Footprint Pro + Flodometer + Watchdog (20 Range).xml": _build_nt8_chart_template(2, 20, 3, [fp_20r, hm_flod_20r_side, wd_20r, imb_20r, vwap_20r, risk_20r], [620], False, 240, bar_distance=94.0, candle_width=2.1, candle_transparent=True),
     }
 
 # ==============================================================================

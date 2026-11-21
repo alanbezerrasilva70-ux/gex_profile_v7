@@ -788,6 +788,25 @@ git push origin main
 - **Validação Pós-Edição:**
   - `verify_installer_cs.py`: `py_compile: OK`, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` (incluindo **`FootprintPro.cs`**) e **`COMBINED_18_PASS`** (`combined_rc=0`).
 
+---
+
+## 53. 21/11/2026 10:25 — Canal Central Simétrico para Candles + Candles Visíveis + Efeito de Iluminação Neon 3D + Personalização Completa de Cores e Fontes (`Clusters`, `Imbalance`, `Absorção` e `Statistic Grid`)
+
+- **Arquivo Modificado:** [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py) (`CODE_FOOTPRINT_PRO`, `OnRender`, `RenderSideCell`, `RenderStatisticGrid`, `EnsureDxResources`, `DisposeDx`, `OpenStudioPopup`, `_build_nt8_chart_template`, `build_chart_templates`).
+- **Melhorias Implementadas:**
+  1. **Corredor Central Simétrico para o Candle (`CenterCandleGapPx = 11`, padrão `Range(2, 24)`):**
+     - Corrigida a proporção assimétrica `55%/45%` entre colunas Left/Right: quando ambos os lados estão ativos (`CandleSpineMode != LeftSlimRail`), os blocos Left e Right são posicionados de forma simétrica em torno de **`cx`** (centro real do candlestick no NinjaTrader 8), abrindo um canal central limpo (`[cx - colGap*0.5 .. cx + colGap*0.5]`) com encolhimento proporcional em zoom afastado e ajuste automático de `CenterMicroWick`, `ShowBarVpoc`, `Absorption` e alinhamento de badges (`badgeCx = cx`).
+     - No **Template #08** (`_build_nt8_chart_template`), candles nativos atualizados de opacidade apagada `#36...` para esmeralda/coral nítidos (**`#E810B981`**, **`#E8F43F5E`**, borda `#D0CBD5E1`, `candle_width=2.1`) para se destacarem perfeitamente dentro do canal entre clusters.
+  2. **Efeito Real de Iluminação Neon 3D (`ShowSpecularGloss` + `GlowIntensityPct = 125%`, `Range(0, 200)`):**
+     - **Halos Externos Multi-Camada:** Células quentes, Value Area, **Imbalances**, **Absorção**, **Bar VPOC** e cards ativos do grid agora projetam brilho externo em duas camadas (`5.0px` halo suave + `2.5px` aura intensa), núcleo interno iluminado em células ativas, domo especular (`dxGlassTopGrad` intensificado), filete superior cristalino (`dxGlassRimHighlight`) e fita LED cromática retroiluminada na base inferior de cada bloco e de cada cápsula/legenda do `Statistic Grid`.
+  3. **Customização Completa de Fontes & Cores (Clusters, Imbalance, Absorção, Badges e Grid):**
+     - **Tamanhos de números e textos:** `LeftFontSize` (`8..26`), `RightFontSize` (`8..26`), **`BadgeFontSize`** (`8..18`, padrão `10`, controla `▲IMB`/`▼IMB`, `ABS`, `UA`, `EXH`, `TRAP`, `Ratio`), `StatFontSize` (`8..24`, padrão `12`) e **`StatLegendFontSize`** (`8..20`, padrão `11`, tamanho dos nomes na legenda do grid), com fallback `dxFontLeftMid`/`dxFontLeftCompact`, `dxFontRightMid`/`dxFontRightCompact` e `dxFontStatCompact` independentes por coluna.
+     - **Cores independentes:** Além de `ColValuesText` (texto normal dos clusters), `ColAskText` (Imbalance compra / `▲IMB`) e `ColBidText` (Imbalance venda / `▼IMB`), adicionadas propriedades XML + DX: **`ColAbsText`** (`#67E8F9`, números em nível de absorção & badge `ABS`), **`ColStatText`** (`#F8FAFC`, números base do grid), **`ColStatPosText`** (`#6EE7B7`, positivos no grid), **`ColStatNegText`** (`#FCA5A5`, negativos no grid), **`ColStatLegendText`** (`#F1F5F9`, texto dos rótulos da legenda) e **`ColStatCardBg`** (`#0E1625`, preenchimento das cápsulas do grid).
+     - **`FootprintPro Studio` (`Width = 665`):** Tab 1 expõe `Gap(px)` e `Glow%`; Tab 2 e Tab 3 expõem `TxtPx`/`BadgePx`, `NumPx`, `LegPx` e toggles `Buy`/`Sell`/`Trades`; Tab 4 (**`Color Studio`**) remodelada em **2 colunas com 20 seletores `#HEX`** + **paleta rápida clicável de 30 cores** em cada quadrado de cor.
+- **Validação Pós-Edição:**
+  - `verify_installer_cs.py`: `py_compile: OK`, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` (incluindo **`FootprintPro.cs`**) e **`COMBINED_18_PASS`** (`combined_rc=0`).
+
+
 
 
 
