@@ -16911,6 +16911,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private D2D.GradientStopCollection dxGlassTopStops;
         private D2D.LinearGradientBrush dxGlassTopGrad;
         private readonly Dictionary<uint, D2D.SolidColorBrush> dxDynBrushCache = new Dictionary<uint, D2D.SolidColorBrush>(64);
+        private readonly List<D2D.SolidColorBrush> retiredDynBrushes = new List<D2D.SolidColorBrush>(64);
         private D2D.StrokeStyle dxDashStyle, dxDotStyle;
         private DW.TextFormat dxFontLeft, dxFontRight, dxFontSmall, dxFontStat, dxFontHdr, dxFontCompact, dxFontMid, dxFontLegend;
 
@@ -18510,6 +18511,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             foreach (var kv in dxDynBrushCache)
                 if (kv.Value != null) kv.Value.Dispose();
             dxDynBrushCache.Clear();
+            FlushRetiredDynBrushes();
             if (dxDashStyle != null) { dxDashStyle.Dispose(); dxDashStyle = null; }
             if (dxDotStyle != null) { dxDotStyle.Dispose(); dxDotStyle = null; }
             if (dxFontLeft != null) { dxFontLeft.Dispose(); dxFontLeft = null; }
@@ -18523,6 +18525,16 @@ namespace NinjaTrader.NinjaScript.Indicators
             dxRtRef = null;
             dxRtPtr = IntPtr.Zero;
             lastDxSig = "";
+        }
+
+        private void FlushRetiredDynBrushes()
+        {
+            if (retiredDynBrushes.Count == 0) return;
+            for (int i = 0; i < retiredDynBrushes.Count; i++)
+            {
+                if (retiredDynBrushes[i] != null) retiredDynBrushes[i].Dispose();
+            }
+            retiredDynBrushes.Clear();
         }
 
         private static SharpDX.Color4 ToC4(System.Windows.Media.Brush br, float alpha, SharpDX.Color4 fb)
@@ -18541,14 +18553,16 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private D2D.SolidColorBrush GetDynBrush(byte r, byte g, byte b, float alpha)
         {
-            byte aB = (byte)Math.Max(15, Math.Min(255, (int)Math.Round(alpha * 255f)));
+            // Quantize alpha to 20 levels & NEVER dispose brushes mid-frame (prevents D2D EndDraw AccessViolation!)
+            int aStep = Math.Max(1, Math.Min(20, (int)Math.Round(alpha * 20f)));
+            byte aB = (byte)Math.Min(255, aStep * 12 + 15);
             uint k = ((uint)aB << 24) | ((uint)r << 16) | ((uint)g << 8) | (uint)b;
             D2D.SolidColorBrush br;
             if (!dxDynBrushCache.TryGetValue(k, out br) || br == null)
             {
-                if (dxDynBrushCache.Count > 240)
+                if (dxDynBrushCache.Count > 320)
                 {
-                    foreach (var kv in dxDynBrushCache) if (kv.Value != null) kv.Value.Dispose();
+                    retiredDynBrushes.AddRange(dxDynBrushCache.Values);
                     dxDynBrushCache.Clear();
                 }
                 br = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(r / 255f, g / 255f, b / 255f, aB / 255f));
@@ -18560,6 +18574,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private void EnsureDxResources()
         {
             if (RenderTarget == null) return;
+            FlushRetiredDynBrushes();
             IntPtr curPtr = RenderTarget.NativePointer;
             string sig = BrushToHex(ColPositiveDelta, "#10B981") + "|" + BrushToHex(ColNegativeDelta, "#F43F5E") + "|"
                 + BrushToHex(ColNeutralCluster, "#3B82F6") + "|" + BrushToHex(ColBidText, "#FCA5A5") + "|"
@@ -18994,12 +19009,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                     if (!barsMap.TryGetValue(b, out bar)) continue;
 
                     float cx = (float)chartControl.GetXByBarIndex(ChartBars, b);
+                    if (float.IsNaN(cx) || float.IsInfinity(cx)) continue;
                     if (cx < panelLeft - cullMargin || cx > panelRight + cullMargin) continue;
 
                     float dNext = (b < toIdx) ? Math.Abs((float)chartControl.GetXByBarIndex(ChartBars, b + 1) - cx) : defaultPitch;
                     float dPrev = (b > fromIdx) ? Math.Abs(cx - (float)chartControl.GetXByBarIndex(ChartBars, b - 1)) : defaultPitch;
-                    if (dNext < 2f) dNext = defaultPitch;
-                    if (dPrev < 2f) dPrev = defaultPitch;
+                    if (float.IsNaN(dNext) || float.IsInfinity(dNext) || dNext < 2f) dNext = defaultPitch;
+                    if (float.IsNaN(dPrev) || float.IsInfinity(dPrev) || dPrev < 2f) dPrev = defaultPitch;
                     float pitchPx = Math.Max(3f, Math.Min(dNext, dPrev));
                     float marginPx = (pitchPx >= 26f) ? Math.Min((float)BarOuterMarginPx, pitchPx * 0.14f) : Math.Max(0.8f, pitchPx * 0.10f);
                     float availW = Math.Max(2.2f, pitchPx - marginPx);
@@ -19341,15 +19357,38 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
 
             float vaMult = (ShowBarValueArea && !bc.InValueArea) ? ((w < 14f) ? 0.74f : 0.60f) : 1.0f;
-            float compactBoost = (w < 14f) ? 0.24f : 0f;
-            float baseAlpha = Math.Min(0.94f, (float)((shape == VeltrixFpClusterShape.HeatGradient ? (0.24 + 0.56 * norm) : (0.26 + 0.48 * norm)) * vaMult) + compactBoost);
+            float compactBoost = (w < 14f) ? 0.22f : 0f;
+            double heat = Math.Pow(norm, 1.35);
+            float baseAlpha;
+            if (shape == VeltrixFpClusterShape.Brick)
+            {
+                // Uniform crisp solid block opacity across every cluster level
+                baseAlpha = Math.Min(0.92f, 0.56f * vaMult + compactBoost);
+            }
+            else if (shape == VeltrixFpClusterShape.HeatGradient)
+            {
+                // Strong thermal contrast: quiet ticks stay subtle dark glass; hot high-vol clusters blaze neon bright!
+                baseAlpha = Math.Min(0.96f, (float)((0.10 + 0.84 * heat) * vaMult) + compactBoost);
+                if (heat >= 0.70)
+                {
+                    double hot = (heat - 0.70) / 0.30;
+                    cr = (byte)Math.Min(255, cr + (int)Math.Round(42 * hot));
+                    cg = (byte)Math.Min(255, cg + (int)Math.Round(48 * hot));
+                    cb = (byte)Math.Min(255, cb + (int)Math.Round(24 * hot));
+                }
+            }
+            else
+            {
+                // Histogram volume profile bar opacity
+                baseAlpha = Math.Min(0.94f, (float)((0.30 + 0.54 * norm) * vaMult) + compactBoost);
+            }
             D2D.SolidColorBrush fillBr = GetDynBrush(cr, cg, cb, baseAlpha);
 
             float drawX = x;
             float drawW = w;
             if (shape == VeltrixFpClusterShape.Histogram)
             {
-                drawW = Math.Min(w, Math.Max(Math.Min(w, 2.0f), (float)(w * norm)));
+                drawW = Math.Min(w, Math.Max(Math.Min(w, 2.5f), (float)(w * norm)));
                 drawX = isLeft ? (x + w - drawW) : x;
             }
 
@@ -19383,7 +19422,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             else
             {
-                var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 3.8f, RadiusY = 3.8f };
+                var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = (shape == VeltrixFpClusterShape.Brick ? 2.8f : 4.0f), RadiusY = (shape == VeltrixFpClusterShape.Brick ? 2.8f : 4.0f) };
                 // Layer 1: Dark Smoked Glass Backing + Translucent Chroma Body
                 RenderTarget.FillRoundedRectangle(rRect, dxCellBackdrop);
                 RenderTarget.FillRoundedRectangle(rRect, fillBr);
@@ -19407,9 +19446,16 @@ namespace NinjaTrader.NinjaScript.Indicators
                     }
                 }
 
-                // Layer 3: Crisp Jewel Border
-                D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, Math.Min(0.95f, baseAlpha + 0.30f));
-                RenderTarget.DrawRoundedRectangle(rRect, edgeBr, (norm >= 0.65 || bc.InValueArea) ? 1.15f : 0.8f);
+                // Layer 3: Shape-specific Border / Accent Cap
+                float edgeAlpha = (shape == VeltrixFpClusterShape.HeatGradient) ? Math.Min(0.98f, 0.25f + 0.72f * (float)heat) : Math.Min(0.95f, baseAlpha + 0.28f);
+                float edgeW = (shape == VeltrixFpClusterShape.HeatGradient && heat >= 0.65) ? 1.45f : ((norm >= 0.65 || bc.InValueArea) ? 1.1f : 0.75f);
+                D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, edgeAlpha);
+                RenderTarget.DrawRoundedRectangle(rRect, edgeBr, edgeW);
+                if (shape == VeltrixFpClusterShape.Histogram && drawW >= 5f)
+                {
+                    float tipX = isLeft ? drawX : (drawX + drawW - 2.0f);
+                    RenderTarget.FillRectangle(new SharpDX.RectangleF(tipX, y + 1.5f, 2.0f, Math.Max(2f, h - 3f)), edgeBr);
+                }
             }
 
             if (drawText)
@@ -19504,30 +19550,31 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (vps > maxVps) maxVps = vps;
             }
 
-            // Per-bar Pure 3D Glass Capsule Cards strictly clipped inside symmetric dock bounds!
+            // Per-bar Pure 3D Glass Capsule Cards clamped safely in C# inside dock bounds (Zero D2D Clip Push/Pop!)
             if (cardsClipRight > cardsClipLeft + 10f)
             {
-                RenderTarget.PushAxisAlignedClip(new SharpDX.RectangleF(cardsClipLeft, dockY + 2f, cardsClipRight - cardsClipLeft, Math.Max(8f, dockH - 4f)), D2D.AntialiasMode.PerPrimitive);
-                try
+                for (int b = fromIdx; b <= toIdx; b++)
                 {
-                    for (int b = fromIdx; b <= toIdx; b++)
-                    {
-                        FpBarData bar;
-                        if (!barsMap.TryGetValue(b, out bar)) continue;
-                        float cx = (float)chartControl.GetXByBarIndex(ChartBars, b);
-                        float dNext = (b < toIdx) ? Math.Abs((float)chartControl.GetXByBarIndex(ChartBars, b + 1) - cx) : defaultPitch;
-                        float dPrev = (b > fromIdx) ? Math.Abs(cx - (float)chartControl.GetXByBarIndex(ChartBars, b - 1)) : defaultPitch;
-                        if (dNext < 2f) dNext = defaultPitch;
-                        if (dPrev < 2f) dPrev = defaultPitch;
-                        float colW = Math.Min(dNext, dPrev) - 2f;
-                        if (colW < 18f) continue;
+                    FpBarData bar;
+                    if (!barsMap.TryGetValue(b, out bar)) continue;
+                    float cx = (float)chartControl.GetXByBarIndex(ChartBars, b);
+                    if (float.IsNaN(cx) || float.IsInfinity(cx)) continue;
+                    float dNext = (b < toIdx) ? Math.Abs((float)chartControl.GetXByBarIndex(ChartBars, b + 1) - cx) : defaultPitch;
+                    float dPrev = (b > fromIdx) ? Math.Abs(cx - (float)chartControl.GetXByBarIndex(ChartBars, b - 1)) : defaultPitch;
+                    if (float.IsNaN(dNext) || dNext < 2f) dNext = defaultPitch;
+                    if (float.IsNaN(dPrev) || dPrev < 2f) dPrev = defaultPitch;
+                    float colW = Math.Min(dNext, dPrev) - 2f;
+                    if (colW < 18f) continue;
 
-                        float colX = cx - colW * 0.5f;
-                        if (colX + colW < cardsClipLeft || colX > cardsClipRight) continue;
-                        float cardX = colX + 2f;
-                        float cardW = Math.Max(14f, colW - 4f);
+                    float colX = cx - colW * 0.5f;
+                    float rawCardX = colX + 2f;
+                    float rawCardW = Math.Max(14f, colW - 4f);
+                    float cardX = Math.Max(rawCardX, cardsClipLeft);
+                    float cardR = Math.Min(rawCardX + rawCardW, cardsClipRight);
+                    float cardW = cardR - cardX;
+                    if (cardW < 10f) continue;
 
-                        for (int r = 0; r < rows.Count; r++)
+                    for (int r = 0; r < rows.Count; r++)
                         {
                             float ry = dockY + gridTopPad + r * StatCellHeightPx;
                             float cardY = ry + 2f;
@@ -19673,11 +19720,6 @@ namespace NinjaTrader.NinjaScript.Indicators
                             DrawTextCentered(val, rowTf, new SharpDX.RectangleF(cardX + 2f, cardY, Math.Max(4f, cardW - 4f), cardH), cellFg);
                         }
                     }
-                }
-                finally
-                {
-                    RenderTarget.PopAxisAlignedClip();
-                }
             }
 
             // Matching 3D Glass Pill Cards for Legend Labels (Zero divider line or ugly box!)

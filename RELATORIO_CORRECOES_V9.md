@@ -771,6 +771,24 @@ git push origin main
 - **Validação Pós-Edição:**
   - `verify_installer_cs.py`: `py_compile: OK`, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` (incluindo **`FootprintPro.cs`**) e **`COMBINED_18_PASS`** (`combined_rc=0`).
 
+---
+
+## 52. 21/11/2026 09:42 — Correção Definitiva de `D2DERR_PUSH_POP_UNBALANCED` / Memória Protegida no `OnRender` & Distinção Visual `Brick` vs `HeatGradient`
+
+- **Arquivo Modificado:** [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py) (`CODE_FOOTPRINT_PRO` — Indicador `#17`).
+- **Causas Raiz Identificadas (via Log NT8):**
+  1. **Desaparecimento ao arrastar lateralmente (`D2DERR_PUSH_POP_UNBALANCED 0x88990016` + `Attempted to read or write protected memory`):**
+     - `RenderTarget.PushAxisAlignedClip` / `PopAxisAlignedClip` no `RenderStatisticGrid` causava desbalanceamento de pilha D2D no Wrapper SharpDX do NinjaTrader 8 ao rolar lateralmente.
+     - `GetDynBrush` chamava `.Dispose()` nos pincéis em cache no meio do frame ao atingir `Count > 240`, liberando ponteiros COM antes de o Direct2D executar o lote no `EndDraw()`.
+  2. **`Brick` idêntico ao `HeatGradient` (`RenderSideCell`):** Ambos usavam rampa linear quase igual por volume (`0.24 + 0.56 * norm` vs `0.26 + 0.48 * norm`).
+- **Correções Aplicadas (preservando integralmente o design 3D Glass):**
+  - Removidas todas as chamadas a `PushAxisAlignedClip` / `PopAxisAlignedClip` no `RenderStatisticGrid`, substituídas por clamping numérico em C# (`Math.Max(rawCardX, cardsClipLeft)` e `Math.Min(..., cardsClipRight)`), mais guardas `float.IsNaN` / `float.IsInfinity` em `OnRender` e `RenderStatisticGrid`.
+  - Quantizado o alpha de `GetDynBrush` em 20 níveis (`aStep * 12 + 15`) com fila `retiredDynBrushes` limpa via `FlushRetiredDynBrushes()` apenas antes de desenhar (`EnsureDxResources` / `DisposeDx`), eliminando qualquer `.Dispose()` no meio do frame.
+  - **`RenderSideCell` distinto por formato:** `Brick` agora usa blocos uniformes sólidos (`0.56f * vaMult`); `HeatGradient` aplica contraste térmico perceptivo (`Math.Pow(norm, 1.35)` de `0.10` até `0.96` com destaque térmico nos níveis mais intensos); e `Histogram` desenha barras horizontais proporcionais com acento de `2px` na ponta.
+- **Validação Pós-Edição:**
+  - `verify_installer_cs.py`: `py_compile: OK`, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` (incluindo **`FootprintPro.cs`**) e **`COMBINED_18_PASS`** (`combined_rc=0`).
+
+
 
 
 
