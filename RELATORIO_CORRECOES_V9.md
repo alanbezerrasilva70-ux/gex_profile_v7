@@ -671,3 +671,37 @@ git push origin main
 ### 45.4 Validação Pós-Edição Final
 - **`verify_python_and_templates.py`**: `PY_COMPILE_OK=True`, `WATCHDOG_SYNC=True`, `ALL_CHECKS_OK=True`, `TOOL_RANGE_VWAP_OK=True`, `16/16` blocos e `7/7` templates XML válidos.
 - **`verify_cs_from_installer.ps1`**: **`CS_FAILED_COUNT=0` (`17/17 PASS`)** incluindo `CODE_TPO_VOLUME.cs`, `CODE_HEATMAP_LIQUIDEZ.cs` e `CODE_VWAP.cs`.
+
+---
+
+## 46. 21/11/2026 01:55 — Limpeza de Marcas nos E-books de Trading, Painel Privado de Estudos & Blueprint `VeltrixQuant Footprint Pro (#17)`
+
+- **Arquivos Criados / Modificados em `gex_profile_v7`:**
+  - [PROJETO_VELTRIX_FOOTPRINT_PRO.md](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/PROJETO_VELTRIX_FOOTPRINT_PRO.md) e [PROJETO_VELTRIX_FOOTPRINT_PRO.pdf](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/PROJETO_VELTRIX_FOOTPRINT_PRO.pdf) (**6 páginas vetoriais** — especificação pura sem código C#, conforme solicitado).
+  - Diagramas SVG em `docs_footprint_imagens/`: [footprint_anatomia_visual.svg](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/docs_footprint_imagens/footprint_anatomia_visual.svg), [footprint_arquitetura_fluxograma.svg](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/docs_footprint_imagens/footprint_arquitetura_fluxograma.svg) e [footprint_matriz_ecossistema.svg](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/docs_footprint_imagens/footprint_matriz_ecossistema.svg).
+- **Arquivos Modificados / Reorganizados em `gex-dashboard` e Painel Privado:**
+  - Removidas todas as menções a softwares e empresas concorrentes (preservando `NinjaTrader 8`, `Tradovate`, `CME`, `FINRA`, `FRED`) e comparações de "parecido com/estilo" em todos os e-books `.md` e `.svg` de trading em `public/ebooks/` e em `lib/i18n/{books.ts,dict/ptBR.ts,dict/enUS.ts}`, renomeando `tpo_vwap_rancho_style` para `tpo_vwap_institucional`.
+  - Movido `plano_carreira_stem_eua` para fora do repositório público comercial (`C:\Users\alanb\source\planejamento_pessoal_privado\`) com leitor próprio separado ([index.html](file:///c:/Users/alanb/source/planejamento_pessoal_privado/index.html), `app.js`, `styles.css`, `build_bundle.py`, `docs_bundle.js` e `COMO_USAR_E_PUBLICAR.md`).
+- **Validações Executadas:**
+  - Varredura automatizada em `public/ebooks`, `lib/i18n`, `PROJETO_VELTRIX_FOOTPRINT_PRO.md` e `docs_footprint_imagens/`: **`FINAL_COMPETITOR_HITS=0`**.
+  - **`npx tsc --noEmit`** em `gex-dashboard`: exit code **`0`**.
+  - **`node --check`** em `planejamento_pessoal_privado/{app.js,docs_bundle.js}`: **`JS_CHECK_OK`**.
+  - **`build_bundle.py`**: `4` arquivos `.md` empacotados em `docs_bundle.js`.
+
+---
+
+## 47. 21/11/2026 03:06 — Implementação `FootprintPro (#17)`, Bolhas Laterais no `HeatmapLiquidezPro`, Template #08, Limpeza de Grupo A/Tooltips e Manuais Multi-Ativos
+
+- **Implementação NinjaTrader 8 ([instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py)):**
+  - **`FootprintPro.cs` (`CODE_FOOTPRINT_PRO` — Indicador #17):** Motor Orderflow GPU SharpDX Direct2D completo e compatível com C# 5 / `.NET 4.0` sem vazamento de `RenderTarget` (`OnRenderTargetChanged` + guarda `dxRtRef`/`dxRtPtr`). Inclui estilos independentes Left/Right (`BidAsk`, `Volume`, `Delta`, `SplitDeltaImbalance`, `Ladder`, `TradesNumber`, `Bid`, `Ask`, `DeltaPercentage`, `None`), formatos (`Brick`, `Histogram`, `HeatGradient` + gloss 3D), `AutoZoomLOD` dinâmico, reconstrução de tape (`ReconstructTapeMs`), modos históricos sem Tick Replay (`Hybrid1Minute`, `Real1TickNoReplay`, `BarVolumeOnly`) + stream 100% L1+L2 em tempo real, Imbalance (`Diagonal`/`Horizontal`) + **Stacked S/R Zones**, **Absorção L2 Real (`OnMarketDepth` + Tape)** e Zonas de Absorção, **Bar VPOC + Naked VPOC + Bar VA 68%**, **Unfinished Auction (`UA`)**, **Exhaustion (`EXH`)**, **Buying/Selling Traps**, **Ratio Numbers**, **Bottom Statistic Grid** (incl. `Vol/sec`, `Delta Rate/s`, `COT H/L`, `Predicted`), 4 alertas focados, clique direito para fixar/remover níveis-chave (`.dat` persistente) e janela Studio WPF **`🐾 Footprint`** com presets (`ES/MES`, `NQ/MNQ`, `GC/CL`, `ZB/ZN`, `FX 6E/6J`) e editor completo de cores.
+  - **`HeatmapLiquidezPro.cs` (`CODE_HEATMAP_LIQUIDEZ`):** Adicionado `VeltrixHeatmapBolhaPosV9` (`CentroDoCandle`, `DireitaDoCandle`, `EsquerdaDoCandle`) e `DeslocamentoBolhaPx` (`38 px`) com linha guia conectora do centro do candle até a borda da bolha — eliminando sobreposição sobre os números do Footprint (exposto no popup `🔥 Liquidez` + botão `📐 Lateral Footprint (38px)`).
+  - **Template #08 & Limpeza de Concorrentes C#:** Adicionado **`VeltrixQuant - 08 Footprint Pro + Flodometer + Watchdog (20 Range).xml`** (`DireitaDoCandle` pré-ativado nas bolhas), registrado `FootprintPro` em `arquivos_para_instalar` e `PREFIXOS_ECOSISTEMA`, e removidas todas as strings concorrentes (`Rancho`, `Acme`, `Bookmap`) das propriedades, tooltips e popups C#.
+- **Reorganização Comercial Grupo A, Estudo Privado & Novo Manual Footprint (`gex-dashboard` + `planejamento_pessoal_privado`):**
+  - Removidos da loja pública (`gex-dashboard/public/ebooks/` e catálogos `lib/i18n/`) todos os manuais não-comerciais/internos (`guia_programacao_dashboard`, `arquitetura_devops`, e versão original crua com código de `estatistica`) para `c:\Users\alanb\source\planejamento_pessoal_privado\estudos\`, reempacotando **10 documentos `.md`** no leitor offline via `build_bundle.py`.
+  - Criados em `gex-dashboard/public/ebooks/`: **`estatistica`** limpo (*Metodologia Quantitativa & Black-Scholes GEX*, sem XSRF/scraping/código) e **`footprintpro`** (*Teoria, Fluxo Visual SVG e Tabela Prática Completa* cobrindo **Índices, Metais, Commodities Agro/Energia, Bonds/Treasuries e Forex Futuros CME**), além de atualização do guia [config_ativos_e_templates/teoria.md](file:///c:/Users/alanb/source/gex-dashboard/gex-dashboard/public/ebooks/config_ativos_e_templates/teoria.md) e [pratica.md](file:///c:/Users/alanb/source/gex-dashboard/gex-dashboard/public/ebooks/config_ativos_e_templates/pratica.md) para os **17 indicadores e 8 templates**.
+  - Atualizada a lista `### Grupo A` em [04_Auditoria_Ebooks_Idioma_e_Padronizacao_Global.md](file:///c:/Users/alanb/source/modelo%20de%20neg%C3%B3cio%20e%20expans%C3%A3o/04_Auditoria_Ebooks_Idioma_e_Padronizacao_Global.md).
+- **Validações Executadas:**
+  - `py_compile` no [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py): **OK**; todos os **8 XML** de templates válidos; **`COMPETITOR_HITS=0`**.
+  - Compilação `.NET 4.0 csc.exe` contra as DLLs locais do NinjaTrader 8 (`NinjaTrader.Core.dll`, `NinjaTrader.Gui.dll`, `NinjaTrader.Custom.dll`, `SharpDX*.dll`): **`16/18 PASS_RAW`** (incluindo **`FootprintPro.cs`**, `HeatmapLiquidezPro.cs`, `PerfilTpoVolumePro.cs`, `VeltrixRangeVWAP.cs`; os 2 restantes apenas referenciam o rodapé `@Indicator` gerado no `F5` do NT8) e **`COMBINED_18_PASS`** (**`0` erros / `0` colisões** compilando todos os 18 arquivos juntos num assembly único!).
+  - **`npx tsc --noEmit`** (`0` erros) e **`npm run lint`** (`0` erros, `1` warning pré-existente `no-img-element` em `app/biblioteca/page.tsx`) em `gex-dashboard`.
+

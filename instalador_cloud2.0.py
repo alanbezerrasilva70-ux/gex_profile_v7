@@ -3058,7 +3058,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public double DesvioMaximo { get; set; }
         #endregion
 
-        #region Canal de Valor Rancho Style & Visual
+        #region Canal de Valor Institucional & Visual
         [Display(Name = "Modo de Reset da Sessao", Order = 5, GroupName = "1. VWAP & Canal")]
         public VeltrixVwapResetModoV9 ModoReset { get; set; }
 
@@ -3080,7 +3080,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Periodo Janela Rolling (Barras)", Order = 10, GroupName = "1. VWAP & Canal")]
         public int PeriodoRollingBarras { get; set; }
 
-        [Display(Name = "Canal Duas Camadas (Estilo Acme)", Order = 11, GroupName = "1. VWAP & Canal")]
+        [Display(Name = "Canal Duas Camadas (Institucional)", Order = 11, GroupName = "1. VWAP & Canal")]
         public bool CanalDuasCamadas { get; set; }
 
         [Display(Name = "Mostrar Dots Extremos (±Desvio Max)", Order = 12, GroupName = "1. VWAP & Canal")]
@@ -3138,7 +3138,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (State == State.SetDefaults)
             {
-                Description = "VWAP Value Channel Institucional (estilo Acme / Rancho) com Canal Sombreado 2 Camadas, Dots ±2 SD, Quebra Limpa de Sessão e Rolling Suave";
+                Description = "VWAP Value Channel Institucional com Canal Sombreado 2 Camadas, Dots ±2 SD, Quebra Limpa de Sessão e Rolling Suave";
                 Name = "VeltrixQuant - VWAPInstitucionalPro";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
@@ -3905,7 +3905,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             var root = new Wpf.StackPanel { Margin = new Thickness(12) };
             root.Children.Add(new Wpf.TextBlock
             {
-                Text = "VWAP Value Channel (Acme / Rancho Style)",
+                Text = "VWAP Value Channel (Institucional)",
                 Foreground = accentBr,
                 FontSize = 13.5,
                 FontWeight = FontWeights.Bold,
@@ -3917,7 +3917,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             var chkReset = new Wpf.CheckBox { IsChecked = ResetDiario, Content = "Ativar Reset", Foreground = txtBr };
             var chkBandas = new Wpf.CheckBox { IsChecked = MostrarBandas, Content = "Mostrar Bandas SD", Foreground = txtBr };
             var chkCanal = new Wpf.CheckBox { IsChecked = SombrearCanalValor, Content = "Sombrear Canal", Foreground = txtBr };
-            var chk2Layer = new Wpf.CheckBox { IsChecked = CanalDuasCamadas, Content = "2 Camadas (Acme)", Foreground = txtBr };
+            var chk2Layer = new Wpf.CheckBox { IsChecked = CanalDuasCamadas, Content = "2 Camadas (Inst.)", Foreground = txtBr };
             var chkDots = new Wpf.CheckBox { IsChecked = MostrarDotsExtremo, Content = "Dots Extremos ±2 SD", Foreground = txtBr };
             var chkTags = new Wpf.CheckBox { IsChecked = MostrarTagsDireita, Content = "Tags Direita", Foreground = txtBr };
 
@@ -3982,9 +3982,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
             };
 
-            var btnPresetAcme = new Wpf.Button { Content = "Estilo Acme (Rolling)", Height = 22, Padding = new Thickness(8, 1, 8, 1), Margin = new Thickness(0, 0, 6, 0), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnPresetRolling = new Wpf.Button { Content = "Canal Rolling (96b)", Height = 22, Padding = new Thickness(8, 1, 8, 1), Margin = new Thickness(0, 0, 6, 0), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
             var btnPresetEth = new Wpf.Button { Content = "Sessao CME (ETH)", Height = 22, Padding = new Thickness(8, 1, 8, 1), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
-            btnPresetAcme.Click += (s2, e2) =>
+            btnPresetRolling.Click += (s2, e2) =>
             {
                 cbReset.SelectedItem = VeltrixVwapResetModoV9.JanelaMovelRolling;
                 tbRolling.Text = "96"; tbCanalBanda.Text = "2"; tbCanalOp.Text = "13";
@@ -4001,7 +4001,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             };
             var presetRow = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
             presetRow.Children.Add(new Wpf.TextBlock { Text = "Presets:", Foreground = mutBr, FontSize = 11.2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
-            presetRow.Children.Add(btnPresetAcme);
+            presetRow.Children.Add(btnPresetRolling);
             presetRow.Children.Add(btnPresetEth);
             root.Children.Add(presetRow);
 
@@ -9373,7 +9373,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (State == State.SetDefaults)
             {
-                Description = "Caixinha piscante estilo Bookmap Market Pulse (0ms OnMarketData), faixas de desequilibrio no preco e sons nao-vocais progressivos.";
+                Description = "Painel dinamico Market Pulse (0ms OnMarketData), faixas de desequilibrio no preco e sons nao-vocais progressivos.";
                 Name = "VeltrixQuant - OrderFlowImbalanceFlash";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
@@ -11041,6 +11041,13 @@ public enum VeltrixHeatmapPosicaoV9
     InferiorDireito
 }
 
+public enum VeltrixHeatmapBolhaPosV9
+{
+    CentroDoCandle = 0,
+    DireitaDoCandle = 1,
+    EsquerdaDoCandle = 2
+}
+
 namespace NinjaTrader.NinjaScript.Indicators
 {
     public class HeatmapLiquidezPro : Indicator
@@ -11224,38 +11231,38 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         #region Propriedades Originais + Flodometer Pro
         [NinjaScriptProperty]
-        [Display(Name = "Modo Visual do Heatmap L2", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 1)]
+        [Display(Name = "Modo Visual do Heatmap L2", GroupName = "01. Heatmap L2 & Flodometer", Order = 1)]
         public VeltrixHeatmapModoV9 ModoMapa { get; set; }
 
         [NinjaScriptProperty]
         [Range(0, 50000)]
-        [Display(Name = "Lote Firme Destaque (0=Auto 80% Pico)", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 2)]
+        [Display(Name = "Lote Firme Destaque (0=Auto 80% Pico)", GroupName = "01. Heatmap L2 & Flodometer", Order = 2)]
         public int LoteFirmeVermelho { get; set; }
 
         [NinjaScriptProperty]
         [Range(200, 2000)]
-        [Display(Name = "Intervalo Captura Trilha (ms)", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 3)]
+        [Display(Name = "Intervalo Captura Trilha (ms)", GroupName = "01. Heatmap L2 & Flodometer", Order = 3)]
         public int IntervaloSnapshotMs { get; set; }
 
         [NinjaScriptProperty]
         [Range(30, 360)]
-        [Display(Name = "Colunas Histórico Trilha", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 4)]
+        [Display(Name = "Colunas Histórico Trilha", GroupName = "01. Heatmap L2 & Flodometer", Order = 4)]
         public int MaxSlicesHistorico { get; set; }
 
         [NinjaScriptProperty]
         [Range(5, 95)]
-        [Display(Name = "Opacidade Trilha Heatmap (%)", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 5)]
+        [Display(Name = "Opacidade Trilha Heatmap (%)", GroupName = "01. Heatmap L2 & Flodometer", Order = 5)]
         public int OpacidadeTrilhaPct { get; set; }
 
         [NinjaScriptProperty]
         [Range(20, 100)]
-        [Display(Name = "Opacidade Escada DOM L2 (%)", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 6)]
+        [Display(Name = "Opacidade Escada DOM L2 (%)", GroupName = "01. Heatmap L2 & Flodometer", Order = 6)]
         public int OpacidadeEscadaPct { get; set; }
 
-        [Display(Name = "Paleta Heatmap (Bid/Ask Flodometer vs Térmica)", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 7)]
+        [Display(Name = "Paleta Heatmap (Bid/Ask Flodometer vs Térmica)", GroupName = "01. Heatmap L2 & Flodometer", Order = 7)]
         public VeltrixHeatmapPaletaV9 PaletaMapa { get; set; }
 
-        [Display(Name = "Estender Heatmap pela Largura do Painel", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 8)]
+        [Display(Name = "Estender Heatmap pela Largura do Painel", GroupName = "01. Heatmap L2 & Flodometer", Order = 8)]
         public bool EstenderTrilhaPanelCompleto { get; set; }
 
         // Bolhas de Volume Executado
@@ -11280,6 +11287,13 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         [Display(Name = "Mostrar Número Dentro da Bolha", GroupName = "02. Bolhas Executadas (Flodometer)", Order = 6)]
         public bool MostrarNumeroNaBolha { get; set; }
+
+        [Display(Name = "Posição Bolhas no Candle (Centro ou Lado do Footprint)", GroupName = "02. Bolhas Executadas (Flodometer)", Order = 7)]
+        public VeltrixHeatmapBolhaPosV9 PosicaoBolhasNoCandle { get; set; }
+
+        [Range(0, 120)]
+        [Display(Name = "Deslocamento Lateral Bolha (px)", GroupName = "02. Bolhas Executadas (Flodometer)", Order = 8)]
+        public int DeslocamentoBolhaPx { get; set; }
 
         // Colunas Laterais Depth | LDelta PDelta | SVP
         [Display(Name = "Mostrar Termômetro Bid/Ask (%)", GroupName = "03. Colunas Direita (Depth | LD PD | SVP)", Order = 1)]
@@ -11355,11 +11369,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Tamanho Fonte Colunas/Números (px)", GroupName = "05. Painel Móvel", Order = 7)]
         public int TamanhoFonteColunas { get; set; }
 
-        [Display(Name = "Estender Faixas L2 Fora da Janela 10 Lvls", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 9)]
+        [Display(Name = "Estender Faixas L2 Fora da Janela 10 Lvls", GroupName = "01. Heatmap L2 & Flodometer", Order = 9)]
         public bool PersistirNiveisHeatmap { get; set; }
 
         [Range(3, 60)]
-        [Display(Name = "Retenção Faixas Bookmap (Seg)", GroupName = "01. Heatmap Bookmap & Flodometer", Order = 10)]
+        [Display(Name = "Retenção Faixas L2 (Seg)", GroupName = "01. Heatmap L2 & Flodometer", Order = 10)]
         public int RetencaoTrilhaSeg { get; set; }
 
         // Cores
@@ -11424,6 +11438,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 TamanhoBolhaMinPx = 9;
                 TamanhoBolhaMaxPx = 32;
                 MostrarNumeroNaBolha = true;
+                PosicaoBolhasNoCandle = VeltrixHeatmapBolhaPosV9.CentroDoCandle;
+                DeslocamentoBolhaPx = 38;
 
                 MostrarTermometroDepth = true;
                 MostrarColunaDepth = true;
@@ -12440,7 +12456,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             float xMeterLeft = xDepthLeft - colW_Meter;
             float dockLeftX = Math.Max(panelLeft + 120f, xMeterLeft);
 
-            // 1) Heatmap Horizontal Trail (Smooth Bookmap Continuous Ribbons!)
+            // 1) Heatmap Horizontal Trail (Smooth L2 Continuous Ribbons!)
             if (ModoMapa == VeltrixHeatmapModoV9.TrilhaTermicaECard && sliceScratch.Count > 0)
             {
                 float trailRight = dockLeftX - 2f;
@@ -12488,7 +12504,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                         : b.BarIndex;
                     if (barIdx < 0 || barIdx > toIdxBars + 1) barIdx = b.BarIndex;
                     if (barIdx < ChartBars.FromIndex || barIdx > toIdxBars + 1) continue;
-                    float bx = (float)chartControl.GetXByBarIndex(ChartBars, Math.Min(Math.Max(0, barIdx), Math.Max(0, CurrentBar)));
+                    float bxCenter = (float)chartControl.GetXByBarIndex(ChartBars, Math.Min(Math.Max(0, barIdx), Math.Max(0, CurrentBar)));
+                    float bx = bxCenter;
+                    if (PosicaoBolhasNoCandle == VeltrixHeatmapBolhaPosV9.DireitaDoCandle)
+                        bx = bxCenter + Math.Max(6, DeslocamentoBolhaPx);
+                    else if (PosicaoBolhasNoCandle == VeltrixHeatmapBolhaPosV9.EsquerdaDoCandle)
+                        bx = bxCenter - Math.Max(6, DeslocamentoBolhaPx);
                     if (bx >= dockLeftX - 6f || bx <= panelLeft + 4f) continue;
                     float by = (float)chartScale.GetYByValue(b.Price);
                     if (by < panelTop + 6f || by > panelBottom - 6f) continue;
@@ -12499,6 +12520,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                     var fillBr = b.IsSellSide ? dxBubbleSellFill : dxBubbleBuyFill;
                     var edgeBr = b.IsSellSide ? dxBubbleSellEdge : dxBubbleBuyEdge;
                     var glowBr = b.IsSellSide ? dxBubbleSellGlow : dxBubbleBuyGlow;
+
+                    if (PosicaoBolhasNoCandle != VeltrixHeatmapBolhaPosV9.CentroDoCandle && Math.Abs(bx - bxCenter) > rad + 2f)
+                    {
+                        float anchorEdge = (bx > bxCenter) ? (bx - rad) : (bx + rad);
+                        RenderTarget.DrawLine(new SharpDX.Vector2(bxCenter, by), new SharpDX.Vector2(anchorEdge, by), edgeBr, 1.0f);
+                    }
 
                     var ellipseOuter = new SharpDX.Direct2D1.Ellipse(new SharpDX.Vector2(bx, by), rad + 4f, rad + 4f);
                     var ellipseMain = new SharpDX.Direct2D1.Ellipse(new SharpDX.Vector2(bx, by), rad, rad);
@@ -13138,6 +13165,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             // Bubbles
             var chkBub = new Wpf.CheckBox { IsChecked = MostrarBolhasVolume, Content = "Bolhas de Volume na Tela", Foreground = txtBr };
             var chkBubNum = new Wpf.CheckBox { IsChecked = MostrarNumeroNaBolha, Content = "Número Dentro", Foreground = txtBr };
+            var cbBubPos = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixHeatmapBolhaPosV9)), SelectedItem = PosicaoBolhasNoCandle, Width = 136 };
+            var tbBubOffset = new Wpf.TextBox { Text = DeslocamentoBolhaPx.ToString(CultureInfo.InvariantCulture), Width = 44, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbBubMinVol = new Wpf.TextBox { Text = BolhaVolMinimo.ToString(CultureInfo.InvariantCulture), Width = 54, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbBubRefVol = new Wpf.TextBox { Text = BolhaVolRefMax.ToString(CultureInfo.InvariantCulture), Width = 54, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbBubRMin = new Wpf.TextBox { Text = TamanhoBolhaMinPx.ToString(CultureInfo.InvariantCulture), Width = 44, Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Padding = new Thickness(4, 2, 4, 2) };
@@ -13185,6 +13214,8 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 MostrarBolhasVolume = (chkBub.IsChecked == true);
                 MostrarNumeroNaBolha = (chkBubNum.IsChecked == true);
+                if (cbBubPos.SelectedItem is VeltrixHeatmapBolhaPosV9) PosicaoBolhasNoCandle = (VeltrixHeatmapBolhaPosV9)cbBubPos.SelectedItem;
+                if (int.TryParse(tbBubOffset.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) DeslocamentoBolhaPx = Math.Max(0, Math.Min(120, iv));
                 if (int.TryParse(tbBubMinVol.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) BolhaVolMinimo = Math.Max(1, Math.Min(5000, iv));
                 if (int.TryParse(tbBubRefVol.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) BolhaVolRefMax = Math.Max(10, Math.Min(10000, iv));
                 if (int.TryParse(tbBubRMin.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) TamanhoBolhaMinPx = Math.Max(4, Math.Min(24, iv));
@@ -13268,6 +13299,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             addRow("Opac. Trilha% / Escada%", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbOpTrail, new Wpf.TextBlock { Width = 6 }, tbOpBar } });
 
             addRow("Bolhas Executadas", wrapGroup(new UIElement[] { chkBub, chkBubNum }));
+            addRow("Posição Bolha / Desloc. (px)", wrapGroup(new UIElement[] { cbBubPos, tbBubOffset }));
             addRow("Bolha Vol Mín / Ref Máx", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbBubMinVol, new Wpf.TextBlock { Text = " / ", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbBubRefVol } });
             addRow("Raio Bolha Mín / Máx (px)", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbBubRMin, new Wpf.TextBlock { Text = " / ", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbBubRMax } });
 
@@ -13277,7 +13309,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             addRow("Tempo Mantida (s) / HFT", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbHeldSeg, new Wpf.TextBlock { Width = 6 }, tbHftCic } });
             addRow("Stop Run Ticks / Vol", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbStopT, new Wpf.TextBlock { Width = 6 }, tbStopV } });
             addRow("Painel Radar / Opac (%)", wrapGroup(new UIElement[] { chkPainel, tbOpPnl }));
-            addRow("Posição / Persistir Bookmap", wrapGroup(new UIElement[] { cbPos, chkPersist }));
+            addRow("Posição / Persistir Trilha L2", wrapGroup(new UIElement[] { cbPos, chkPersist }));
             addRow("Fonte Painel / Colunas (px)", new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Children = { tbFontPnl, new Wpf.TextBlock { Text = " / ", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center }, tbFontCol } });
 
             addRow("Cor Ask (Heatmap)", makeColorRow(tbCAsk));
@@ -13293,9 +13325,11 @@ namespace NinjaTrader.NinjaScript.Indicators
             var okBg = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(185, 28, 28)); okBg.Freeze();
             var btnNqPreset = new Wpf.Button { Content = "⚡ NQ Ideal", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
             var btnEsPreset = new Wpf.Button { Content = "⚡ ES Ideal", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = txtBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
+            var btnLatFootprint = new Wpf.Button { Content = "📐 Lateral Footprint (38px)", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
             var btnResetLd = new Wpf.Button { Content = "Zerar LΔ/PΔ", Height = 24, Padding = new Thickness(9, 2, 9, 2), Margin = new Thickness(0, 0, 6, 4), Background = inputBg, Foreground = accentBr, BorderBrush = borderBr, Cursor = Cursors.Hand };
             actionRow.Children.Add(btnNqPreset);
             actionRow.Children.Add(btnEsPreset);
+            actionRow.Children.Add(btnLatFootprint);
             actionRow.Children.Add(btnResetLd);
             root.Children.Add(actionRow);
 
@@ -13306,6 +13340,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             btnNqPreset.Click += (s2, e2) => { cbPaleta.SelectedItem = VeltrixHeatmapPaletaV9.Termica5Cores; cbPos.SelectedItem = VeltrixHeatmapPosicaoV9.SuperiorDireito; tbFirme.Text = "25"; tbSpoofLote.Text = "30"; tbBubMinVol.Text = "10"; tbOpTrail.Text = "52"; tbFontPnl.Text = "11"; tbFontCol.Text = "10"; chkPersist.IsChecked = true; applyChanges(); };
             btnEsPreset.Click += (s2, e2) => { cbPaleta.SelectedItem = VeltrixHeatmapPaletaV9.Termica5Cores; cbPos.SelectedItem = VeltrixHeatmapPosicaoV9.SuperiorDireito; tbFirme.Text = "150"; tbSpoofLote.Text = "80"; tbBubMinVol.Text = "25"; tbOpTrail.Text = "52"; tbFontPnl.Text = "11"; tbFontCol.Text = "10"; chkPersist.IsChecked = true; applyChanges(); };
+            btnLatFootprint.Click += (s2, e2) => { cbBubPos.SelectedItem = VeltrixHeatmapBolhaPosV9.DireitaDoCandle; tbBubOffset.Text = "38"; applyChanges(); };
             btnResetLd.Click += (s2, e2) => { lock (syncLock) { limitAddDeltaByTicks.Clear(); limitPullDeltaByTicks.Clear(); } if (ChartControl != null) ChartControl.InvalidateVisual(); };
             btnApply.Click += (s2, e2) => { applyChanges(); };
             btnOk.Click += (s2, e2) => { applyChanges(); win.Close(); };
@@ -13327,7 +13362,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 """
 
 # ==============================================================================
-# 16. PERFIL TPO + VOLUME PROFILE PRO (RANCHO STYLE + MERGE/SPLIT + CLIQUE DIREITO VA)
+# 16. PERFIL TPO + VOLUME PROFILE PRO (INSTITUCIONAL + MERGE/SPLIT + CLIQUE DIREITO VA)
 # ==============================================================================
 CODE_TPO_VOLUME = r"""
 #region Using declarations
@@ -13820,7 +13855,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (State == State.SetDefaults)
             {
-                Description = "Perfil TPO + Volume Profile Institucional (estilo Rancho Dinero) sem Tick Replay, com Volume Real CME, Junção/Divisão (Merge/Split) e Clique Direito por Dia para Ocultar/Exibir Retangulo VA e Linhas.";
+                Description = "Perfil TPO + Volume Profile Institucional sem Tick Replay, com Volume Real CME, Junção/Divisão (Merge/Split) e Clique Direito por Dia para Ocultar/Exibir Retangulo VA e Linhas.";
                 Name = "VeltrixQuant - PerfilTpoVolumePro";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
@@ -15133,7 +15168,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             dxMutedBr = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.64f, 0.72f, 0.83f, 0.88f));
             dxBadgeBg = new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.05f, 0.07f, 0.12f, 0.86f));
 
-            // Rancho style rainbow TPO period brushes (cyan -> emerald -> amber -> orange -> violet)
+            // Institucional rainbow TPO period brushes (cyan -> emerald -> amber -> orange -> violet)
             dxTpoPalette = new SharpDX.Direct2D1.SolidColorBrush[]
             {
                 new SharpDX.Direct2D1.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.22f, 0.74f, 0.97f, 0.92f)),
@@ -16567,6 +16602,2996 @@ namespace NinjaTrader.NinjaScript.Indicators
 """
 
 # ==============================================================================
+# 17. FOOTPRINT PRO (ORDERFLOW QUANTUM + L2 ABSORPTION + STACKED ZONES + STAT GRID)
+# ==============================================================================
+CODE_FOOTPRINT_PRO = r"""
+#region Using declarations
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Xml.Serialization;
+using NinjaTrader.Cbi;
+using NinjaTrader.Core;
+using NinjaTrader.Data;
+using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.Gui.NinjaScript;
+using NinjaTrader.NinjaScript;
+using Wpf = System.Windows.Controls;
+using D2D = SharpDX.Direct2D1;
+using DW = SharpDX.DirectWrite;
+#endregion
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+    public enum VeltrixFpStyle
+    {
+        None = 0,
+        BidAsk = 1,
+        Volume = 2,
+        Delta = 3,
+        SplitDeltaImbalance = 4,
+        Ladder = 5,
+        TradesNumber = 6,
+        Bid = 7,
+        Ask = 8,
+        DeltaPercentage = 9
+    }
+
+    public enum VeltrixFpClusterShape
+    {
+        Brick = 0,
+        Histogram = 1,
+        HeatGradient = 2
+    }
+
+    public enum VeltrixFpScaleScope
+    {
+        Bar = 0,
+        Chart = 1
+    }
+
+    public enum VeltrixFpScaleSource
+    {
+        Volume = 0,
+        Delta = 1,
+        BidAskMax = 2
+    }
+
+    public enum VeltrixFpColorSource
+    {
+        Delta = 0,
+        Volume = 1,
+        BidAsk = 2,
+        Solid = 3
+    }
+
+    public enum VeltrixFpOrderflowAlgo
+    {
+        Hybrid = 0,
+        BidAsk = 1,
+        UpDownTick = 2,
+        SpreadTrades = 3
+    }
+
+    public enum VeltrixFpHistoryMode
+    {
+        Hybrid1Minute = 0,
+        Real1TickNoReplay = 1,
+        BarVolumeOnly = 2
+    }
+
+    public enum VeltrixFpImbalanceDir
+    {
+        Diagonal = 0,
+        Horizontal = 1
+    }
+
+    public enum VeltrixFpMarkerType
+    {
+        Dot = 0,
+        Diamond = 1,
+        GlowBox = 2,
+        Line = 3
+    }
+
+    public enum VeltrixFpZoneEndMode
+    {
+        ByBarHighLow = 0,
+        ByLevelTouch = 1,
+        UntilSessionEnd = 2
+    }
+
+    public enum VeltrixFpLegendPos
+    {
+        Left = 0,
+        Right = 1
+    }
+
+    public class FootprintPro : Indicator
+    {
+        private const string TOOLBAR_TAG = "VeltrixToolbar_FootprintPro";
+        private const string CTX_TAG = "VeltrixFpCtx";
+
+        private class PriceCell
+        {
+            public long Vol;
+            public long BidVol;
+            public long AskVol;
+            public int Trades;
+            public long MaxSingleTrade;
+            public long SpreadVol;
+            public bool L2AbsAsk;
+            public bool L2AbsBid;
+            public long LastDepthBid;
+            public long LastDepthAsk;
+        }
+
+        private class BucketRenderCell
+        {
+            public long GroupIdx;
+            public double PriceMid;
+            public double PriceLow;
+            public double PriceHigh;
+            public long Vol;
+            public long BidVol;
+            public long AskVol;
+            public int Trades;
+            public long SpreadVol;
+            public bool BuyImb;
+            public bool SellImb;
+            public bool AbsBid;
+            public bool AbsAsk;
+            public bool IsVpoc;
+            public bool InValueArea;
+            public bool IsExhaustion;
+            public bool IsImpulse;
+            public long Delta { get { return AskVol - BidVol; } }
+        }
+
+        private class FpZone
+        {
+            public string ZoneId;
+            public bool IsSupport;
+            public bool IsAbsorption;
+            public int StartBarIdx;
+            public int EndBarIdx;
+            public double TopPrice;
+            public double BottomPrice;
+            public long StrengthVol;
+            public int StackedCount;
+            public bool Ended;
+        }
+
+        private class FpBarData
+        {
+            public int BarIdx;
+            public DateTime Time;
+            public double Open;
+            public double High;
+            public double Low;
+            public double Close;
+            public long TotalVol;
+            public long BuyVol;
+            public long SellVol;
+            public long SpreadVol;
+            public int TradesCount;
+            public long BarDelta;
+            public long MinDelta;
+            public long MaxDelta;
+            public long DeltaChange;
+            public long CumDeltaAtBar;
+            public bool IsSessionStart;
+            public bool HasLiveTape;
+            public bool HasHistSubData;
+            public long PocTick;
+            public double PocPrice;
+            public double VahPrice;
+            public double ValPrice;
+            public bool UnfinishedHigh;
+            public bool UnfinishedLow;
+            public bool HasBuyingTrap;
+            public bool HasSellingTrap;
+            public bool HasExhaustionHigh;
+            public bool HasExhaustionLow;
+            public double TopRatio = -1.0;
+            public double BottomRatio = -1.0;
+            public long CotHighDelta;
+            public long CotLowDelta;
+            public DateTime StartUtc;
+            public DateTime LastTickUtc;
+            public double ElapsedSec = 1.0;
+            public readonly Dictionary<long, PriceCell> Cells = new Dictionary<long, PriceCell>(64);
+        }
+
+        private readonly object dataLock = new object();
+        private readonly Dictionary<int, FpBarData> barsMap = new Dictionary<int, FpBarData>(512);
+        private readonly List<FpZone> derivedZones = new List<FpZone>(128);
+        private readonly HashSet<string> mutedZoneIds = new HashSet<string>(StringComparer.Ordinal);
+        private readonly List<double> userLevels = new List<double>();
+        private readonly Dictionary<long, long> depthBidByTick = new Dictionary<long, long>(64);
+        private readonly Dictionary<long, long> depthAskByTick = new Dictionary<long, long>(64);
+        private readonly Dictionary<long, DateTime> lastBidReplenishUtc = new Dictionary<long, DateTime>(64);
+        private readonly Dictionary<long, DateTime> lastAskReplenishUtc = new Dictionary<long, DateTime>(64);
+        private readonly List<BucketRenderCell> tmpBuckets = new List<BucketRenderCell>(128);
+        private readonly List<FpBarData> nakedPocCandidates = new List<FpBarData>(64);
+
+        // Tape reconstructor buffer (merges split child fills at same tick/side within window)
+        private bool hasPendingTape = false;
+        private bool pendingTapeAsk = false;
+        private long pendingTapeTick = 0;
+        private long pendingTapeVol = 0;
+        private bool pendingTapeInsideSpread = false;
+        private DateTime pendingTapeTime = DateTime.MinValue;
+        private double prevLastPrice = double.NaN;
+        private bool prevLastWasAsk = true;
+        private double prevHistTickPrice = double.NaN;
+        private bool prevHistTickWasAsk = true;
+        private int lastProcessedSubBar = -1;
+        private bool usesSubSeries = false;
+        private int lastAnalyticsBarCount = -1;
+        private DateTime lastAnalyticsRunUtc = DateTime.MinValue;
+
+        // Alert cooldown guards
+        private DateTime lastStackedAlertUtc = DateTime.MinValue;
+        private DateTime lastAbsAlertUtc = DateTime.MinValue;
+        private DateTime lastTrapAlertUtc = DateTime.MinValue;
+        private DateTime lastDeltaAlertUtc = DateTime.MinValue;
+        private int lastAlertBarStacked = -1;
+        private int lastAlertBarAbs = -1;
+        private int lastAlertBarTrap = -1;
+        private int lastAlertBarDelta = -1;
+
+        // Toolbar / Context Menu / WPF
+        private Wpf.Button toolbarBtn;
+        private object toolbarHostMenu;
+        private Window quickWin;
+        private Wpf.ContextMenu hookedCtxMenu;
+        private bool ctxHooked = false;
+        private Point lastMouseDownChartPx = new Point(double.NaN, double.NaN);
+        private ChartScale lastRenderedChartScale;
+
+        // SharpDX Resource Cache (strictly RenderTarget bound to avoid D2DERR_WRONG_RESOURCE_DOMAIN)
+        private object dxRtRef;
+        private IntPtr dxRtPtr = IntPtr.Zero;
+        private string lastDxSig = "";
+        private D2D.SolidColorBrush dxPosDeltaBr, dxNegDeltaBr, dxNeutralBr, dxPocBr, dxVaBarBr;
+        private D2D.SolidColorBrush dxBuyZoneFill, dxBuyZoneEdge, dxSellZoneFill, dxSellZoneEdge;
+        private D2D.SolidColorBrush dxAbsSupFill, dxAbsSupEdge, dxAbsResFill, dxAbsResEdge;
+        private D2D.SolidColorBrush dxUnfBr, dxRatioNeutralBr, dxRatioRejBr;
+        private D2D.SolidColorBrush dxTextBright, dxTextBid, dxTextAsk, dxTextMuted;
+        private D2D.SolidColorBrush dxSpineUp, dxSpineDown, dxGridBg, dxGridBorder, dxBadgeBg, dxUserLvlBr, dxSpecGloss;
+        private readonly Dictionary<uint, D2D.SolidColorBrush> dxDynBrushCache = new Dictionary<uint, D2D.SolidColorBrush>(64);
+        private D2D.StrokeStyle dxDashStyle, dxDotStyle;
+        private DW.TextFormat dxFontLeft, dxFontRight, dxFontSmall, dxFontStat, dxFontHdr;
+
+        #region Properties - 01. Left Footprint
+        [Display(Name = "Left Footprint Style", GroupName = "01. Left Footprint", Order = 1)]
+        public VeltrixFpStyle LeftStyle { get; set; }
+
+        [Display(Name = "Left Cluster Shape", GroupName = "01. Left Footprint", Order = 2)]
+        public VeltrixFpClusterShape LeftShape { get; set; }
+
+        [Display(Name = "Left Scale Scope", GroupName = "01. Left Footprint", Order = 3)]
+        public VeltrixFpScaleScope LeftScaleScope { get; set; }
+
+        [Display(Name = "Left Scale Source", GroupName = "01. Left Footprint", Order = 4)]
+        public VeltrixFpScaleSource LeftScaleSource { get; set; }
+
+        [Display(Name = "Left Color Source", GroupName = "01. Left Footprint", Order = 5)]
+        public VeltrixFpColorSource LeftColorSource { get; set; }
+
+        [Display(Name = "Left Show Values", GroupName = "01. Left Footprint", Order = 6)]
+        public bool LeftShowValues { get; set; }
+
+        [Range(1, 100000)]
+        [Display(Name = "Left Values Divider", GroupName = "01. Left Footprint", Order = 7)]
+        public int LeftValuesDivider { get; set; }
+
+        [Range(7, 20)]
+        [Display(Name = "Left Font Size (px)", GroupName = "01. Left Footprint", Order = 8)]
+        public int LeftFontSize { get; set; }
+        #endregion
+
+        #region Properties - 02. Right Footprint
+        [Display(Name = "Right Footprint Style", GroupName = "02. Right Footprint", Order = 1)]
+        public VeltrixFpStyle RightStyle { get; set; }
+
+        [Display(Name = "Right Cluster Shape", GroupName = "02. Right Footprint", Order = 2)]
+        public VeltrixFpClusterShape RightShape { get; set; }
+
+        [Display(Name = "Right Scale Scope", GroupName = "02. Right Footprint", Order = 3)]
+        public VeltrixFpScaleScope RightScaleScope { get; set; }
+
+        [Display(Name = "Right Scale Source", GroupName = "02. Right Footprint", Order = 4)]
+        public VeltrixFpScaleSource RightScaleSource { get; set; }
+
+        [Display(Name = "Right Color Source", GroupName = "02. Right Footprint", Order = 5)]
+        public VeltrixFpColorSource RightColorSource { get; set; }
+
+        [Display(Name = "Right Show Values", GroupName = "02. Right Footprint", Order = 6)]
+        public bool RightShowValues { get; set; }
+
+        [Range(1, 100000)]
+        [Display(Name = "Right Values Divider", GroupName = "02. Right Footprint", Order = 7)]
+        public int RightValuesDivider { get; set; }
+
+        [Range(7, 20)]
+        [Display(Name = "Right Font Size (px)", GroupName = "02. Right Footprint", Order = 8)]
+        public int RightFontSize { get; set; }
+        #endregion
+
+        #region Properties - 03. Filters & Orderflow Engine
+        [NinjaScriptProperty]
+        [Range(1, 100)]
+        [Display(Name = "Ticks Per Level", GroupName = "03. Filters & Orderflow", Order = 1)]
+        public int TicksPerLevel { get; set; }
+
+        [Display(Name = "Auto Zoom LOD (Smart Price Compression)", GroupName = "03. Filters & Orderflow", Order = 2)]
+        public bool AutoZoomLOD { get; set; }
+
+        [Range(1, 10000)]
+        [Display(Name = "Trade Filter Min (Lots)", GroupName = "03. Filters & Orderflow", Order = 3)]
+        public int TradeMin { get; set; }
+
+        [Range(-1, 100000)]
+        [Display(Name = "Trade Filter Max (-1 = Off)", GroupName = "03. Filters & Orderflow", Order = 4)]
+        public int TradeMax { get; set; }
+
+        [Range(0, 100000)]
+        [Display(Name = "Display Volume Filter (Min Cell)", GroupName = "03. Filters & Orderflow", Order = 5)]
+        public int DisplayVolFilter { get; set; }
+
+        [Display(Name = "Orderflow Classification Algorithm", GroupName = "03. Filters & Orderflow", Order = 6)]
+        public VeltrixFpOrderflowAlgo OrderflowAlgo { get; set; }
+
+        [Range(0, 250)]
+        [Display(Name = "Reconstruct Tape Sweep Window (ms, 0=Off)", GroupName = "03. Filters & Orderflow", Order = 7)]
+        public int ReconstructTapeMs { get; set; }
+
+        [Display(Name = "History Seeder Mode (Without Tick Replay)", GroupName = "03. Filters & Orderflow", Order = 8)]
+        public VeltrixFpHistoryMode HistoryMode { get; set; }
+
+        [Range(20, 400)]
+        [Display(Name = "Min Suggested Bar Space Hint (px)", GroupName = "03. Filters & Orderflow", Order = 9)]
+        public int MinBarWidthHintPx { get; set; }
+
+        [Range(2, 20)]
+        [Display(Name = "Bar Outer Gap Margin (px)", GroupName = "03. Filters & Orderflow", Order = 10)]
+        public int BarOuterMarginPx { get; set; }
+        #endregion
+
+        #region Properties - 04. Imbalance & Stacked S/R Zones
+        [Display(Name = "Show Imbalances", GroupName = "04. Imbalance & S/R Zones", Order = 1)]
+        public bool ShowImbalance { get; set; }
+
+        [Display(Name = "Only Highlight Imbalances", GroupName = "04. Imbalance & S/R Zones", Order = 2)]
+        public bool OnlyImbalance { get; set; }
+
+        [Display(Name = "Imbalance Comparison Direction", GroupName = "04. Imbalance & S/R Zones", Order = 3)]
+        public VeltrixFpImbalanceDir ImbalanceDirection { get; set; }
+
+        [Range(120, 1000)]
+        [Display(Name = "Imbalance Threshold (%)", GroupName = "04. Imbalance & S/R Zones", Order = 4)]
+        public int ImbalancePct { get; set; }
+
+        [Range(1, 50000)]
+        [Display(Name = "Imbalance Volume Filter", GroupName = "04. Imbalance & S/R Zones", Order = 5)]
+        public int ImbalanceMinVol { get; set; }
+
+        [Display(Name = "Imbalance Marker Type", GroupName = "04. Imbalance & S/R Zones", Order = 6)]
+        public VeltrixFpMarkerType ImbMarkerType { get; set; }
+
+        [Display(Name = "Show Stacked Imbalance S/R Zones", GroupName = "04. Imbalance & S/R Zones", Order = 7)]
+        public bool ShowStackedZones { get; set; }
+
+        [Range(2, 10)]
+        [Display(Name = "S/R Zones: Consecutive Levels", GroupName = "04. Imbalance & S/R Zones", Order = 8)]
+        public int StackedConsecutive { get; set; }
+
+        [Range(1, 50000)]
+        [Display(Name = "S/R Zones: Min Avg Volume", GroupName = "04. Imbalance & S/R Zones", Order = 9)]
+        public int StackedZoneMinVol { get; set; }
+
+        [Display(Name = "S/R Zones: Ended By", GroupName = "04. Imbalance & S/R Zones", Order = 10)]
+        public VeltrixFpZoneEndMode StackedEndMode { get; set; }
+
+        [Range(5, 80)]
+        [Display(Name = "S/R Zones: Fill Opacity (%)", GroupName = "04. Imbalance & S/R Zones", Order = 11)]
+        public int ZoneOpacityPct { get; set; }
+        #endregion
+
+        #region Properties - 05. Absorption & L2 Defense
+        [Display(Name = "Show Absorption Signals", GroupName = "05. Absorption & L2 Defense", Order = 1)]
+        public bool ShowAbsorption { get; set; }
+
+        [Display(Name = "Only Highlight Absorption", GroupName = "05. Absorption & L2 Defense", Order = 2)]
+        public bool OnlyAbsorption { get; set; }
+
+        [Range(110, 1000)]
+        [Display(Name = "Absorption Ratio (%)", GroupName = "05. Absorption & L2 Defense", Order = 3)]
+        public int AbsorptionPct { get; set; }
+
+        [Range(1, 50000)]
+        [Display(Name = "Absorption Volume Filter", GroupName = "05. Absorption & L2 Defense", Order = 4)]
+        public int AbsorptionFilter { get; set; }
+
+        [Display(Name = "Require Live L2 Replenishment Confirmation", GroupName = "05. Absorption & L2 Defense", Order = 5)]
+        public bool RequireL2Confirm { get; set; }
+
+        [Display(Name = "Show Absorption S/R Zones", GroupName = "05. Absorption & L2 Defense", Order = 6)]
+        public bool ShowAbsorptionZones { get; set; }
+
+        [Range(1, 6)]
+        [Display(Name = "Absorption Zones: Consecutive Levels", GroupName = "05. Absorption & L2 Defense", Order = 7)]
+        public int AbsZoneConsecutive { get; set; }
+
+        [Range(1, 50000)]
+        [Display(Name = "Absorption Zones: Min Volume", GroupName = "05. Absorption & L2 Defense", Order = 8)]
+        public int AbsZoneMinVol { get; set; }
+        #endregion
+
+        #region Properties - 06. Candle Internals (POC / VA / Exhaustion / Traps)
+        [Display(Name = "Show Bar VPOC Glow Box", GroupName = "06. Candle Internals", Order = 1)]
+        public bool ShowBarVpoc { get; set; }
+
+        [Display(Name = "Extend Naked Bar VPOC Rays", GroupName = "06. Candle Internals", Order = 2)]
+        public bool ShowNakedBarVpoc { get; set; }
+
+        [Display(Name = "Show Bar Value Area (68% Bracket)", GroupName = "06. Candle Internals", Order = 3)]
+        public bool ShowBarValueArea { get; set; }
+
+        [Range(50, 90)]
+        [Display(Name = "Bar Value Area (%)", GroupName = "06. Candle Internals", Order = 4)]
+        public int BarVaPct { get; set; }
+
+        [Display(Name = "Show Unfinished Auctions (UA Caps)", GroupName = "06. Candle Internals", Order = 5)]
+        public bool ShowUnfinishedAuction { get; set; }
+
+        [Display(Name = "Show Exhaustion Prints", GroupName = "06. Candle Internals", Order = 6)]
+        public bool ShowExhaustion { get; set; }
+
+        [Range(1, 500)]
+        [Display(Name = "Exhaustion Extreme Max Volume", GroupName = "06. Candle Internals", Order = 7)]
+        public int ExhaustionMaxVol { get; set; }
+
+        [Display(Name = "Show Buying/Selling Traps (Delta Divergence)", GroupName = "06. Candle Internals", Order = 8)]
+        public bool ShowBuyingSellingTraps { get; set; }
+
+        [Display(Name = "Show Center Candle Spine", GroupName = "06. Candle Internals", Order = 9)]
+        public bool ShowCandleSpine { get; set; }
+
+        [Display(Name = "Show Cluster Specular Highlights (3D Gloss)", GroupName = "06. Candle Internals", Order = 10)]
+        public bool ShowSpecularGloss { get; set; }
+        #endregion
+
+        #region Properties - 07. Bar Statistic (Above/Below Candle)
+        [Display(Name = "Show Ratio Numbers", GroupName = "07. Bar Statistic", Order = 1)]
+        public bool ShowBarRatioNumbers { get; set; }
+
+        [Range(0.05, 5.0)]
+        [Display(Name = "Ratio Reject Lower Bound (< X)", GroupName = "07. Bar Statistic", Order = 2)]
+        public double RatioLowBound { get; set; }
+
+        [Range(2.0, 200.0)]
+        [Display(Name = "Ratio Reject Upper Bound (>= Y)", GroupName = "07. Bar Statistic", Order = 3)]
+        public double RatioHighBound { get; set; }
+
+        [Display(Name = "Show Candle Delta Badge", GroupName = "07. Bar Statistic", Order = 4)]
+        public bool ShowBarDeltaTag { get; set; }
+
+        [Display(Name = "Show Candle Volume Badge", GroupName = "07. Bar Statistic", Order = 5)]
+        public bool ShowBarVolTag { get; set; }
+        #endregion
+
+        #region Properties - 08. Statistic Grid (Bottom Panel)
+        [Display(Name = "Show Bottom Statistic Grid", GroupName = "08. Statistic Grid", Order = 1)]
+        public bool ShowStatGrid { get; set; }
+
+        [Display(Name = "Legend Position", GroupName = "08. Statistic Grid", Order = 2)]
+        public VeltrixFpLegendPos StatLegendPos { get; set; }
+
+        [Range(14, 34)]
+        [Display(Name = "Cell Height (px)", GroupName = "08. Statistic Grid", Order = 3)]
+        public int StatCellHeightPx { get; set; }
+
+        [Range(8, 16)]
+        [Display(Name = "Grid Font Size (px)", GroupName = "08. Statistic Grid", Order = 4)]
+        public int StatFontSize { get; set; }
+
+        [Display(Name = "Row: Volume", GroupName = "08. Statistic Grid", Order = 5)]
+        public bool GridShowVolume { get; set; }
+
+        [Display(Name = "Row: Buy Volume (Ask)", GroupName = "08. Statistic Grid", Order = 6)]
+        public bool GridShowBuyVol { get; set; }
+
+        [Display(Name = "Row: Sell Volume (Bid)", GroupName = "08. Statistic Grid", Order = 7)]
+        public bool GridShowSellVol { get; set; }
+
+        [Display(Name = "Row: Trades Count", GroupName = "08. Statistic Grid", Order = 8)]
+        public bool GridShowTrades { get; set; }
+
+        [Display(Name = "Row: Delta", GroupName = "08. Statistic Grid", Order = 9)]
+        public bool GridShowDelta { get; set; }
+
+        [Display(Name = "Row: Delta %", GroupName = "08. Statistic Grid", Order = 10)]
+        public bool GridShowDeltaPct { get; set; }
+
+        [Display(Name = "Row: Delta Cumulative", GroupName = "08. Statistic Grid", Order = 11)]
+        public bool GridShowCumDelta { get; set; }
+
+        [Display(Name = "Row: Min / Max Delta", GroupName = "08. Statistic Grid", Order = 12)]
+        public bool GridShowMinMaxDelta { get; set; }
+
+        [Display(Name = "Row: Delta Change", GroupName = "08. Statistic Grid", Order = 13)]
+        public bool GridShowDeltaChange { get; set; }
+
+        [Display(Name = "Row: Delta Rate (/s)", GroupName = "08. Statistic Grid", Order = 14)]
+        public bool GridShowDeltaRate { get; set; }
+
+        [Display(Name = "Row: Volume / Sec", GroupName = "08. Statistic Grid", Order = 15)]
+        public bool GridShowVolPerSec { get; set; }
+
+        [Display(Name = "Row: COT High / Low", GroupName = "08. Statistic Grid", Order = 16)]
+        public bool GridShowCotHighLow { get; set; }
+
+        [Display(Name = "Row: Predicted Bar Est.", GroupName = "08. Statistic Grid", Order = 17)]
+        public bool GridShowPredicted { get; set; }
+        #endregion
+
+        #region Properties - 09. Signals & Alerts (Focused 4)
+        [Display(Name = "Alert 1: Stacked Imbalance Zone", GroupName = "09. Signals & Alerts", Order = 1)]
+        public bool AlertStackedZone { get; set; }
+
+        [Display(Name = "Alert 2: L2 / Extreme Absorption", GroupName = "09. Signals & Alerts", Order = 2)]
+        public bool AlertAbsorption { get; set; }
+
+        [Display(Name = "Alert 3: Buying/Selling Trap Divergence", GroupName = "09. Signals & Alerts", Order = 3)]
+        public bool AlertTrap { get; set; }
+
+        [Display(Name = "Alert 4: Bar Delta Extreme", GroupName = "09. Signals & Alerts", Order = 4)]
+        public bool AlertDeltaExtreme { get; set; }
+
+        [Range(50, 100000)]
+        [Display(Name = "Delta Extreme Alert Threshold", GroupName = "09. Signals & Alerts", Order = 5)]
+        public int AlertDeltaThreshold { get; set; }
+
+        [Range(3, 300)]
+        [Display(Name = "Alert Cooldown (Sec)", GroupName = "09. Signals & Alerts", Order = 6)]
+        public int AlertCooldownSec { get; set; }
+
+        [Display(Name = "Enable Audio Alert Chimes", GroupName = "09. Signals & Alerts", Order = 7)]
+        public bool EnableAudioAlerts { get; set; }
+        #endregion
+
+        #region Properties - 10. Colors & Bright Studio Theme
+        [Display(Name = "Show Topbar Control Button", GroupName = "10. Colors & Studio", Order = 1)]
+        public bool ShowToolbarButton { get; set; }
+
+        [XmlIgnore] [Display(Name = "Positive Delta (Emerald)", GroupName = "10. Colors & Studio", Order = 2)] public System.Windows.Media.Brush ColPositiveDelta { get; set; }
+        [XmlIgnore] [Display(Name = "Negative Delta (Coral Red)", GroupName = "10. Colors & Studio", Order = 3)] public System.Windows.Media.Brush ColNegativeDelta { get; set; }
+        [XmlIgnore] [Display(Name = "Neutral Cluster (Electric Blue)", GroupName = "10. Colors & Studio", Order = 4)] public System.Windows.Media.Brush ColNeutralCluster { get; set; }
+        [XmlIgnore] [Display(Name = "Bid Execution Highlight", GroupName = "10. Colors & Studio", Order = 5)] public System.Windows.Media.Brush ColBidText { get; set; }
+        [XmlIgnore] [Display(Name = "Ask Execution Highlight", GroupName = "10. Colors & Studio", Order = 6)] public System.Windows.Media.Brush ColAskText { get; set; }
+        [XmlIgnore] [Display(Name = "Cluster Values Text", GroupName = "10. Colors & Studio", Order = 7)] public System.Windows.Media.Brush ColValuesText { get; set; }
+        [XmlIgnore] [Display(Name = "Bar VPOC Glow (Gold)", GroupName = "10. Colors & Studio", Order = 8)] public System.Windows.Media.Brush ColPocGlow { get; set; }
+        [XmlIgnore] [Display(Name = "Bar VA Bracket (Sky)", GroupName = "10. Colors & Studio", Order = 9)] public System.Windows.Media.Brush ColValueAreaBar { get; set; }
+        [XmlIgnore] [Display(Name = "Buy Imbalance / Support Zone", GroupName = "10. Colors & Studio", Order = 10)] public System.Windows.Media.Brush ColBuyZone { get; set; }
+        [XmlIgnore] [Display(Name = "Sell Imbalance / Resistance Zone", GroupName = "10. Colors & Studio", Order = 11)] public System.Windows.Media.Brush ColSellZone { get; set; }
+        [XmlIgnore] [Display(Name = "Absorption Support (Cyan)", GroupName = "10. Colors & Studio", Order = 12)] public System.Windows.Media.Brush ColAbsSupport { get; set; }
+        [XmlIgnore] [Display(Name = "Absorption Resistance (Magenta)", GroupName = "10. Colors & Studio", Order = 13)] public System.Windows.Media.Brush ColAbsResistance { get; set; }
+        [XmlIgnore] [Display(Name = "Unfinished Auction (Amber)", GroupName = "10. Colors & Studio", Order = 14)] public System.Windows.Media.Brush ColUnfinished { get; set; }
+        [XmlIgnore] [Display(Name = "Ratio Neutral (Sky)", GroupName = "10. Colors & Studio", Order = 15)] public System.Windows.Media.Brush ColRatioNeutral { get; set; }
+        [XmlIgnore] [Display(Name = "Ratio Rejection (Orange)", GroupName = "10. Colors & Studio", Order = 16)] public System.Windows.Media.Brush ColRatioReject { get; set; }
+        [XmlIgnore] [Display(Name = "Statistic Grid Background", GroupName = "10. Colors & Studio", Order = 17)] public System.Windows.Media.Brush ColStatGridBg { get; set; }
+
+        [Browsable(false)] public string ColPositiveDeltaSerialize { get { return Serialize.BrushToString(ColPositiveDelta ?? FreezeHex("#10B981")); } set { if (!string.IsNullOrEmpty(value)) ColPositiveDelta = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColNegativeDeltaSerialize { get { return Serialize.BrushToString(ColNegativeDelta ?? FreezeHex("#F43F5E")); } set { if (!string.IsNullOrEmpty(value)) ColNegativeDelta = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColNeutralClusterSerialize { get { return Serialize.BrushToString(ColNeutralCluster ?? FreezeHex("#3B82F6")); } set { if (!string.IsNullOrEmpty(value)) ColNeutralCluster = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColBidTextSerialize { get { return Serialize.BrushToString(ColBidText ?? FreezeHex("#FCA5A5")); } set { if (!string.IsNullOrEmpty(value)) ColBidText = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColAskTextSerialize { get { return Serialize.BrushToString(ColAskText ?? FreezeHex("#6EE7B7")); } set { if (!string.IsNullOrEmpty(value)) ColAskText = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColValuesTextSerialize { get { return Serialize.BrushToString(ColValuesText ?? FreezeHex("#F8FAFC")); } set { if (!string.IsNullOrEmpty(value)) ColValuesText = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColPocGlowSerialize { get { return Serialize.BrushToString(ColPocGlow ?? FreezeHex("#FACC15")); } set { if (!string.IsNullOrEmpty(value)) ColPocGlow = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColValueAreaBarSerialize { get { return Serialize.BrushToString(ColValueAreaBar ?? FreezeHex("#38BDF8")); } set { if (!string.IsNullOrEmpty(value)) ColValueAreaBar = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColBuyZoneSerialize { get { return Serialize.BrushToString(ColBuyZone ?? FreezeHex("#10B981")); } set { if (!string.IsNullOrEmpty(value)) ColBuyZone = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColSellZoneSerialize { get { return Serialize.BrushToString(ColSellZone ?? FreezeHex("#EF4444")); } set { if (!string.IsNullOrEmpty(value)) ColSellZone = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColAbsSupportSerialize { get { return Serialize.BrushToString(ColAbsSupport ?? FreezeHex("#06B6D4")); } set { if (!string.IsNullOrEmpty(value)) ColAbsSupport = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColAbsResistanceSerialize { get { return Serialize.BrushToString(ColAbsResistance ?? FreezeHex("#EC4899")); } set { if (!string.IsNullOrEmpty(value)) ColAbsResistance = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColUnfinishedSerialize { get { return Serialize.BrushToString(ColUnfinished ?? FreezeHex("#F59E0B")); } set { if (!string.IsNullOrEmpty(value)) ColUnfinished = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColRatioNeutralSerialize { get { return Serialize.BrushToString(ColRatioNeutral ?? FreezeHex("#60A5FA")); } set { if (!string.IsNullOrEmpty(value)) ColRatioNeutral = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColRatioRejectSerialize { get { return Serialize.BrushToString(ColRatioReject ?? FreezeHex("#FB923C")); } set { if (!string.IsNullOrEmpty(value)) ColRatioReject = Serialize.StringToBrush(value); } }
+        [Browsable(false)] public string ColStatGridBgSerialize { get { return Serialize.BrushToString(ColStatGridBg ?? FreezeHex("#090D16")); } set { if (!string.IsNullOrEmpty(value)) ColStatGridBg = Serialize.StringToBrush(value); } }
+
+        [Browsable(false)] public string InstanceStateKey { get; set; }
+        [Browsable(false)] public string EstadoPersistenteSerialize { get; set; }
+        #endregion
+
+        protected override void OnStateChange()
+        {
+            if (State == State.SetDefaults)
+            {
+                Description = "VeltrixQuant FootprintPro: Next-gen GPU Orderflow Clusters, True L2 Absorption, Stacked Imbalance S/R, Traps, Exhaustion, Naked VPOC & Docked Statistic Grid.";
+                Name = "VeltrixQuant - FootprintPro";
+                Calculate = Calculate.OnEachTick;
+                IsOverlay = true;
+                IsAutoScale = false;
+                DisplayInDataBox = false;
+                DrawOnPricePanel = true;
+                PaintPriceMarkers = false;
+                IsSuspendedWhileInactive = true;
+
+                LeftStyle = VeltrixFpStyle.BidAsk;
+                LeftShape = VeltrixFpClusterShape.HeatGradient;
+                LeftScaleScope = VeltrixFpScaleScope.Bar;
+                LeftScaleSource = VeltrixFpScaleSource.Volume;
+                LeftColorSource = VeltrixFpColorSource.Delta;
+                LeftShowValues = true;
+                LeftValuesDivider = 1;
+                LeftFontSize = 11;
+
+                RightStyle = VeltrixFpStyle.Delta;
+                RightShape = VeltrixFpClusterShape.Brick;
+                RightScaleScope = VeltrixFpScaleScope.Bar;
+                RightScaleSource = VeltrixFpScaleSource.Volume;
+                RightColorSource = VeltrixFpColorSource.Delta;
+                RightShowValues = true;
+                RightValuesDivider = 1;
+                RightFontSize = 11;
+
+                TicksPerLevel = 4;
+                AutoZoomLOD = true;
+                TradeMin = 1;
+                TradeMax = -1;
+                DisplayVolFilter = 0;
+                OrderflowAlgo = VeltrixFpOrderflowAlgo.Hybrid;
+                ReconstructTapeMs = 15;
+                HistoryMode = VeltrixFpHistoryMode.Hybrid1Minute;
+                MinBarWidthHintPx = 115;
+                BarOuterMarginPx = 8;
+
+                ShowImbalance = true;
+                OnlyImbalance = false;
+                ImbalanceDirection = VeltrixFpImbalanceDir.Diagonal;
+                ImbalancePct = 300;
+                ImbalanceMinVol = 40;
+                ImbMarkerType = VeltrixFpMarkerType.Dot;
+                ShowStackedZones = true;
+                StackedConsecutive = 3;
+                StackedZoneMinVol = 35;
+                StackedEndMode = VeltrixFpZoneEndMode.ByBarHighLow;
+                ZoneOpacityPct = 24;
+
+                ShowAbsorption = true;
+                OnlyAbsorption = false;
+                AbsorptionPct = 260;
+                AbsorptionFilter = 60;
+                RequireL2Confirm = false;
+                ShowAbsorptionZones = true;
+                AbsZoneConsecutive = 1;
+                AbsZoneMinVol = 80;
+
+                ShowBarVpoc = true;
+                ShowNakedBarVpoc = true;
+                ShowBarValueArea = true;
+                BarVaPct = 68;
+                ShowUnfinishedAuction = true;
+                ShowExhaustion = true;
+                ExhaustionMaxVol = 15;
+                ShowBuyingSellingTraps = true;
+                ShowCandleSpine = true;
+                ShowSpecularGloss = true;
+
+                ShowBarRatioNumbers = true;
+                RatioLowBound = 0.71;
+                RatioHighBound = 29.0;
+                ShowBarDeltaTag = false;
+                ShowBarVolTag = false;
+
+                ShowStatGrid = true;
+                StatLegendPos = VeltrixFpLegendPos.Left;
+                StatCellHeightPx = 20;
+                StatFontSize = 10;
+                GridShowVolume = true;
+                GridShowBuyVol = false;
+                GridShowSellVol = false;
+                GridShowTrades = true;
+                GridShowDelta = true;
+                GridShowDeltaPct = true;
+                GridShowCumDelta = true;
+                GridShowMinMaxDelta = true;
+                GridShowDeltaChange = false;
+                GridShowDeltaRate = false;
+                GridShowVolPerSec = true;
+                GridShowCotHighLow = false;
+                GridShowPredicted = true;
+
+                AlertStackedZone = true;
+                AlertAbsorption = true;
+                AlertTrap = true;
+                AlertDeltaExtreme = false;
+                AlertDeltaThreshold = 1500;
+                AlertCooldownSec = 15;
+                EnableAudioAlerts = false;
+
+                ShowToolbarButton = true;
+                ColPositiveDelta = FreezeHex("#10B981");
+                ColNegativeDelta = FreezeHex("#F43F5E");
+                ColNeutralCluster = FreezeHex("#3B82F6");
+                ColBidText = FreezeHex("#FCA5A5");
+                ColAskText = FreezeHex("#6EE7B7");
+                ColValuesText = FreezeHex("#F8FAFC");
+                ColPocGlow = FreezeHex("#FACC15");
+                ColValueAreaBar = FreezeHex("#38BDF8");
+                ColBuyZone = FreezeHex("#10B981");
+                ColSellZone = FreezeHex("#EF4444");
+                ColAbsSupport = FreezeHex("#06B6D4");
+                ColAbsResistance = FreezeHex("#EC4899");
+                ColUnfinished = FreezeHex("#F59E0B");
+                ColRatioNeutral = FreezeHex("#60A5FA");
+                ColRatioReject = FreezeHex("#FB923C");
+                ColStatGridBg = FreezeHex("#090D16");
+                InstanceStateKey = "";
+                EstadoPersistenteSerialize = "";
+            }
+            else if (State == State.Configure)
+            {
+                usesSubSeries = false;
+                bool isTickReplay = (Bars != null && Bars.IsTickReplay);
+                bool alreadyMin1 = (BarsPeriod != null && BarsPeriod.BarsPeriodType == BarsPeriodType.Minute && BarsPeriod.Value == 1);
+                bool alreadyTick1 = (BarsPeriod != null && BarsPeriod.BarsPeriodType == BarsPeriodType.Tick && BarsPeriod.Value == 1);
+
+                if (!isTickReplay && !alreadyMin1 && !alreadyTick1)
+                {
+                    if (HistoryMode == VeltrixFpHistoryMode.Hybrid1Minute)
+                    {
+                        AddDataSeries(BarsPeriodType.Minute, 1);
+                        usesSubSeries = true;
+                    }
+                    else if (HistoryMode == VeltrixFpHistoryMode.Real1TickNoReplay)
+                    {
+                        AddDataSeries(BarsPeriodType.Tick, 1);
+                        usesSubSeries = true;
+                    }
+                }
+            }
+            else if (State == State.DataLoaded)
+            {
+                if (string.IsNullOrEmpty(InstanceStateKey))
+                    InstanceStateKey = "FP_" + Guid.NewGuid().ToString("N").Substring(0, 10);
+
+                lock (dataLock)
+                {
+                    barsMap.Clear();
+                    derivedZones.Clear();
+                    depthBidByTick.Clear();
+                    depthAskByTick.Clear();
+                    lastBidReplenishUtc.Clear();
+                    lastAskReplenishUtc.Clear();
+                    mutedZoneIds.Clear();
+                    userLevels.Clear();
+                    hasPendingTape = false;
+                    prevLastPrice = double.NaN;
+                    prevHistTickPrice = double.NaN;
+                    lastProcessedSubBar = -1;
+                    lastAnalyticsBarCount = -1;
+                    LoadPersistedStateLocked();
+                }
+                SetZOrder(2);
+                HookChartContextAndToolbar();
+            }
+            else if (State == State.Historical)
+            {
+                SetZOrder(2);
+                HookChartContextAndToolbar();
+            }
+            else if (State == State.Transition)
+            {
+                lock (dataLock)
+                {
+                    FlushPendingTapeLocked();
+                    RecomputeAnalyticsLocked(true);
+                }
+            }
+            else if (State == State.Terminated)
+            {
+                UnhookChartContext();
+                RemoveToolbarButton();
+                DisposeDx();
+                if (quickWin != null)
+                {
+                    Window w = quickWin;
+                    quickWin = null;
+                    if (ChartControl != null)
+                        ChartControl.Dispatcher.BeginInvoke(new Action(delegate { try { w.Close(); } catch { } }));
+                }
+            }
+        }
+
+        #region Persistence Helpers (.dat surviving F5 & Restart)
+        private static System.Windows.Media.SolidColorBrush FreezeHex(string hex)
+        {
+            try
+            {
+                object obj = System.Windows.Media.ColorConverter.ConvertFromString(hex);
+                if (obj is System.Windows.Media.Color)
+                {
+                    var b = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)obj);
+                    b.Freeze();
+                    return b;
+                }
+            }
+            catch { }
+            var fb = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.White);
+            fb.Freeze();
+            return fb;
+        }
+
+        private static string BrushToHex(System.Windows.Media.Brush br, string fallback)
+        {
+            var sc = br as System.Windows.Media.SolidColorBrush;
+            if (sc == null) return fallback;
+            return string.Format(CultureInfo.InvariantCulture, "#{0:X2}{1:X2}{2:X2}", sc.Color.R, sc.Color.G, sc.Color.B);
+        }
+
+        private static System.Windows.Media.Brush HexToFrozenBrush(string hex, System.Windows.Media.Brush fallback)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(hex)) return fallback;
+                string s = hex.Trim();
+                if (!s.StartsWith("#")) s = "#" + s;
+                object obj = System.Windows.Media.ColorConverter.ConvertFromString(s);
+                if (obj is System.Windows.Media.Color)
+                {
+                    var b = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)obj);
+                    b.Freeze();
+                    return b;
+                }
+            }
+            catch { }
+            return fallback;
+        }
+
+        private string GetStateFilePath()
+        {
+            string dir = Path.Combine(Globals.UserDataDir, "VeltrixQuantState");
+            Directory.CreateDirectory(dir);
+            string inst = string.IsNullOrEmpty(Instrument != null ? Instrument.MasterInstrument.Name : "") ? "GLOBAL" : Instrument.MasterInstrument.Name;
+            string safeKey = string.IsNullOrEmpty(InstanceStateKey) ? "default" : InstanceStateKey.Replace(":", "_").Replace("/", "_").Replace("\\", "_");
+            return Path.Combine(dir, "FootprintState_" + inst + "_" + safeKey + ".dat");
+        }
+
+        private void SavePersistedStateLocked()
+        {
+            try
+            {
+                StringBuilder sb = new StringBuilder(256);
+                sb.Append("TS=").Append(DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture));
+                sb.Append("|MUTED=");
+                bool firstM = true;
+                foreach (string m in mutedZoneIds)
+                {
+                    if (!firstM) sb.Append(",");
+                    sb.Append(m);
+                    firstM = false;
+                }
+                sb.Append("|LVLS=");
+                for (int i = 0; i < userLevels.Count; i++)
+                {
+                    if (i > 0) sb.Append(",");
+                    sb.Append(userLevels[i].ToString("0.######", CultureInfo.InvariantCulture));
+                }
+                string payload = sb.ToString();
+                EstadoPersistenteSerialize = payload;
+                File.WriteAllText(GetStateFilePath(), payload, Encoding.UTF8);
+            }
+            catch { }
+        }
+
+        private void LoadPersistedStateLocked()
+        {
+            try
+            {
+                string raw = EstadoPersistenteSerialize ?? "";
+                string path = GetStateFilePath();
+                if (File.Exists(path))
+                {
+                    string fileRaw = File.ReadAllText(path, Encoding.UTF8);
+                    if (!string.IsNullOrEmpty(fileRaw)) raw = fileRaw;
+                }
+                if (string.IsNullOrEmpty(raw)) return;
+                string[] parts = raw.Split('|');
+                for (int p = 0; p < parts.Length; p++)
+                {
+                    if (parts[p].StartsWith("MUTED="))
+                    {
+                        string val = parts[p].Substring(6);
+                        if (!string.IsNullOrEmpty(val))
+                        {
+                            string[] items = val.Split(',');
+                            for (int i = 0; i < items.Length; i++)
+                                if (!string.IsNullOrWhiteSpace(items[i])) mutedZoneIds.Add(items[i].Trim());
+                        }
+                    }
+                    else if (parts[p].StartsWith("LVLS="))
+                    {
+                        string val = parts[p].Substring(5);
+                        if (!string.IsNullOrEmpty(val))
+                        {
+                            string[] items = val.Split(',');
+                            for (int i = 0; i < items.Length; i++)
+                            {
+                                double d;
+                                if (double.TryParse(items[i], NumberStyles.Any, CultureInfo.InvariantCulture, out d))
+                                    userLevels.Add(d);
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+        #endregion
+
+        #region Tick / Sub-Bar / L2 Ingestion Engine
+        private double SafeTickSize()
+        {
+            return (TickSize > 0.0) ? TickSize : 0.25;
+        }
+
+        private long PriceToTick(double price)
+        {
+            double ts = SafeTickSize();
+            return (long)Math.Round(price / ts);
+        }
+
+        private double TickToPrice(long tickIdx)
+        {
+            return tickIdx * SafeTickSize();
+        }
+
+        private FpBarData GetOrCreateBarLocked(int barIdx, DateTime t, double o, double h, double l, double c, bool isSess)
+        {
+            FpBarData bar;
+            if (!barsMap.TryGetValue(barIdx, out bar))
+            {
+                bar = new FpBarData
+                {
+                    BarIdx = barIdx,
+                    Time = t,
+                    Open = o,
+                    High = h,
+                    Low = l,
+                    Close = c,
+                    IsSessionStart = isSess,
+                    StartUtc = DateTime.UtcNow,
+                    LastTickUtc = DateTime.UtcNow
+                };
+                barsMap[barIdx] = bar;
+            }
+            else
+            {
+                bar.Time = t;
+                if (bar.Open <= 0 && o > 0) bar.Open = o;
+                if (h > bar.High || bar.High <= 0) bar.High = h;
+                if (l < bar.Low || bar.Low <= 0) bar.Low = l;
+                bar.Close = c;
+                if (isSess) bar.IsSessionStart = true;
+            }
+            return bar;
+        }
+
+        protected override void OnMarketDepth(MarketDepthEventArgs e)
+        {
+            if (e == null || e.Price <= 0) return;
+            long tick = PriceToTick(e.Price);
+            long vol = Math.Max(0L, e.Volume);
+            DateTime nowUtc = DateTime.UtcNow;
+
+            lock (dataLock)
+            {
+                if (e.MarketDataType == MarketDataType.Bid)
+                {
+                    long prev = 0;
+                    depthBidByTick.TryGetValue(tick, out prev);
+                    if (e.Operation == Operation.Remove) depthBidByTick.Remove(tick);
+                    else
+                    {
+                        depthBidByTick[tick] = vol;
+                        if (vol > prev && (vol - prev) >= Math.Max(3, AbsorptionFilter / 6))
+                            lastBidReplenishUtc[tick] = nowUtc;
+                    }
+                }
+                else if (e.MarketDataType == MarketDataType.Ask)
+                {
+                    long prev = 0;
+                    depthAskByTick.TryGetValue(tick, out prev);
+                    if (e.Operation == Operation.Remove) depthAskByTick.Remove(tick);
+                    else
+                    {
+                        depthAskByTick[tick] = vol;
+                        if (vol > prev && (vol - prev) >= Math.Max(3, AbsorptionFilter / 6))
+                            lastAskReplenishUtc[tick] = nowUtc;
+                    }
+                }
+            }
+        }
+
+        protected override void OnMarketData(MarketDataEventArgs e)
+        {
+            if (e == null || e.MarketDataType != MarketDataType.Last || e.Volume <= 0 || e.Price <= 0) return;
+            if (Bars == null || CurrentBar < 0) return;
+
+            bool isHistoricalTickReplay = (State == State.Historical);
+            int targetIdx = CurrentBar;
+            if (targetIdx < 0) return;
+
+            double ask = (e.Ask > 0) ? e.Ask : GetCurrentAsk();
+            double bid = (e.Bid > 0) ? e.Bid : GetCurrentBid();
+            bool hasQuotes = (ask > 0 && bid > 0 && ask >= bid);
+            bool insideSpread = hasQuotes && (e.Price > bid + SafeTickSize() * 0.1) && (e.Price < ask - SafeTickSize() * 0.1);
+
+            bool isAskSide;
+            if (OrderflowAlgo == VeltrixFpOrderflowAlgo.UpDownTick)
+            {
+                if (!double.IsNaN(prevLastPrice))
+                {
+                    if (e.Price > prevLastPrice) isAskSide = true;
+                    else if (e.Price < prevLastPrice) isAskSide = false;
+                    else isAskSide = prevLastWasAsk;
+                }
+                else isAskSide = true;
+            }
+            else if (OrderflowAlgo == VeltrixFpOrderflowAlgo.BidAsk && hasQuotes)
+            {
+                if (e.Price >= ask) isAskSide = true;
+                else if (e.Price <= bid) isAskSide = false;
+                else isAskSide = prevLastWasAsk;
+            }
+            else
+            {
+                // Hybrid or SpreadTrades
+                if (hasQuotes && e.Price >= ask) isAskSide = true;
+                else if (hasQuotes && e.Price <= bid) isAskSide = false;
+                else if (!double.IsNaN(prevLastPrice))
+                {
+                    if (e.Price > prevLastPrice) isAskSide = true;
+                    else if (e.Price < prevLastPrice) isAskSide = false;
+                    else isAskSide = prevLastWasAsk;
+                }
+                else isAskSide = true;
+            }
+
+            prevLastPrice = e.Price;
+            prevLastWasAsk = isAskSide;
+            long tickIdx = PriceToTick(e.Price);
+            long vol = Math.Max(1L, e.Volume);
+            DateTime tickTime = e.Time;
+
+            lock (dataLock)
+            {
+                FpBarData bar = GetOrCreateBarLocked(targetIdx, Times[0][0], Opens[0][0], Highs[0][0], Lows[0][0], Closes[0][0], Bars.IsFirstBarOfSessionByIndex(targetIdx));
+                if (!bar.HasLiveTape)
+                {
+                    // Switching from historical hybrid estimate to true 100% L1+L2 live stream on this forming bar
+                    if (bar.HasHistSubData && State == State.Realtime)
+                    {
+                        bar.Cells.Clear();
+                        bar.TotalVol = 0; bar.BuyVol = 0; bar.SellVol = 0; bar.BarDelta = 0;
+                        bar.TradesCount = 0; bar.MinDelta = 0; bar.MaxDelta = 0; bar.SpreadVol = 0;
+                        bar.HasHistSubData = false;
+                        bar.StartUtc = DateTime.UtcNow;
+                    }
+                    bar.HasLiveTape = true;
+                }
+
+                if (ReconstructTapeMs > 0 && !isHistoricalTickReplay)
+                {
+                    bool sameBucket = hasPendingTape && pendingTapeTick == tickIdx && pendingTapeAsk == isAskSide
+                        && Math.Abs((tickTime - pendingTapeTime).TotalMilliseconds) <= ReconstructTapeMs;
+                    if (sameBucket)
+                    {
+                        pendingTapeVol += vol;
+                        pendingTapeInsideSpread |= insideSpread;
+                    }
+                    else
+                    {
+                        FlushPendingTapeToBarLocked(bar);
+                        hasPendingTape = true;
+                        pendingTapeAsk = isAskSide;
+                        pendingTapeTick = tickIdx;
+                        pendingTapeVol = vol;
+                        pendingTapeInsideSpread = insideSpread;
+                        pendingTapeTime = tickTime;
+                    }
+                }
+                else
+                {
+                    ApplyTradeToBarLocked(bar, tickIdx, vol, isAskSide, insideSpread, true);
+                }
+
+                if (State == State.Realtime)
+                {
+                    if ((DateTime.UtcNow - bar.StartUtc).TotalSeconds > 0.5)
+                        bar.ElapsedSec = (DateTime.UtcNow - bar.StartUtc).TotalSeconds;
+                    bar.LastTickUtc = DateTime.UtcNow;
+                }
+            }
+        }
+
+        private void FlushPendingTapeLocked()
+        {
+            if (!hasPendingTape || CurrentBar < 0) return;
+            FpBarData bar;
+            if (barsMap.TryGetValue(CurrentBar, out bar))
+                FlushPendingTapeToBarLocked(bar);
+            hasPendingTape = false;
+        }
+
+        private void FlushPendingTapeToBarLocked(FpBarData bar)
+        {
+            if (!hasPendingTape || bar == null || pendingTapeVol <= 0) { hasPendingTape = false; return; }
+            ApplyTradeToBarLocked(bar, pendingTapeTick, pendingTapeVol, pendingTapeAsk, pendingTapeInsideSpread, true);
+            hasPendingTape = false;
+        }
+
+        private void ApplyTradeToBarLocked(FpBarData bar, long tickIdx, long vol, bool isAsk, bool insideSpread, bool isLive)
+        {
+            if (vol < TradeMin) return;
+            if (TradeMax > 0 && vol > TradeMax) return;
+
+            PriceCell cell;
+            if (!bar.Cells.TryGetValue(tickIdx, out cell))
+            {
+                cell = new PriceCell();
+                bar.Cells[tickIdx] = cell;
+            }
+
+            cell.Vol += vol;
+            cell.Trades += 1;
+            if (vol > cell.MaxSingleTrade) cell.MaxSingleTrade = vol;
+            if (insideSpread) cell.SpreadVol += vol;
+            if (isAsk) cell.AskVol += vol;
+            else cell.BidVol += vol;
+
+            // Live L2 Replenishment Absorption Detector
+            if (isLive)
+            {
+                DateTime nowUtc = DateTime.UtcNow;
+                if (isAsk)
+                {
+                    long restAsk = 0;
+                    depthAskByTick.TryGetValue(tickIdx, out restAsk);
+                    cell.LastDepthAsk = restAsk;
+                    DateTime lastRep;
+                    bool replenished = lastAskReplenishUtc.TryGetValue(tickIdx, out lastRep) && (nowUtc - lastRep).TotalSeconds <= 4.0;
+                    if (replenished && cell.AskVol >= AbsorptionFilter && restAsk >= Math.Max(10, AbsorptionFilter / 4))
+                        cell.L2AbsAsk = true;
+                }
+                else
+                {
+                    long restBid = 0;
+                    depthBidByTick.TryGetValue(tickIdx, out restBid);
+                    cell.LastDepthBid = restBid;
+                    DateTime lastRep;
+                    bool replenished = lastBidReplenishUtc.TryGetValue(tickIdx, out lastRep) && (nowUtc - lastRep).TotalSeconds <= 4.0;
+                    if (replenished && cell.BidVol >= AbsorptionFilter && restBid >= Math.Max(10, AbsorptionFilter / 4))
+                        cell.L2AbsBid = true;
+                }
+            }
+
+            bar.TotalVol += vol;
+            bar.TradesCount += 1;
+            if (insideSpread) bar.SpreadVol += vol;
+            if (isAsk) bar.BuyVol += vol;
+            else bar.SellVol += vol;
+
+            bar.BarDelta = bar.BuyVol - bar.SellVol;
+            if (bar.BarDelta < bar.MinDelta) bar.MinDelta = bar.BarDelta;
+            if (bar.BarDelta > bar.MaxDelta) bar.MaxDelta = bar.BarDelta;
+        }
+
+        private void DistributeHistoricalBarOHLC(FpBarData bar, double o, double h, double l, double c, long vol)
+        {
+            if (vol <= 0 || h < l) return;
+            long tickL = PriceToTick(l);
+            long tickH = PriceToTick(h);
+            long span = Math.Max(1L, tickH - tickL + 1L);
+            if (span > 160) span = 160; // Guard aberrant data spikes
+
+            bool bull = (c >= o);
+            double bodyLow = Math.Min(o, c);
+            double bodyHigh = Math.Max(o, c);
+            double askBias = bull ? 0.63 : 0.37;
+            if (Math.Abs(h - l) > SafeTickSize() * 0.5)
+            {
+                double closePos = (c - l) / Math.Max(SafeTickSize(), h - l);
+                askBias = Math.Max(0.22, Math.Min(0.78, 0.35 + closePos * 0.30 + (bull ? 0.10 : -0.10)));
+            }
+
+            double[] weights = new double[span];
+            double wSum = 0;
+            double mid = (o + c) * 0.5;
+            double sigma = Math.Max(SafeTickSize(), (h - l) * 0.32);
+
+            for (long i = 0; i < span; i++)
+            {
+                double px = TickToPrice(tickL + i);
+                double d = (px - mid) / sigma;
+                double w = Math.Exp(-0.45 * d * d);
+                if (px >= bodyLow && px <= bodyHigh) w *= 1.35;
+                weights[i] = w;
+                wSum += w;
+            }
+            if (wSum <= 0) wSum = 1.0;
+
+            long distributed = 0;
+            for (long i = 0; i < span; i++)
+            {
+                long cellVol = (i == span - 1) ? Math.Max(0, vol - distributed) : (long)Math.Round(vol * (weights[i] / wSum));
+                if (cellVol <= 0) continue;
+                distributed += cellVol;
+
+                long aVol = (long)Math.Round(cellVol * askBias);
+                long bVol = Math.Max(0, cellVol - aVol);
+                long tk = tickL + i;
+
+                PriceCell cell;
+                if (!bar.Cells.TryGetValue(tk, out cell))
+                {
+                    cell = new PriceCell();
+                    bar.Cells[tk] = cell;
+                }
+                cell.Vol += cellVol;
+                cell.AskVol += aVol;
+                cell.BidVol += bVol;
+                cell.Trades += Math.Max(1, (int)Math.Min(100, cellVol));
+
+                bar.TotalVol += cellVol;
+                bar.BuyVol += aVol;
+                bar.SellVol += bVol;
+                bar.TradesCount += Math.Max(1, (int)Math.Min(100, cellVol));
+            }
+
+            bar.BarDelta = bar.BuyVol - bar.SellVol;
+            if (bar.BarDelta < bar.MinDelta) bar.MinDelta = bar.BarDelta;
+            if (bar.BarDelta > bar.MaxDelta) bar.MaxDelta = bar.BarDelta;
+        }
+
+        protected override void OnBarUpdate()
+        {
+            if (Bars == null) return;
+
+            if (usesSubSeries && BarsInProgress == 1)
+            {
+                if (State != State.Historical) return; // Realtime handled 100% by L1+L2 OnMarketData
+                if (CurrentBars[0] < 0 || CurrentBars[1] <= lastProcessedSubBar) return;
+                lastProcessedSubBar = CurrentBars[1];
+
+                int pIdx = CurrentBars[0];
+                DateTime subT = Times[1][0];
+                try
+                {
+                    int mapped = BarsArray[0].GetBar(subT);
+                    if (mapped >= 0 && mapped <= CurrentBars[0]) pIdx = mapped;
+                }
+                catch { }
+
+                lock (dataLock)
+                {
+                    FpBarData bar = GetOrCreateBarLocked(pIdx, Times[0][0], Opens[0][0], Highs[0][0], Lows[0][0], Closes[0][0], BarsArray[0].IsFirstBarOfSessionByIndex(pIdx));
+                    if (bar.HasLiveTape) return;
+                    bar.HasHistSubData = true;
+                    long sVol = Math.Max(0L, (long)Math.Round(Volumes[1][0]));
+                    if (HistoryMode == VeltrixFpHistoryMode.Real1TickNoReplay)
+                    {
+                        double px = Closes[1][0];
+                        bool isAsk = !double.IsNaN(prevHistTickPrice) ? (px > prevHistTickPrice ? true : (px < prevHistTickPrice ? false : prevHistTickWasAsk)) : true;
+                        prevHistTickPrice = px;
+                        prevHistTickWasAsk = isAsk;
+                        ApplyTradeToBarLocked(bar, PriceToTick(px), Math.Max(1L, sVol), isAsk, false, false);
+                    }
+                    else
+                    {
+                        DistributeHistoricalBarOHLC(bar, Opens[1][0], Highs[1][0], Lows[1][0], Closes[1][0], sVol);
+                    }
+                }
+                return;
+            }
+
+            if (BarsInProgress != 0 || CurrentBar < 0) return;
+
+            lock (dataLock)
+            {
+                bool isFirstSess = Bars.IsFirstBarOfSessionByIndex(CurrentBar);
+                FpBarData bar = GetOrCreateBarLocked(CurrentBar, Times[0][0], Opens[0][0], Highs[0][0], Lows[0][0], Closes[0][0], isFirstSess);
+
+                if (State == State.Realtime && !bar.HasLiveTape && CurrentBar > 0 && IsFirstTickOfBar)
+                    bar.StartUtc = DateTime.UtcNow;
+
+                // Fallback OHLC seed if no Tick Replay and no sub-series cells arrived yet on historical bars
+                if (State == State.Historical && !bar.HasLiveTape && !bar.HasHistSubData && (IsFirstTickOfBar || bar.Cells.Count == 0))
+                {
+                    long v = Math.Max(0L, (long)Math.Round(Volumes[0][0]));
+                    if (v > 0 && bar.TotalVol == 0)
+                        DistributeHistoricalBarOHLC(bar, Opens[0][0], Highs[0][0], Lows[0][0], Closes[0][0], v);
+                }
+
+                // Periodically recompute analytics on bar closes or every 400ms live
+                bool shouldCompute = (IsFirstTickOfBar && CurrentBar != lastAnalyticsBarCount)
+                    || (State == State.Realtime && (DateTime.UtcNow - lastAnalyticsRunUtc).TotalMilliseconds >= 400.0);
+                if (shouldCompute)
+                {
+                    lastAnalyticsBarCount = CurrentBar;
+                    lastAnalyticsRunUtc = DateTime.UtcNow;
+                    RecomputeAnalyticsLocked(false);
+                    if (State == State.Realtime)
+                        CheckFocusedAlertsLocked(CurrentBar);
+                }
+            }
+        }
+        #endregion
+
+        #region Analytics (CumDelta, Bar VPOC/VA, Unfinished, Traps, Stacked Zones)
+        private void RecomputeAnalyticsLocked(bool fullReset)
+        {
+            if (barsMap.Count == 0 || CurrentBar < 0) return;
+
+            long cumDelta = 0;
+            long prevDelta = 0;
+            double ts = SafeTickSize();
+            derivedZones.Clear();
+            nakedPocCandidates.Clear();
+
+            // Active open stacked zone trackers matching across levels for closed bars
+            int maxScan = CurrentBar;
+            int minScan = fullReset ? 0 : Math.Max(0, maxScan - 320);
+            if (minScan > 0)
+            {
+                FpBarData prevAnchor;
+                if (barsMap.TryGetValue(minScan - 1, out prevAnchor))
+                {
+                    cumDelta = prevAnchor.CumDeltaAtBar;
+                    prevDelta = prevAnchor.BarDelta;
+                }
+            }
+
+            List<FpZone> activeZones = new List<FpZone>(64);
+
+            for (int b = minScan; b <= maxScan; b++)
+            {
+                FpBarData bar;
+                if (!barsMap.TryGetValue(b, out bar)) continue;
+
+                if (bar.IsSessionStart) cumDelta = 0;
+                cumDelta += bar.BarDelta;
+                bar.CumDeltaAtBar = cumDelta;
+                bar.DeltaChange = bar.BarDelta - prevDelta;
+                prevDelta = bar.BarDelta;
+
+                // Elapsed time calculation for Vol/sec & DeltaRate
+                if (b < maxScan)
+                {
+                    FpBarData nxt;
+                    if (barsMap.TryGetValue(b + 1, out nxt))
+                    {
+                        double dt = (nxt.Time - bar.Time).TotalSeconds;
+                        if (dt >= 1.0 && dt <= 86400.0) bar.ElapsedSec = dt;
+                    }
+                }
+
+                // Bar VPOC + Value Area + Unfinished Auction + Traps + Ratios + Exhaustion + Zones
+                if (bar.Cells.Count > 0)
+                {
+                    long highTk = PriceToTick(bar.High);
+                    long lowTk = PriceToTick(bar.Low);
+
+                    long bestTk = highTk;
+                    long bestVol = -1;
+                    long maxVolCell = 0;
+
+                    List<long> sortedTicks = new List<long>(bar.Cells.Keys);
+                    sortedTicks.Sort();
+
+                    for (int i = 0; i < sortedTicks.Count; i++)
+                    {
+                        long tk = sortedTicks[i];
+                        PriceCell pc = bar.Cells[tk];
+                        if (pc.Vol > bestVol) { bestVol = pc.Vol; bestTk = tk; }
+                        if (pc.Vol > maxVolCell) maxVolCell = pc.Vol;
+                    }
+                    bar.PocTick = bestTk;
+                    bar.PocPrice = TickToPrice(bestTk);
+
+                    // 68% Value Area around VPOC
+                    long vaTarget = (long)Math.Round(bar.TotalVol * (Math.Max(50, Math.Min(90, BarVaPct)) / 100.0));
+                    long vaSum = bestVol > 0 ? bestVol : 0;
+                    int pocPos = sortedTicks.IndexOf(bestTk);
+                    int loIdx = Math.Max(0, pocPos);
+                    int hiIdx = Math.Max(0, pocPos);
+                    while (vaSum < vaTarget && (loIdx > 0 || hiIdx < sortedTicks.Count - 1))
+                    {
+                        long upVol = (hiIdx + 1 < sortedTicks.Count) ? bar.Cells[sortedTicks[hiIdx + 1]].Vol : -1;
+                        long dnVol = (loIdx - 1 >= 0) ? bar.Cells[sortedTicks[loIdx - 1]].Vol : -1;
+                        if (upVol >= dnVol && upVol >= 0) { hiIdx++; vaSum += upVol; }
+                        else if (dnVol >= 0) { loIdx--; vaSum += dnVol; }
+                        else break;
+                    }
+                    bar.VahPrice = (hiIdx < sortedTicks.Count) ? TickToPrice(sortedTicks[hiIdx]) : bar.High;
+                    bar.ValPrice = (loIdx < sortedTicks.Count) ? TickToPrice(sortedTicks[loIdx]) : bar.Low;
+
+                    // Unfinished Auction at exact candle High / Low
+                    PriceCell hiCell, loCell;
+                    bar.UnfinishedHigh = bar.Cells.TryGetValue(highTk, out hiCell) && hiCell.BidVol > 0 && hiCell.AskVol > 0;
+                    bar.UnfinishedLow = bar.Cells.TryGetValue(lowTk, out loCell) && loCell.BidVol > 0 && loCell.AskVol > 0;
+
+                    // Ratio Numbers at Top & Bottom extremes
+                    if (sortedTicks.Count >= 2)
+                    {
+                        PriceCell top0 = bar.Cells[sortedTicks[sortedTicks.Count - 1]];
+                        PriceCell top1 = bar.Cells[sortedTicks[sortedTicks.Count - 2]];
+                        long topNum = Math.Max(1, top0.Vol);
+                        long topDen = Math.Max(1, top1.Vol);
+                        bar.TopRatio = (double)topDen / (double)topNum;
+
+                        PriceCell bot0 = bar.Cells[sortedTicks[0]];
+                        PriceCell bot1 = bar.Cells[sortedTicks[1]];
+                        long botNum = Math.Max(1, bot0.Vol);
+                        long botDen = Math.Max(1, bot1.Vol);
+                        bar.BottomRatio = (double)botDen / (double)botNum;
+                    }
+
+                    // COT High/Low (top 25% & bottom 25% of range delta)
+                    double range25 = (bar.High - bar.Low) * 0.25;
+                    long cotH = 0, cotL = 0;
+                    for (int i = 0; i < sortedTicks.Count; i++)
+                    {
+                        long tk = sortedTicks[i];
+                        double px = TickToPrice(tk);
+                        PriceCell pc = bar.Cells[tk];
+                        if (px >= bar.High - range25) cotH += (pc.AskVol - pc.BidVol);
+                        if (px <= bar.Low + range25) cotL += (pc.AskVol - pc.BidVol);
+                    }
+                    bar.CotHighDelta = cotH;
+                    bar.CotLowDelta = cotL;
+
+                    // Exhaustion Prints at exact extremes
+                    bar.HasExhaustionHigh = bar.Cells.TryGetValue(highTk, out hiCell) && hiCell.Vol > 0 && hiCell.Vol <= ExhaustionMaxVol && maxVolCell >= ExhaustionMaxVol * 3;
+                    bar.HasExhaustionLow = bar.Cells.TryGetValue(lowTk, out loCell) && loCell.Vol > 0 && loCell.Vol <= ExhaustionMaxVol && maxVolCell >= ExhaustionMaxVol * 3;
+
+                    // Traps (Delta Divergence: Up bar with negative delta, Down bar with positive delta & significant volume)
+                    bar.HasBuyingTrap = (bar.Close > bar.Open) && (bar.BarDelta < -Math.Max(10, ImbalanceMinVol / 2)) && (bar.TotalVol >= Math.Max(20, ImbalanceMinVol));
+                    bar.HasSellingTrap = (bar.Close < bar.Open) && (bar.BarDelta > Math.Max(10, ImbalanceMinVol / 2)) && (bar.TotalVol >= Math.Max(20, ImbalanceMinVol));
+
+                    // Naked VPOC tracking & termination check against earlier bars
+                    for (int k = nakedPocCandidates.Count - 1; k >= 0; k--)
+                    {
+                        FpBarData prevBar = nakedPocCandidates[k];
+                        if (prevBar.BarIdx < b && bar.Low <= prevBar.PocPrice + ts * 0.2 && bar.High >= prevBar.PocPrice - ts * 0.2)
+                            nakedPocCandidates.RemoveAt(k);
+                    }
+                    if (b < maxScan) nakedPocCandidates.Add(bar);
+
+                    // Zone termination scan on active zones
+                    for (int z = 0; z < activeZones.Count; z++)
+                    {
+                        FpZone zn = activeZones[z];
+                        if (zn.Ended || zn.StartBarIdx >= b) continue;
+                        bool endSession = bar.IsSessionStart && StackedEndMode != VeltrixFpZoneEndMode.UntilSessionEnd;
+                        bool touched = (bar.Low <= zn.TopPrice + ts * 0.15 && bar.High >= zn.BottomPrice - ts * 0.15);
+                        bool brokenThrough = zn.IsSupport ? (bar.Low < zn.BottomPrice - ts * 0.4) : (bar.High > zn.TopPrice + ts * 0.4);
+                        if (endSession || (StackedEndMode == VeltrixFpZoneEndMode.ByLevelTouch && touched) || (StackedEndMode == VeltrixFpZoneEndMode.ByBarHighLow && brokenThrough))
+                        {
+                            zn.Ended = true;
+                            zn.EndBarIdx = b;
+                        }
+                    }
+
+                    // Build Stacked Imbalance S/R Zones & Absorption S/R Zones for bar b
+                    if (b <= maxScan)
+                    {
+                        DetectBarZonesLocked(bar, sortedTicks, activeZones);
+                    }
+                }
+            }
+
+            derivedZones.AddRange(activeZones);
+        }
+
+        private void DetectBarZonesLocked(FpBarData bar, List<long> sortedTicks, List<FpZone> activeZones)
+        {
+            if (!ShowStackedZones && !ShowAbsorptionZones) return;
+            double ts = SafeTickSize();
+            int grpStep = Math.Max(1, TicksPerLevel);
+
+            // Bucketize bar levels into TicksPerLevel so stacked zones align visually with cluster rows
+            SortedDictionary<long, BucketRenderCell> bMap = new SortedDictionary<long, BucketRenderCell>();
+            for (int i = 0; i < sortedTicks.Count; i++)
+            {
+                long tk = sortedTicks[i];
+                long gIdx = (long)Math.Floor((double)tk / grpStep);
+                BucketRenderCell bc;
+                if (!bMap.TryGetValue(gIdx, out bc))
+                {
+                    bc = new BucketRenderCell
+                    {
+                        GroupIdx = gIdx,
+                        PriceLow = TickToPrice(gIdx * grpStep),
+                        PriceHigh = TickToPrice((gIdx + 1) * grpStep - 1),
+                        PriceMid = TickToPrice(gIdx * grpStep + grpStep / 2)
+                    };
+                    bMap[gIdx] = bc;
+                }
+                PriceCell pc = bar.Cells[tk];
+                bc.Vol += pc.Vol;
+                bc.BidVol += pc.BidVol;
+                bc.AskVol += pc.AskVol;
+                bc.Trades += pc.Trades;
+                if (pc.L2AbsBid) bc.AbsBid = true;
+                if (pc.L2AbsAsk) bc.AbsAsk = true;
+            }
+
+            List<BucketRenderCell> list = new List<BucketRenderCell>(bMap.Values);
+            ComputeBucketSignals(list, bar);
+
+            if (ShowStackedZones)
+            {
+                // Detect consecutive Buy Imbalances (Support) & Sell Imbalances (Resistance)
+                int buyRun = 0, sellRun = 0;
+                int buyStart = 0, sellStart = 0;
+                for (int i = 0; i <= list.Count; i++)
+                {
+                    bool isBuy = (i < list.Count) && list[i].BuyImb && list[i].Vol >= StackedZoneMinVol;
+                    if (isBuy) { if (buyRun == 0) buyStart = i; buyRun++; }
+                    else
+                    {
+                        if (buyRun >= StackedConsecutive)
+                        {
+                            long totV = 0;
+                            for (int k = buyStart; k < buyStart + buyRun; k++) totV += list[k].Vol;
+                            double bot = list[buyStart].PriceLow;
+                            double top = list[buyStart + buyRun - 1].PriceHigh + ts * 0.5;
+                            string id = "IMB_S_" + bar.BarIdx + "_" + list[buyStart].GroupIdx;
+                            if (!mutedZoneIds.Contains(id))
+                                activeZones.Add(new FpZone { ZoneId = id, IsSupport = true, IsAbsorption = false, StartBarIdx = bar.BarIdx, EndBarIdx = bar.BarIdx, BottomPrice = bot, TopPrice = top, StrengthVol = totV, StackedCount = buyRun });
+                        }
+                        buyRun = 0;
+                    }
+
+                    bool isSell = (i < list.Count) && list[i].SellImb && list[i].Vol >= StackedZoneMinVol;
+                    if (isSell) { if (sellRun == 0) sellStart = i; sellRun++; }
+                    else
+                    {
+                        if (sellRun >= StackedConsecutive)
+                        {
+                            long totV = 0;
+                            for (int k = sellStart; k < sellStart + sellRun; k++) totV += list[k].Vol;
+                            double bot = list[sellStart].PriceLow;
+                            double top = list[sellStart + sellRun - 1].PriceHigh + ts * 0.5;
+                            string id = "IMB_R_" + bar.BarIdx + "_" + list[sellStart].GroupIdx;
+                            if (!mutedZoneIds.Contains(id))
+                                activeZones.Add(new FpZone { ZoneId = id, IsSupport = false, IsAbsorption = false, StartBarIdx = bar.BarIdx, EndBarIdx = bar.BarIdx, BottomPrice = bot, TopPrice = top, StrengthVol = totV, StackedCount = sellRun });
+                        }
+                        sellRun = 0;
+                    }
+                }
+            }
+
+            if (ShowAbsorptionZones)
+            {
+                int bidAbsRun = 0, askAbsRun = 0;
+                int bidStart = 0, askStart = 0;
+                for (int i = 0; i <= list.Count; i++)
+                {
+                    bool isBidA = (i < list.Count) && list[i].AbsBid && list[i].Vol >= AbsZoneMinVol;
+                    if (isBidA) { if (bidAbsRun == 0) bidStart = i; bidAbsRun++; }
+                    else
+                    {
+                        if (bidAbsRun >= AbsZoneConsecutive)
+                        {
+                            double bot = list[bidStart].PriceLow;
+                            double top = list[bidStart + bidAbsRun - 1].PriceHigh + ts * 0.5;
+                            string id = "ABS_S_" + bar.BarIdx + "_" + list[bidStart].GroupIdx;
+                            if (!mutedZoneIds.Contains(id))
+                                activeZones.Add(new FpZone { ZoneId = id, IsSupport = true, IsAbsorption = true, StartBarIdx = bar.BarIdx, EndBarIdx = bar.BarIdx, BottomPrice = bot, TopPrice = top, StrengthVol = list[bidStart].Vol, StackedCount = bidAbsRun });
+                        }
+                        bidAbsRun = 0;
+                    }
+
+                    bool isAskA = (i < list.Count) && list[i].AbsAsk && list[i].Vol >= AbsZoneMinVol;
+                    if (isAskA) { if (askAbsRun == 0) askStart = i; askAbsRun++; }
+                    else
+                    {
+                        if (askAbsRun >= AbsZoneConsecutive)
+                        {
+                            double bot = list[askStart].PriceLow;
+                            double top = list[askStart + askAbsRun - 1].PriceHigh + ts * 0.5;
+                            string id = "ABS_R_" + bar.BarIdx + "_" + list[askStart].GroupIdx;
+                            if (!mutedZoneIds.Contains(id))
+                                activeZones.Add(new FpZone { ZoneId = id, IsSupport = false, IsAbsorption = true, StartBarIdx = bar.BarIdx, EndBarIdx = bar.BarIdx, BottomPrice = bot, TopPrice = top, StrengthVol = list[askStart].Vol, StackedCount = askAbsRun });
+                        }
+                        askAbsRun = 0;
+                    }
+                }
+            }
+        }
+
+        private void ComputeBucketSignals(List<BucketRenderCell> list, FpBarData bar)
+        {
+            long maxVol = -1;
+            int pocIdx = -1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].Vol > maxVol) { maxVol = list[i].Vol; pocIdx = i; }
+            }
+            if (pocIdx >= 0) list[pocIdx].IsVpoc = true;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                BucketRenderCell cur = list[i];
+                cur.InValueArea = (cur.PriceMid >= bar.ValPrice && cur.PriceMid <= bar.VahPrice);
+
+                // Imbalance (Diagonal or Horizontal)
+                if (ShowImbalance)
+                {
+                    long askCur = cur.AskVol;
+                    long bidCur = cur.BidVol;
+                    long cmpBid = (ImbalanceDirection == VeltrixFpImbalanceDir.Diagonal)
+                        ? (i > 0 ? list[i - 1].BidVol : 0)
+                        : bidCur;
+                    long cmpAsk = (ImbalanceDirection == VeltrixFpImbalanceDir.Diagonal)
+                        ? (i + 1 < list.Count ? list[i + 1].AskVol : 0)
+                        : askCur;
+
+                    if (askCur >= ImbalanceMinVol && (cmpBid <= 0 ? askCur >= ImbalanceMinVol * 2 : (askCur * 100L >= cmpBid * ImbalancePct)))
+                        cur.BuyImb = true;
+                    if (bidCur >= ImbalanceMinVol && (cmpAsk <= 0 ? bidCur >= ImbalanceMinVol * 2 : (bidCur * 100L >= cmpAsk * ImbalancePct)))
+                        cur.SellImb = true;
+                }
+
+                // Absorption (Live L2 replenishment OR heavy passive defense on reversals)
+                if (ShowAbsorption)
+                {
+                    bool statAskAbs = (!RequireL2Confirm || !bar.HasLiveTape)
+                        && cur.AskVol >= AbsorptionFilter && cur.BidVol >= Math.Max(15, AbsorptionFilter / 4)
+                        && (cur.AskVol * 100L >= cur.BidVol * AbsorptionPct)
+                        && cur.PriceMid >= (bar.High - (bar.High - bar.Low) * 0.35) && bar.Close <= cur.PriceMid;
+                    bool statBidAbs = (!RequireL2Confirm || !bar.HasLiveTape)
+                        && cur.BidVol >= AbsorptionFilter && cur.AskVol >= Math.Max(15, AbsorptionFilter / 4)
+                        && (cur.BidVol * 100L >= cur.AskVol * AbsorptionPct)
+                        && cur.PriceMid <= (bar.Low + (bar.High - bar.Low) * 0.35) && bar.Close >= cur.PriceMid;
+
+                    if (statAskAbs) cur.AbsAsk = true;
+                    if (statBidAbs) cur.AbsBid = true;
+                }
+            }
+        }
+
+        private void CheckFocusedAlertsLocked(int barIdx)
+        {
+            DateTime now = DateTime.UtcNow;
+            FpBarData cur;
+            if (!barsMap.TryGetValue(barIdx, out cur)) return;
+
+            if (AlertStackedZone && barIdx != lastAlertBarStacked && (now - lastStackedAlertUtc).TotalSeconds >= AlertCooldownSec)
+            {
+                for (int i = derivedZones.Count - 1; i >= 0; i--)
+                {
+                    FpZone z = derivedZones[i];
+                    if (z.StartBarIdx == barIdx && !z.IsAbsorption)
+                    {
+                        lastStackedAlertUtc = now;
+                        lastAlertBarStacked = barIdx;
+                        string msg = string.Format(CultureInfo.InvariantCulture, "Veltrix Footprint: Stacked {0} x{1} @ {2}", z.IsSupport ? "SUPPORT" : "RESISTANCE", z.StackedCount, Instrument.MasterInstrument.FormatPrice(z.BottomPrice));
+                        FireAlertSafe("FP_STACK_" + barIdx, msg);
+                        break;
+                    }
+                }
+            }
+
+            if (AlertAbsorption && barIdx != lastAlertBarAbs && (now - lastAbsAlertUtc).TotalSeconds >= AlertCooldownSec)
+            {
+                for (int i = derivedZones.Count - 1; i >= 0; i--)
+                {
+                    FpZone z = derivedZones[i];
+                    if (z.StartBarIdx == barIdx && z.IsAbsorption)
+                    {
+                        lastAbsAlertUtc = now;
+                        lastAlertBarAbs = barIdx;
+                        string msg = string.Format(CultureInfo.InvariantCulture, "Veltrix Footprint: L2 Absorption {0} @ {1}", z.IsSupport ? "BID DEFENSE" : "ASK WALL", Instrument.MasterInstrument.FormatPrice(z.BottomPrice));
+                        FireAlertSafe("FP_ABS_" + barIdx, msg);
+                        break;
+                    }
+                }
+            }
+
+            if (AlertTrap && barIdx != lastAlertBarTrap && (now - lastTrapAlertUtc).TotalSeconds >= AlertCooldownSec)
+            {
+                if (cur.HasBuyingTrap || cur.HasSellingTrap)
+                {
+                    lastTrapAlertUtc = now;
+                    lastAlertBarTrap = barIdx;
+                    string msg = cur.HasBuyingTrap ? "Veltrix Footprint: BUYING TRAP (Up close + Negative Delta)" : "Veltrix Footprint: SELLING TRAP (Down close + Positive Delta)";
+                    FireAlertSafe("FP_TRAP_" + barIdx, msg);
+                }
+            }
+
+            if (AlertDeltaExtreme && barIdx != lastAlertBarDelta && (now - lastDeltaAlertUtc).TotalSeconds >= AlertCooldownSec)
+            {
+                if (Math.Abs(cur.BarDelta) >= AlertDeltaThreshold)
+                {
+                    lastDeltaAlertUtc = now;
+                    lastAlertBarDelta = barIdx;
+                    string msg = string.Format(CultureInfo.InvariantCulture, "Veltrix Footprint: Extreme Bar Delta {0}", cur.BarDelta);
+                    FireAlertSafe("FP_DELTA_" + barIdx, msg);
+                }
+            }
+        }
+
+        private void FireAlertSafe(string id, string msg)
+        {
+            try
+            {
+                string sound = EnableAudioAlerts ? Path.Combine(Globals.InstallDir, "sounds", "Alert2.wav") : "";
+                Alert(id, Priority.Medium, msg, sound, AlertCooldownSec, System.Windows.Media.Brushes.Navy, System.Windows.Media.Brushes.Cyan);
+            }
+            catch { }
+        }
+        #endregion
+
+        #region SharpDX Direct2D GPU Renderer
+        public override void OnRenderTargetChanged()
+        {
+            DisposeDx();
+            base.OnRenderTargetChanged();
+        }
+
+        private void DisposeDx()
+        {
+            if (dxPosDeltaBr != null) { dxPosDeltaBr.Dispose(); dxPosDeltaBr = null; }
+            if (dxNegDeltaBr != null) { dxNegDeltaBr.Dispose(); dxNegDeltaBr = null; }
+            if (dxNeutralBr != null) { dxNeutralBr.Dispose(); dxNeutralBr = null; }
+            if (dxPocBr != null) { dxPocBr.Dispose(); dxPocBr = null; }
+            if (dxVaBarBr != null) { dxVaBarBr.Dispose(); dxVaBarBr = null; }
+            if (dxBuyZoneFill != null) { dxBuyZoneFill.Dispose(); dxBuyZoneFill = null; }
+            if (dxBuyZoneEdge != null) { dxBuyZoneEdge.Dispose(); dxBuyZoneEdge = null; }
+            if (dxSellZoneFill != null) { dxSellZoneFill.Dispose(); dxSellZoneFill = null; }
+            if (dxSellZoneEdge != null) { dxSellZoneEdge.Dispose(); dxSellZoneEdge = null; }
+            if (dxAbsSupFill != null) { dxAbsSupFill.Dispose(); dxAbsSupFill = null; }
+            if (dxAbsSupEdge != null) { dxAbsSupEdge.Dispose(); dxAbsSupEdge = null; }
+            if (dxAbsResFill != null) { dxAbsResFill.Dispose(); dxAbsResFill = null; }
+            if (dxAbsResEdge != null) { dxAbsResEdge.Dispose(); dxAbsResEdge = null; }
+            if (dxUnfBr != null) { dxUnfBr.Dispose(); dxUnfBr = null; }
+            if (dxRatioNeutralBr != null) { dxRatioNeutralBr.Dispose(); dxRatioNeutralBr = null; }
+            if (dxRatioRejBr != null) { dxRatioRejBr.Dispose(); dxRatioRejBr = null; }
+            if (dxTextBright != null) { dxTextBright.Dispose(); dxTextBright = null; }
+            if (dxTextBid != null) { dxTextBid.Dispose(); dxTextBid = null; }
+            if (dxTextAsk != null) { dxTextAsk.Dispose(); dxTextAsk = null; }
+            if (dxTextMuted != null) { dxTextMuted.Dispose(); dxTextMuted = null; }
+            if (dxSpineUp != null) { dxSpineUp.Dispose(); dxSpineUp = null; }
+            if (dxSpineDown != null) { dxSpineDown.Dispose(); dxSpineDown = null; }
+            if (dxGridBg != null) { dxGridBg.Dispose(); dxGridBg = null; }
+            if (dxGridBorder != null) { dxGridBorder.Dispose(); dxGridBorder = null; }
+            if (dxBadgeBg != null) { dxBadgeBg.Dispose(); dxBadgeBg = null; }
+            if (dxUserLvlBr != null) { dxUserLvlBr.Dispose(); dxUserLvlBr = null; }
+            if (dxSpecGloss != null) { dxSpecGloss.Dispose(); dxSpecGloss = null; }
+            foreach (var kv in dxDynBrushCache)
+                if (kv.Value != null) kv.Value.Dispose();
+            dxDynBrushCache.Clear();
+            if (dxDashStyle != null) { dxDashStyle.Dispose(); dxDashStyle = null; }
+            if (dxDotStyle != null) { dxDotStyle.Dispose(); dxDotStyle = null; }
+            if (dxFontLeft != null) { dxFontLeft.Dispose(); dxFontLeft = null; }
+            if (dxFontRight != null) { dxFontRight.Dispose(); dxFontRight = null; }
+            if (dxFontSmall != null) { dxFontSmall.Dispose(); dxFontSmall = null; }
+            if (dxFontStat != null) { dxFontStat.Dispose(); dxFontStat = null; }
+            if (dxFontHdr != null) { dxFontHdr.Dispose(); dxFontHdr = null; }
+            dxRtRef = null;
+            dxRtPtr = IntPtr.Zero;
+            lastDxSig = "";
+        }
+
+        private static SharpDX.Color4 ToC4(System.Windows.Media.Brush br, float alpha, SharpDX.Color4 fb)
+        {
+            var sb = br as System.Windows.Media.SolidColorBrush;
+            if (sb == null) return fb;
+            return new SharpDX.Color4(sb.Color.R / 255f, sb.Color.G / 255f, sb.Color.B / 255f, alpha);
+        }
+
+        private static void ToRgb(System.Windows.Media.Brush br, out byte r, out byte g, out byte b)
+        {
+            var sb = br as System.Windows.Media.SolidColorBrush;
+            if (sb == null) { r = 59; g = 130; b = 246; return; }
+            r = sb.Color.R; g = sb.Color.G; b = sb.Color.B;
+        }
+
+        private D2D.SolidColorBrush GetDynBrush(byte r, byte g, byte b, float alpha)
+        {
+            byte aB = (byte)Math.Max(15, Math.Min(255, (int)Math.Round(alpha * 255f)));
+            uint k = ((uint)aB << 24) | ((uint)r << 16) | ((uint)g << 8) | (uint)b;
+            D2D.SolidColorBrush br;
+            if (!dxDynBrushCache.TryGetValue(k, out br) || br == null)
+            {
+                if (dxDynBrushCache.Count > 240)
+                {
+                    foreach (var kv in dxDynBrushCache) if (kv.Value != null) kv.Value.Dispose();
+                    dxDynBrushCache.Clear();
+                }
+                br = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(r / 255f, g / 255f, b / 255f, aB / 255f));
+                dxDynBrushCache[k] = br;
+            }
+            return br;
+        }
+
+        private void EnsureDxResources()
+        {
+            if (RenderTarget == null) return;
+            IntPtr curPtr = RenderTarget.NativePointer;
+            string sig = BrushToHex(ColPositiveDelta, "#10B981") + "|" + BrushToHex(ColNegativeDelta, "#F43F5E") + "|"
+                + BrushToHex(ColNeutralCluster, "#3B82F6") + "|" + BrushToHex(ColBidText, "#FCA5A5") + "|"
+                + BrushToHex(ColAskText, "#6EE7B7") + "|" + BrushToHex(ColValuesText, "#F8FAFC") + "|"
+                + BrushToHex(ColPocGlow, "#FACC15") + "|" + BrushToHex(ColValueAreaBar, "#38BDF8") + "|"
+                + BrushToHex(ColBuyZone, "#10B981") + "|" + BrushToHex(ColSellZone, "#EF4444") + "|"
+                + BrushToHex(ColAbsSupport, "#06B6D4") + "|" + BrushToHex(ColAbsResistance, "#EC4899") + "|"
+                + BrushToHex(ColUnfinished, "#F59E0B") + "|" + BrushToHex(ColRatioNeutral, "#60A5FA") + "|"
+                + BrushToHex(ColRatioReject, "#FB923C") + "|" + BrushToHex(ColStatGridBg, "#090D16") + "|"
+                + ZoneOpacityPct + "|" + LeftFontSize + "|" + RightFontSize + "|" + StatFontSize;
+
+            if (sig == lastDxSig && dxPosDeltaBr != null && object.ReferenceEquals(RenderTarget, dxRtRef) && curPtr == dxRtPtr)
+                return;
+
+            DisposeDx();
+            dxRtRef = RenderTarget;
+            dxRtPtr = curPtr;
+            lastDxSig = sig;
+            float zA = (float)(Math.Max(5, Math.Min(80, ZoneOpacityPct)) / 100.0);
+
+            dxPosDeltaBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColPositiveDelta, 0.85f, new SharpDX.Color4(0.06f, 0.72f, 0.51f, 0.85f)));
+            dxNegDeltaBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColNegativeDelta, 0.85f, new SharpDX.Color4(0.96f, 0.25f, 0.37f, 0.85f)));
+            dxNeutralBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColNeutralCluster, 0.72f, new SharpDX.Color4(0.23f, 0.51f, 0.96f, 0.72f)));
+            dxPocBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColPocGlow, 0.96f, new SharpDX.Color4(0.98f, 0.80f, 0.08f, 0.96f)));
+            dxVaBarBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColValueAreaBar, 0.72f, new SharpDX.Color4(0.22f, 0.74f, 0.97f, 0.72f)));
+
+            dxBuyZoneFill = new D2D.SolidColorBrush(RenderTarget, ToC4(ColBuyZone, zA, new SharpDX.Color4(0.06f, 0.72f, 0.51f, zA)));
+            dxBuyZoneEdge = new D2D.SolidColorBrush(RenderTarget, ToC4(ColBuyZone, 0.92f, new SharpDX.Color4(0.06f, 0.72f, 0.51f, 0.92f)));
+            dxSellZoneFill = new D2D.SolidColorBrush(RenderTarget, ToC4(ColSellZone, zA, new SharpDX.Color4(0.94f, 0.27f, 0.27f, zA)));
+            dxSellZoneEdge = new D2D.SolidColorBrush(RenderTarget, ToC4(ColSellZone, 0.92f, new SharpDX.Color4(0.94f, 0.27f, 0.27f, 0.92f)));
+
+            dxAbsSupFill = new D2D.SolidColorBrush(RenderTarget, ToC4(ColAbsSupport, Math.Max(0.14f, zA), new SharpDX.Color4(0.02f, 0.71f, 0.83f, 0.24f)));
+            dxAbsSupEdge = new D2D.SolidColorBrush(RenderTarget, ToC4(ColAbsSupport, 0.95f, new SharpDX.Color4(0.02f, 0.71f, 0.83f, 0.95f)));
+            dxAbsResFill = new D2D.SolidColorBrush(RenderTarget, ToC4(ColAbsResistance, Math.Max(0.14f, zA), new SharpDX.Color4(0.93f, 0.28f, 0.60f, 0.24f)));
+            dxAbsResEdge = new D2D.SolidColorBrush(RenderTarget, ToC4(ColAbsResistance, 0.95f, new SharpDX.Color4(0.93f, 0.28f, 0.60f, 0.95f)));
+
+            dxUnfBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColUnfinished, 0.95f, new SharpDX.Color4(0.96f, 0.62f, 0.04f, 0.95f)));
+            dxRatioNeutralBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColRatioNeutral, 0.92f, new SharpDX.Color4(0.38f, 0.65f, 0.98f, 0.92f)));
+            dxRatioRejBr = new D2D.SolidColorBrush(RenderTarget, ToC4(ColRatioReject, 0.96f, new SharpDX.Color4(0.98f, 0.57f, 0.24f, 0.96f)));
+
+            dxTextBright = new D2D.SolidColorBrush(RenderTarget, ToC4(ColValuesText, 0.98f, new SharpDX.Color4(0.97f, 0.98f, 1.0f, 0.98f)));
+            dxTextBid = new D2D.SolidColorBrush(RenderTarget, ToC4(ColBidText, 0.96f, new SharpDX.Color4(0.99f, 0.65f, 0.65f, 0.96f)));
+            dxTextAsk = new D2D.SolidColorBrush(RenderTarget, ToC4(ColAskText, 0.96f, new SharpDX.Color4(0.43f, 0.91f, 0.72f, 0.96f)));
+            dxTextMuted = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.58f, 0.65f, 0.76f, 0.92f));
+
+            dxSpineUp = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.16f, 0.85f, 0.56f, 0.92f));
+            dxSpineDown = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.96f, 0.28f, 0.42f, 0.92f));
+            dxGridBg = new D2D.SolidColorBrush(RenderTarget, ToC4(ColStatGridBg, 0.92f, new SharpDX.Color4(0.035f, 0.05f, 0.086f, 0.92f)));
+            dxGridBorder = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.20f, 0.28f, 0.40f, 0.85f));
+            dxBadgeBg = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.05f, 0.08f, 0.14f, 0.88f));
+            dxUserLvlBr = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(0.22f, 0.74f, 0.97f, 0.90f));
+            dxSpecGloss = new D2D.SolidColorBrush(RenderTarget, new SharpDX.Color4(1.0f, 1.0f, 1.0f, 0.16f));
+
+            dxDashStyle = new D2D.StrokeStyle(Globals.D2DFactory, new D2D.StrokeStyleProperties { DashStyle = D2D.DashStyle.Dash });
+            dxDotStyle = new D2D.StrokeStyle(Globals.D2DFactory, new D2D.StrokeStyleProperties { DashStyle = D2D.DashStyle.Dot });
+
+            dxFontLeft = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, LeftFontSize);
+            dxFontRight = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, RightFontSize);
+            dxFontSmall = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.SemiBold, DW.FontStyle.Normal, 9.5f);
+            dxFontStat = new DW.TextFormat(Globals.DirectWriteFactory, "Consolas", DW.FontWeight.SemiBold, DW.FontStyle.Normal, StatFontSize);
+            dxFontHdr = new DW.TextFormat(Globals.DirectWriteFactory, "Segoe UI", DW.FontWeight.Bold, DW.FontStyle.Normal, 10.0f);
+        }
+
+        private string FormatCellText(VeltrixFpStyle st, BucketRenderCell bc, int div)
+        {
+            long d = Math.Max(1, div);
+            switch (st)
+            {
+                case VeltrixFpStyle.BidAsk:
+                    return (bc.BidVol / d).ToString(CultureInfo.InvariantCulture) + " x " + (bc.AskVol / d).ToString(CultureInfo.InvariantCulture);
+                case VeltrixFpStyle.Volume:
+                    return (bc.Vol / d).ToString(CultureInfo.InvariantCulture);
+                case VeltrixFpStyle.Delta:
+                    long del = bc.Delta / d;
+                    return (del > 0 ? "+" : "") + del.ToString(CultureInfo.InvariantCulture);
+                case VeltrixFpStyle.SplitDeltaImbalance:
+                    long sDel = bc.Delta / d;
+                    return (sDel > 0 ? "+" : "") + sDel.ToString(CultureInfo.InvariantCulture);
+                case VeltrixFpStyle.Ladder:
+                    return (bc.BidVol / d).ToString(CultureInfo.InvariantCulture) + " | " + (bc.AskVol / d).ToString(CultureInfo.InvariantCulture);
+                case VeltrixFpStyle.TradesNumber:
+                    return bc.Trades.ToString(CultureInfo.InvariantCulture) + "t";
+                case VeltrixFpStyle.Bid:
+                    return (bc.BidVol / d).ToString(CultureInfo.InvariantCulture);
+                case VeltrixFpStyle.Ask:
+                    return (bc.AskVol / d).ToString(CultureInfo.InvariantCulture);
+                case VeltrixFpStyle.DeltaPercentage:
+                    int pct = (bc.Vol > 0) ? (int)Math.Round((double)bc.Delta * 100.0 / (double)bc.Vol) : 0;
+                    return (pct > 0 ? "+" : "") + pct.ToString(CultureInfo.InvariantCulture) + "%";
+                default:
+                    return "";
+            }
+        }
+
+        private void DrawTextCentered(string text, DW.TextFormat tf, SharpDX.RectangleF rect, D2D.Brush br)
+        {
+            if (string.IsNullOrEmpty(text) || rect.Width < 4f || rect.Height < 4f) return;
+            using (var layout = new DW.TextLayout(Globals.DirectWriteFactory, text, tf, Math.Max(4f, rect.Width), Math.Max(4f, rect.Height)))
+            {
+                layout.TextAlignment = DW.TextAlignment.Center;
+                layout.ParagraphAlignment = DW.ParagraphAlignment.Center;
+                RenderTarget.DrawTextLayout(new SharpDX.Vector2(rect.X, rect.Y), layout, br);
+            }
+        }
+
+        private List<string> GetEnabledStatRowLabels()
+        {
+            List<string> r = new List<string>(14);
+            if (GridShowVolume) r.Add("Volume");
+            if (GridShowBuyVol) r.Add("Buy Vol");
+            if (GridShowSellVol) r.Add("Sell Vol");
+            if (GridShowTrades) r.Add("Trades");
+            if (GridShowDelta) r.Add("Delta");
+            if (GridShowDeltaPct) r.Add("Delta %");
+            if (GridShowCumDelta) r.Add("Cum Delta");
+            if (GridShowMinMaxDelta) r.Add("Min/Max Δ");
+            if (GridShowDeltaChange) r.Add("Δ Change");
+            if (GridShowDeltaRate) r.Add("Δ Rate/s");
+            if (GridShowVolPerSec) r.Add("Vol / sec");
+            if (GridShowCotHighLow) r.Add("COT H / L");
+            if (GridShowPredicted) r.Add("Predicted");
+            return r;
+        }
+
+        protected override void OnRender(ChartControl chartControl, ChartScale chartScale)
+        {
+            if (RenderTarget == null || chartControl == null || ChartBars == null || chartScale == null || Bars == null || CurrentBar < 0)
+                return;
+
+            lastRenderedChartScale = chartScale;
+            EnsureDxResources();
+
+            int fromIdx = Math.Max(0, ChartBars.FromIndex - 1);
+            int toIdx = Math.Min(CurrentBar, ChartBars.ToIndex + 1);
+            if (toIdx < fromIdx) return;
+
+            float panelLeft = (float)ChartPanel.X;
+            float panelRight = (float)(ChartPanel.X + ChartPanel.W);
+            float panelTop = (float)ChartPanel.Y;
+            float panelBottom = (float)(ChartPanel.Y + ChartPanel.H);
+
+            List<string> statRows = ShowStatGrid ? GetEnabledStatRowLabels() : new List<string>(0);
+            float statGridH = (ShowStatGrid && statRows.Count > 0) ? (statRows.Count * StatCellHeightPx + 4f) : 0f;
+            float plotBottom = panelBottom - statGridH - 2f;
+
+            double ts = SafeTickSize();
+            int baseGroup = Math.Max(1, TicksPerLevel);
+            float singleTickPx = Math.Abs((float)chartScale.GetYByValue(Closes[0][0]) - (float)chartScale.GetYByValue(Closes[0][0] + ts));
+            if (singleTickPx < 0.05f) singleTickPx = 1f;
+
+            int effGroup = baseGroup;
+            if (AutoZoomLOD)
+            {
+                while (singleTickPx * effGroup < 12.5f && effGroup < 64)
+                    effGroup *= 2;
+            }
+            float rowHeightPx = singleTickPx * effGroup;
+
+            lock (dataLock)
+            {
+                // Pre-compute visible chart-wide max cluster metric & grid maxima
+                long chartMaxBucketVol = 1;
+                long chartMaxDeltaAbs = 1;
+                long gridMaxVol = 1, gridMaxDelta = 1;
+                int visibleBarCount = toIdx - fromIdx + 1;
+                float defaultPitch = (visibleBarCount > 1)
+                    ? Math.Abs((float)chartControl.GetXByBarIndex(ChartBars, toIdx) - (float)chartControl.GetXByBarIndex(ChartBars, fromIdx)) / Math.Max(1, visibleBarCount - 1)
+                    : (float)Math.Max(20, MinBarWidthHintPx);
+
+                for (int b = fromIdx; b <= toIdx; b++)
+                {
+                    FpBarData bar;
+                    if (!barsMap.TryGetValue(b, out bar)) continue;
+                    if (bar.TotalVol > gridMaxVol) gridMaxVol = bar.TotalVol;
+                    if (Math.Abs(bar.BarDelta) > gridMaxDelta) gridMaxDelta = Math.Abs(bar.BarDelta);
+                    foreach (KeyValuePair<long, PriceCell> kv in bar.Cells)
+                    {
+                        if (kv.Value.Vol > chartMaxBucketVol) chartMaxBucketVol = kv.Value.Vol;
+                        long dA = Math.Abs(kv.Value.AskVol - kv.Value.BidVol);
+                        if (dA > chartMaxDeltaAbs) chartMaxDeltaAbs = dA;
+                    }
+                }
+
+                // 1) Render Interactive User Key Levels (underlay)
+                for (int u = 0; u < userLevels.Count; u++)
+                {
+                    float ly = (float)chartScale.GetYByValue(userLevels[u]);
+                    if (ly < panelTop || ly > plotBottom) continue;
+                    RenderTarget.DrawLine(new SharpDX.Vector2(panelLeft, ly), new SharpDX.Vector2(panelRight - 5f, ly), dxUserLvlBr, 1.4f, dxDashStyle);
+                    string lbl = "📌 FP LVL " + Instrument.MasterInstrument.FormatPrice(userLevels[u]);
+                    RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(panelRight - 145f, ly - 15f, 138f, 14f), RadiusX = 3f, RadiusY = 3f }, dxBadgeBg);
+                    DrawTextCentered(lbl, dxFontSmall, new SharpDX.RectangleF(panelRight - 145f, ly - 15f, 138f, 14f), dxUserLvlBr);
+                }
+
+                // 2) Render Stacked Imbalance & Absorption S/R Corridors
+                for (int z = 0; z < derivedZones.Count; z++)
+                {
+                    FpZone zn = derivedZones[z];
+                    if (zn.EndBarIdx > 0 && zn.EndBarIdx < fromIdx) continue;
+                    if (zn.StartBarIdx > toIdx) continue;
+                    if (mutedZoneIds.Contains(zn.ZoneId)) continue;
+
+                    float yTop = (float)chartScale.GetYByValue(zn.TopPrice);
+                    float yBot = (float)chartScale.GetYByValue(zn.BottomPrice);
+                    if (yBot < panelTop || yTop > plotBottom) continue;
+                    float hZone = Math.Max(5f, yBot - yTop);
+
+                    float xStart = (float)chartControl.GetXByBarIndex(ChartBars, Math.Max(0, zn.StartBarIdx));
+                    float xEnd = zn.Ended
+                        ? (float)chartControl.GetXByBarIndex(ChartBars, Math.Min(CurrentBar, zn.EndBarIdx))
+                        : (panelRight - 4f);
+                    float x1 = Math.Max(panelLeft, xStart);
+                    float x2 = Math.Min(panelRight, xEnd);
+                    if (x2 <= x1 + 4f) continue;
+
+                    D2D.SolidColorBrush zFill = zn.IsAbsorption
+                        ? (zn.IsSupport ? dxAbsSupFill : dxAbsResFill)
+                        : (zn.IsSupport ? dxBuyZoneFill : dxSellZoneFill);
+                    D2D.SolidColorBrush zEdge = zn.IsAbsorption
+                        ? (zn.IsSupport ? dxAbsSupEdge : dxAbsResEdge)
+                        : (zn.IsSupport ? dxBuyZoneEdge : dxSellZoneEdge);
+
+                    SharpDX.RectangleF zr = new SharpDX.RectangleF(x1, yTop, x2 - x1, hZone);
+                    RenderTarget.FillRectangle(zr, zFill);
+                    RenderTarget.DrawLine(new SharpDX.Vector2(x1, yTop), new SharpDX.Vector2(x2, yTop), zEdge, 1.3f);
+                    RenderTarget.DrawLine(new SharpDX.Vector2(x1, yBot), new SharpDX.Vector2(x2, yBot), zEdge, 1.3f);
+
+                    if (!zn.Ended && x2 - x1 > 75f)
+                    {
+                        string tag = zn.IsAbsorption
+                            ? (zn.IsSupport ? "ABS SUP" : "ABS RES")
+                            : ((zn.IsSupport ? "STK SUP x" : "STK RES x") + zn.StackedCount);
+                        RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(x2 - 84f, yTop - 7f, 78f, 13f), RadiusX = 3f, RadiusY = 3f }, dxBadgeBg);
+                        DrawTextCentered(tag, dxFontSmall, new SharpDX.RectangleF(x2 - 84f, yTop - 7f, 78f, 13f), zEdge);
+                    }
+                }
+
+                // 3) Render Naked Bar VPOC Rays extending right until touched
+                if (ShowNakedBarVpoc)
+                {
+                    for (int k = 0; k < nakedPocCandidates.Count; k++)
+                    {
+                        FpBarData nb = nakedPocCandidates[k];
+                        if (nb.BarIdx > toIdx) continue;
+                        string nId = "NPOC_" + nb.BarIdx;
+                        if (mutedZoneIds.Contains(nId)) continue;
+                        float py = (float)chartScale.GetYByValue(nb.PocPrice);
+                        if (py < panelTop || py > plotBottom) continue;
+                        float px1 = Math.Max(panelLeft, (float)chartControl.GetXByBarIndex(ChartBars, nb.BarIdx));
+                        RenderTarget.DrawLine(new SharpDX.Vector2(px1, py), new SharpDX.Vector2(panelRight - 4f, py), dxPocBr, 1.1f, dxDotStyle);
+                    }
+                }
+
+                byte posR, posG, posB, negR, negG, negB, neuR, neuG, neuB;
+                ToRgb(ColPositiveDelta, out posR, out posG, out posB);
+                ToRgb(ColNegativeDelta, out negR, out negG, out negB);
+                ToRgb(ColNeutralCluster, out neuR, out neuG, out neuB);
+
+                // 4) Per-Bar Footprint Cluster Loop (Strictly Visible Viewport)
+                for (int b = fromIdx; b <= toIdx; b++)
+                {
+                    FpBarData bar;
+                    if (!barsMap.TryGetValue(b, out bar)) continue;
+
+                    float cx = (float)chartControl.GetXByBarIndex(ChartBars, b);
+                    if (cx < panelLeft - 90f || cx > panelRight + 90f) continue;
+
+                    float nxtX = (b < toIdx) ? (float)chartControl.GetXByBarIndex(ChartBars, b + 1) : (cx + defaultPitch);
+                    float prvX = (b > fromIdx) ? (float)chartControl.GetXByBarIndex(ChartBars, b - 1) : (cx - defaultPitch);
+                    float pitchPx = Math.Max(8f, Math.Min(Math.Abs(nxtX - cx), Math.Abs(cx - prvX)));
+                    float availW = Math.Max(6f, pitchPx - BarOuterMarginPx);
+
+                    bool hasL = (LeftStyle != VeltrixFpStyle.None);
+                    bool hasR = (RightStyle != VeltrixFpStyle.None);
+                    float spineW = ShowCandleSpine ? Math.Min(6f, Math.Max(2f, availW * 0.08f)) : 0f;
+
+                    float leftX = cx - availW * 0.5f;
+                    float leftW = hasL ? (hasR ? (availW - spineW) * 0.52f : availW) : 0f;
+                    float rightX = hasL ? (cx + spineW * 0.5f + 1.5f) : (cx - availW * 0.5f);
+                    float rightW = hasR ? (hasL ? (availW - spineW) * 0.44f : availW) : 0f;
+
+                    // Re-bucket cells at effective Group LOD
+                    SortedDictionary<long, BucketRenderCell> bMap = new SortedDictionary<long, BucketRenderCell>();
+                    foreach (KeyValuePair<long, PriceCell> kv in bar.Cells)
+                    {
+                        long tk = kv.Key;
+                        long gIdx = (long)Math.Floor((double)tk / effGroup);
+                        BucketRenderCell bc;
+                        if (!bMap.TryGetValue(gIdx, out bc))
+                        {
+                            bc = new BucketRenderCell
+                            {
+                                GroupIdx = gIdx,
+                                PriceLow = TickToPrice(gIdx * effGroup),
+                                PriceHigh = TickToPrice((gIdx + 1) * effGroup - 1),
+                                PriceMid = (gIdx * effGroup + effGroup * 0.5) * ts
+                            };
+                            bMap[gIdx] = bc;
+                        }
+                        PriceCell pc = kv.Value;
+                        bc.Vol += pc.Vol;
+                        bc.BidVol += pc.BidVol;
+                        bc.AskVol += pc.AskVol;
+                        bc.Trades += pc.Trades;
+                        if (pc.L2AbsBid) bc.AbsBid = true;
+                        if (pc.L2AbsAsk) bc.AbsAsk = true;
+                    }
+
+                    tmpBuckets.Clear();
+                    tmpBuckets.AddRange(bMap.Values);
+                    ComputeBucketSignals(tmpBuckets, bar);
+
+                    long barMaxVol = 1, barMaxDelta = 1;
+                    for (int i = 0; i < tmpBuckets.Count; i++)
+                    {
+                        if (tmpBuckets[i].Vol > barMaxVol) barMaxVol = tmpBuckets[i].Vol;
+                        long ad = Math.Abs(tmpBuckets[i].Delta);
+                        if (ad > barMaxDelta) barMaxDelta = ad;
+                    }
+
+                    // Candle Spine (Open-Close body + Wick)
+                    if (ShowCandleSpine)
+                    {
+                        float yH = Math.Max(panelTop, (float)chartScale.GetYByValue(bar.High));
+                        float yL = Math.Min(plotBottom, (float)chartScale.GetYByValue(bar.Low));
+                        float yO = Math.Max(panelTop, Math.Min(plotBottom, (float)chartScale.GetYByValue(bar.Open)));
+                        float yC = Math.Max(panelTop, Math.Min(plotBottom, (float)chartScale.GetYByValue(bar.Close)));
+                        D2D.SolidColorBrush spBr = (bar.Close >= bar.Open) ? dxSpineUp : dxSpineDown;
+                        RenderTarget.DrawLine(new SharpDX.Vector2(cx, yH), new SharpDX.Vector2(cx, yL), spBr, 1.3f);
+                        float bTop = Math.Min(yO, yC);
+                        float bBot = Math.Max(yO, yC);
+                        RenderTarget.FillRectangle(new SharpDX.RectangleF(cx - spineW * 0.5f, bTop, spineW, Math.Max(2f, bBot - bTop)), spBr);
+                    }
+
+                    // Value Area vertical bracket along left of candle
+                    if (ShowBarValueArea && tmpBuckets.Count > 0 && availW >= 18f)
+                    {
+                        float vaTopY = Math.Max(panelTop, (float)chartScale.GetYByValue(bar.VahPrice));
+                        float vaBotY = Math.Min(plotBottom, (float)chartScale.GetYByValue(bar.ValPrice));
+                        if (vaBotY > vaTopY + 2f)
+                            RenderTarget.DrawLine(new SharpDX.Vector2(leftX - 2f, vaTopY), new SharpDX.Vector2(leftX - 2f, vaBotY), dxVaBarBr, 2.2f);
+                    }
+
+                    float cellH = Math.Max(3f, rowHeightPx - 1.5f);
+                    bool drawTextL = LeftShowValues && cellH >= 11f && leftW >= 34f;
+                    bool drawTextR = RightShowValues && cellH >= 11f && rightW >= 24f;
+
+                    for (int i = 0; i < tmpBuckets.Count; i++)
+                    {
+                        BucketRenderCell bc = tmpBuckets[i];
+                        if (bc.Vol < DisplayVolFilter) continue;
+                        if (OnlyImbalance && !bc.BuyImb && !bc.SellImb) continue;
+                        if (OnlyAbsorption && !bc.AbsBid && !bc.AbsAsk) continue;
+
+                        float cy = (float)chartScale.GetYByValue(bc.PriceMid);
+                        float ry = cy - cellH * 0.5f;
+                        if (ry + cellH < panelTop || ry > plotBottom) continue;
+
+                        // LEFT SIDE CLUSTER
+                        if (hasL && leftW >= 4f)
+                            RenderSideCell(bc, true, leftX, ry, leftW, cellH, drawTextL, barMaxVol, barMaxDelta, chartMaxBucketVol, chartMaxDeltaAbs, posR, posG, posB, negR, negG, negB, neuR, neuG, neuB);
+
+                        // RIGHT SIDE CLUSTER
+                        if (hasR && rightW >= 4f)
+                            RenderSideCell(bc, false, rightX, ry, rightW, cellH, drawTextR, barMaxVol, barMaxDelta, chartMaxBucketVol, chartMaxDeltaAbs, posR, posG, posB, negR, negG, negB, neuR, neuG, neuB);
+
+                        // Imbalance Dot / Diamond / Box Markers
+                        if (ShowImbalance && (bc.BuyImb || bc.SellImb) && availW >= 14f)
+                        {
+                            float mx = bc.BuyImb ? (hasR ? rightX + rightW + 3f : leftX + leftW + 3f) : (leftX - 4f);
+                            D2D.SolidColorBrush imbBr = bc.BuyImb ? dxBuyZoneEdge : dxSellZoneEdge;
+                            if (ImbMarkerType == VeltrixFpMarkerType.Dot)
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(mx, cy), 3.0f, 3.0f), imbBr);
+                            else if (ImbMarkerType == VeltrixFpMarkerType.Diamond)
+                                RenderTarget.FillRectangle(new SharpDX.RectangleF(mx - 2.5f, cy - 2.5f, 5f, 5f), imbBr);
+                            else if (ImbMarkerType == VeltrixFpMarkerType.GlowBox)
+                                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(leftX, ry, availW, cellH), RadiusX = 2f, RadiusY = 2f }, imbBr, 1.4f);
+                        }
+
+                        // Absorption Halo Markers
+                        if (ShowAbsorption && (bc.AbsBid || bc.AbsAsk) && availW >= 14f)
+                        {
+                            D2D.SolidColorBrush absBr = bc.AbsBid ? dxAbsSupEdge : dxAbsResEdge;
+                            float ax = bc.AbsBid ? (leftX + 3f) : (cx + availW * 0.5f - 3f);
+                            RenderTarget.DrawEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), 4.5f, 4.5f), absBr, 1.8f);
+                        }
+
+                        // Bar VPOC Gold Frame
+                        if (ShowBarVpoc && bc.IsVpoc)
+                        {
+                            float vx = hasL ? leftX : rightX;
+                            float vw = (hasL ? leftW : 0f) + (hasR ? rightW + (hasL ? spineW + 2f : 0f) : 0f);
+                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(vx - 1f, ry - 0.5f, Math.Max(4f, vw + 2f), cellH + 1f), RadiusX = 2.5f, RadiusY = 2.5f }, dxPocBr, 1.7f);
+                        }
+                    }
+
+                    // Bar Extremes Annotations (Unfinished Auction, Exhaustion, Ratio Numbers, Traps, Delta Badge)
+                    float yBarTop = Math.Max(panelTop + 2f, (float)chartScale.GetYByValue(bar.High));
+                    float yBarBot = Math.Min(plotBottom - 4f, (float)chartScale.GetYByValue(bar.Low));
+
+                    if (ShowUnfinishedAuction)
+                    {
+                        if (bar.UnfinishedHigh && availW >= 14f)
+                        {
+                            RenderTarget.DrawLine(new SharpDX.Vector2(cx - availW * 0.42f, yBarTop), new SharpDX.Vector2(cx + availW * 0.42f, yBarTop), dxUnfBr, 2.0f);
+                            if (availW >= 40f) DrawTextCentered("UA", dxFontSmall, new SharpDX.RectangleF(cx + availW * 0.42f, yBarTop - 6f, 20f, 12f), dxUnfBr);
+                        }
+                        if (bar.UnfinishedLow && availW >= 14f)
+                        {
+                            RenderTarget.DrawLine(new SharpDX.Vector2(cx - availW * 0.42f, yBarBot), new SharpDX.Vector2(cx + availW * 0.42f, yBarBot), dxUnfBr, 2.0f);
+                            if (availW >= 40f) DrawTextCentered("UA", dxFontSmall, new SharpDX.RectangleF(cx + availW * 0.42f, yBarBot - 6f, 20f, 12f), dxUnfBr);
+                        }
+                    }
+
+                    float topBadgeY = yBarTop - 16f;
+                    float botBadgeY = yBarBot + 4f;
+
+                    if (ShowBarRatioNumbers && availW >= 32f)
+                    {
+                        if (bar.TopRatio >= 0 && topBadgeY > panelTop + 2f)
+                        {
+                            bool rejT = (bar.TopRatio < RatioLowBound || bar.TopRatio >= RatioHighBound);
+                            string rTxt = bar.TopRatio >= 99.9 ? "99+" : bar.TopRatio.ToString("0.00", CultureInfo.InvariantCulture);
+                            DrawTextCentered(rTxt, dxFontSmall, new SharpDX.RectangleF(cx - 24f, topBadgeY, 48f, 13f), rejT ? dxRatioRejBr : dxRatioNeutralBr);
+                            topBadgeY -= 14f;
+                        }
+                        if (bar.BottomRatio >= 0 && botBadgeY + 13f < plotBottom)
+                        {
+                            bool rejB = (bar.BottomRatio < RatioLowBound || bar.BottomRatio >= RatioHighBound);
+                            string rTxt = bar.BottomRatio >= 99.9 ? "99+" : bar.BottomRatio.ToString("0.00", CultureInfo.InvariantCulture);
+                            DrawTextCentered(rTxt, dxFontSmall, new SharpDX.RectangleF(cx - 24f, botBadgeY, 48f, 13f), rejB ? dxRatioRejBr : dxRatioNeutralBr);
+                            botBadgeY += 14f;
+                        }
+                    }
+
+                    if (ShowExhaustion && availW >= 26f)
+                    {
+                        if (bar.HasExhaustionHigh && topBadgeY > panelTop + 2f)
+                        {
+                            DrawTextCentered("EXH", dxFontSmall, new SharpDX.RectangleF(cx - 18f, topBadgeY, 36f, 12f), dxUnfBr);
+                            topBadgeY -= 13f;
+                        }
+                        if (bar.HasExhaustionLow && botBadgeY + 12f < plotBottom)
+                        {
+                            DrawTextCentered("EXH", dxFontSmall, new SharpDX.RectangleF(cx - 18f, botBadgeY, 36f, 12f), dxUnfBr);
+                            botBadgeY += 13f;
+                        }
+                    }
+
+                    if (ShowBuyingSellingTraps && availW >= 26f)
+                    {
+                        if (bar.HasBuyingTrap && topBadgeY > panelTop + 2f)
+                        {
+                            RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cx - 26f, topBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f }, dxBadgeBg);
+                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cx - 26f, topBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f }, dxSellZoneEdge, 1.0f);
+                            DrawTextCentered("TRAP ▼", dxFontSmall, new SharpDX.RectangleF(cx - 26f, topBadgeY, 52f, 14f), dxSellZoneEdge);
+                            topBadgeY -= 15f;
+                        }
+                        if (bar.HasSellingTrap && botBadgeY + 14f < plotBottom)
+                        {
+                            RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f }, dxBadgeBg);
+                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f }, dxBuyZoneEdge, 1.0f);
+                            DrawTextCentered("TRAP ▲", dxFontSmall, new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 14f), dxBuyZoneEdge);
+                            botBadgeY += 15f;
+                        }
+                    }
+
+                    if (ShowBarDeltaTag && availW >= 26f && botBadgeY + 13f < plotBottom)
+                    {
+                        string dTxt = (bar.BarDelta > 0 ? "+" : "") + bar.BarDelta.ToString(CultureInfo.InvariantCulture);
+                        DrawTextCentered(dTxt, dxFontSmall, new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 13f), bar.BarDelta >= 0 ? dxPosDeltaBr : dxNegDeltaBr);
+                        botBadgeY += 13f;
+                    }
+                    if (ShowBarVolTag && availW >= 26f && botBadgeY + 13f < plotBottom)
+                    {
+                        DrawTextCentered(bar.TotalVol.ToString(CultureInfo.InvariantCulture), dxFontSmall, new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 13f), dxTextBright);
+                    }
+                }
+
+                // 5) Bottom Docked Statistic Grid
+                if (ShowStatGrid && statRows.Count > 0)
+                    RenderStatisticGrid(chartControl, statRows, fromIdx, toIdx, panelLeft, panelRight, panelBottom - statGridH, statGridH, defaultPitch, gridMaxVol, gridMaxDelta, posR, posG, posB, negR, negG, negB);
+
+                // 6) Sleek Top-Left Engine Status Pill
+                bool isReplay = (Bars.IsTickReplay);
+                string engineTag = isReplay ? "L1+L2 TICK REPLAY" : (usesSubSeries ? (HistoryMode == VeltrixFpHistoryMode.Real1TickNoReplay ? "1-TICK NO REPLAY" : "HYBRID 1m + LIVE L1/L2") : "LIVE L1+L2 + BAR");
+                string hudTxt = string.Format(CultureInfo.InvariantCulture, "FOOTPRINT PRO · {0} · {1}t{2}", engineTag, effGroup, (AutoZoomLOD && effGroup != baseGroup) ? " (AutoLOD)" : "");
+                RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(panelLeft + 8f, panelTop + 6f, 308f, 18f), RadiusX = 4f, RadiusY = 4f }, dxBadgeBg);
+                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(panelLeft + 8f, panelTop + 6f, 308f, 18f), RadiusX = 4f, RadiusY = 4f }, dxGridBorder, 1.0f);
+                DrawTextCentered(hudTxt, dxFontHdr, new SharpDX.RectangleF(panelLeft + 10f, panelTop + 6f, 304f, 18f), dxVaBarBr);
+            }
+        }
+
+        private void RenderSideCell(
+            BucketRenderCell bc, bool isLeft, float x, float y, float w, float h, bool drawText,
+            long barMaxVol, long barMaxDelta, long chartMaxVol, long chartMaxDelta,
+            byte posR, byte posG, byte posB, byte negR, byte negG, byte negB, byte neuR, byte neuG, byte neuB)
+        {
+            VeltrixFpStyle style = isLeft ? LeftStyle : RightStyle;
+            VeltrixFpClusterShape shape = isLeft ? LeftShape : RightShape;
+            VeltrixFpScaleScope scope = isLeft ? LeftScaleScope : RightScaleScope;
+            VeltrixFpScaleSource scSrc = isLeft ? LeftScaleSource : RightScaleSource;
+            VeltrixFpColorSource cSrc = isLeft ? LeftColorSource : RightColorSource;
+            DW.TextFormat tf = isLeft ? dxFontLeft : dxFontRight;
+            int div = isLeft ? LeftValuesDivider : RightValuesDivider;
+
+            long numVal = (scSrc == VeltrixFpScaleSource.Delta) ? Math.Abs(bc.Delta) : (scSrc == VeltrixFpScaleSource.BidAskMax ? Math.Max(bc.BidVol, bc.AskVol) : bc.Vol);
+            long denVal = (scSrc == VeltrixFpScaleSource.Delta)
+                ? (scope == VeltrixFpScaleScope.Chart ? chartMaxDelta : barMaxDelta)
+                : (scope == VeltrixFpScaleScope.Chart ? chartMaxVol : barMaxVol);
+            double norm = Math.Max(0.08, Math.Min(1.0, (double)numVal / Math.Max(1.0, (double)denVal)));
+
+            byte cr = neuR, cg = neuG, cb = neuB;
+            if (cSrc == VeltrixFpColorSource.Delta)
+            {
+                if (bc.Delta > 0) { cr = posR; cg = posG; cb = posB; }
+                else if (bc.Delta < 0) { cr = negR; cg = negG; cb = negB; }
+            }
+            else if (cSrc == VeltrixFpColorSource.BidAsk)
+            {
+                if (bc.AskVol >= bc.BidVol) { cr = posR; cg = posG; cb = posB; }
+                else { cr = negR; cg = negG; cb = negB; }
+            }
+
+            float baseAlpha = (shape == VeltrixFpClusterShape.HeatGradient)
+                ? (float)(0.24 + 0.64 * norm)
+                : (float)(0.26 + 0.56 * norm);
+            D2D.SolidColorBrush fillBr = GetDynBrush(cr, cg, cb, baseAlpha);
+            D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, Math.Min(0.95f, baseAlpha + 0.22f));
+
+            float drawX = x;
+            float drawW = w;
+            if (shape == VeltrixFpClusterShape.Histogram)
+            {
+                drawW = Math.Max(3f, (float)(w * norm));
+                drawX = isLeft ? (x + w - drawW) : x;
+            }
+
+            if (style == VeltrixFpStyle.Ladder || style == VeltrixFpStyle.SplitDeltaImbalance)
+            {
+                long totSide = Math.Max(1L, bc.BidVol + bc.AskVol);
+                float bidW = drawW * (float)((double)bc.BidVol / totSide);
+                float askW = drawW - bidW;
+                if (bidW >= 1f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX, y, bidW, h), GetDynBrush(negR, negG, negB, baseAlpha));
+                if (askW >= 1f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX + bidW, y, askW, h), GetDynBrush(posR, posG, posB, baseAlpha));
+                if (bc.InValueArea) RenderTarget.DrawRectangle(new SharpDX.RectangleF(drawX, y, drawW, h), edgeBr, 0.8f);
+            }
+            else
+            {
+                var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 2.2f, RadiusY = 2.2f };
+                RenderTarget.FillRoundedRectangle(rRect, fillBr);
+                if (ShowSpecularGloss && norm >= 0.55 && h >= 8f)
+                    RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX + 1f, y + 0.5f, Math.Max(1f, drawW - 2f), 2f), dxSpecGloss);
+                if (shape == VeltrixFpClusterShape.HeatGradient || norm >= 0.72)
+                    RenderTarget.DrawRoundedRectangle(rRect, edgeBr, 1.0f);
+            }
+
+            if (drawText)
+            {
+                string txt = FormatCellText(style, bc, div);
+                D2D.SolidColorBrush txtBr = (bc.BuyImb && bc.AskVol >= ImbalanceMinVol) ? dxTextAsk : ((bc.SellImb && bc.BidVol >= ImbalanceMinVol) ? dxTextBid : dxTextBright);
+                DrawTextCentered(txt, tf, new SharpDX.RectangleF(x, y, w, h), txtBr);
+            }
+        }
+
+        private void RenderStatisticGrid(
+            ChartControl chartControl, List<string> rows, int fromIdx, int toIdx,
+            float panelLeft, float panelRight, float topY, float totalH, float defaultPitch,
+            long maxVol, long maxDelta, byte posR, byte posG, byte posB, byte negR, byte negG, byte negB)
+        {
+            RenderTarget.FillRectangle(new SharpDX.RectangleF(panelLeft, topY, panelRight - panelLeft, totalH), dxGridBg);
+            RenderTarget.DrawLine(new SharpDX.Vector2(panelLeft, topY), new SharpDX.Vector2(panelRight, topY), dxGridBorder, 1.4f);
+
+            float legW = 84f;
+            float legX = (StatLegendPos == VeltrixFpLegendPos.Left) ? (panelLeft + 2f) : (panelRight - legW - 2f);
+
+            for (int r = 0; r < rows.Count; r++)
+            {
+                float ry = topY + 2f + r * StatCellHeightPx;
+                RenderTarget.DrawLine(new SharpDX.Vector2(panelLeft, ry + StatCellHeightPx), new SharpDX.Vector2(panelRight, ry + StatCellHeightPx), dxGridBorder, 0.5f);
+            }
+
+            for (int b = fromIdx; b <= toIdx; b++)
+            {
+                FpBarData bar;
+                if (!barsMap.TryGetValue(b, out bar)) continue;
+                float cx = (float)chartControl.GetXByBarIndex(ChartBars, b);
+                if (cx < panelLeft || cx > panelRight) continue;
+                if (StatLegendPos == VeltrixFpLegendPos.Left && cx < legX + legW + 8f) continue;
+                if (StatLegendPos == VeltrixFpLegendPos.Right && cx > legX - 8f) continue;
+
+                float nxtX = (b < toIdx) ? (float)chartControl.GetXByBarIndex(ChartBars, b + 1) : (cx + defaultPitch);
+                float prvX = (b > fromIdx) ? (float)chartControl.GetXByBarIndex(ChartBars, b - 1) : (cx - defaultPitch);
+                float colW = Math.Max(22f, Math.Min(Math.Abs(nxtX - cx), Math.Abs(cx - prvX)) - 2f);
+                if (colW < 22f) continue;
+                float colX = cx - colW * 0.5f;
+
+                for (int r = 0; r < rows.Count; r++)
+                {
+                    float ry = topY + 2f + r * StatCellHeightPx;
+                    string key = rows[r];
+                    string val = "";
+                    D2D.SolidColorBrush cellBg = null;
+                    D2D.SolidColorBrush cellFg = dxTextBright;
+
+                    if (key == "Volume")
+                    {
+                        val = bar.TotalVol.ToString(CultureInfo.InvariantCulture);
+                        float a = (float)(0.12 + 0.45 * ((double)bar.TotalVol / Math.Max(1, maxVol)));
+                        cellBg = GetDynBrush(59, 130, 246, a);
+                    }
+                    else if (key == "Buy Vol")
+                    {
+                        val = bar.BuyVol.ToString(CultureInfo.InvariantCulture);
+                        cellFg = dxTextAsk;
+                    }
+                    else if (key == "Sell Vol")
+                    {
+                        val = bar.SellVol.ToString(CultureInfo.InvariantCulture);
+                        cellFg = dxTextBid;
+                    }
+                    else if (key == "Trades")
+                    {
+                        val = bar.TradesCount.ToString(CultureInfo.InvariantCulture);
+                    }
+                    else if (key == "Delta")
+                    {
+                        val = (bar.BarDelta > 0 ? "+" : "") + bar.BarDelta.ToString(CultureInfo.InvariantCulture);
+                        float a = (float)(0.16 + 0.52 * (Math.Abs((double)bar.BarDelta) / Math.Max(1, maxDelta)));
+                        cellBg = (bar.BarDelta >= 0) ? GetDynBrush(posR, posG, posB, a) : GetDynBrush(negR, negG, negB, a);
+                    }
+                    else if (key == "Delta %")
+                    {
+                        int pct = (bar.TotalVol > 0) ? (int)Math.Round(bar.BarDelta * 100.0 / bar.TotalVol) : 0;
+                        val = (pct > 0 ? "+" : "") + pct.ToString(CultureInfo.InvariantCulture) + "%";
+                        cellFg = (pct >= 0) ? dxTextAsk : dxTextBid;
+                    }
+                    else if (key == "Cum Delta")
+                    {
+                        val = (bar.CumDeltaAtBar > 0 ? "+" : "") + bar.CumDeltaAtBar.ToString(CultureInfo.InvariantCulture);
+                        cellFg = (bar.CumDeltaAtBar >= 0) ? dxTextAsk : dxTextBid;
+                    }
+                    else if (key == "Min/Max Δ")
+                    {
+                        val = bar.MinDelta.ToString(CultureInfo.InvariantCulture) + "/" + bar.MaxDelta.ToString(CultureInfo.InvariantCulture);
+                    }
+                    else if (key == "Δ Change")
+                    {
+                        val = (bar.DeltaChange > 0 ? "+" : "") + bar.DeltaChange.ToString(CultureInfo.InvariantCulture);
+                        cellFg = (bar.DeltaChange >= 0) ? dxTextAsk : dxTextBid;
+                    }
+                    else if (key == "Δ Rate/s")
+                    {
+                        double dr = bar.BarDelta / Math.Max(1.0, bar.ElapsedSec);
+                        val = dr.ToString("0.0", CultureInfo.InvariantCulture);
+                        cellFg = (dr >= 0) ? dxTextAsk : dxTextBid;
+                    }
+                    else if (key == "Vol / sec")
+                    {
+                        double vs = bar.TotalVol / Math.Max(1.0, bar.ElapsedSec);
+                        val = vs.ToString("0.0", CultureInfo.InvariantCulture);
+                    }
+                    else if (key == "COT H / L")
+                    {
+                        val = bar.CotHighDelta.ToString(CultureInfo.InvariantCulture) + "/" + bar.CotLowDelta.ToString(CultureInfo.InvariantCulture);
+                    }
+                    else if (key == "Predicted")
+                    {
+                        if (b == CurrentBar)
+                        {
+                            double rate = bar.TotalVol / Math.Max(1.0, bar.ElapsedSec);
+                            double est = bar.TotalVol + rate * 10.0;
+                            val = "~" + Math.Round(est).ToString(CultureInfo.InvariantCulture);
+                            cellFg = dxPocBr;
+                        }
+                        else val = "—";
+                    }
+
+                    if (cellBg != null)
+                        RenderTarget.FillRectangle(new SharpDX.RectangleF(colX, ry + 1f, colW, StatCellHeightPx - 2f), cellBg);
+                    DrawTextCentered(val, dxFontStat, new SharpDX.RectangleF(colX, ry, colW, StatCellHeightPx), cellFg);
+                }
+            }
+
+            // Legend column on top
+            RenderTarget.FillRectangle(new SharpDX.RectangleF(legX - 2f, topY + 1f, legW + 4f, totalH - 2f), dxBadgeBg);
+            RenderTarget.DrawLine(new SharpDX.Vector2(StatLegendPos == VeltrixFpLegendPos.Left ? legX + legW : legX, topY), new SharpDX.Vector2(StatLegendPos == VeltrixFpLegendPos.Left ? legX + legW : legX, topY + totalH), dxGridBorder, 1.2f);
+            for (int r = 0; r < rows.Count; r++)
+            {
+                float ry = topY + 2f + r * StatCellHeightPx;
+                DrawTextCentered(rows[r], dxFontSmall, new SharpDX.RectangleF(legX, ry, legW, StatCellHeightPx), dxTextMuted);
+            }
+        }
+        #endregion
+
+        #region Chart Context Menu, Topbar Button & Live Studio Popup
+        private void HookChartContextAndToolbar()
+        {
+            if (ChartControl == null) return;
+            ChartControl.Dispatcher.BeginInvoke(new Action(delegate
+            {
+                try
+                {
+                    if (!ctxHooked && ChartControl != null && ChartControl.ContextMenu != null)
+                    {
+                        hookedCtxMenu = ChartControl.ContextMenu;
+                        hookedCtxMenu.Opened += OnChartContextMenuOpened;
+                        ChartControl.PreviewMouseRightButtonDown += OnChartRightMouseDown;
+                        ctxHooked = true;
+                    }
+                }
+                catch { }
+            }));
+
+            if (ShowToolbarButton)
+            {
+                ChartControl.Dispatcher.BeginInvoke(new Action(delegate
+                {
+                    try
+                    {
+                        if (ChartControl == null || ChartControl.OwnerChart == null) return;
+                        var menu = ChartControl.OwnerChart.MainMenu;
+                        if (menu == null) return;
+                        toolbarHostMenu = menu;
+
+                        for (int i = 0; i < menu.Count; i++)
+                        {
+                            var fe = menu[i] as FrameworkElement;
+                            if (fe != null && Equals(fe.Tag, TOOLBAR_TAG))
+                            {
+                                toolbarBtn = menu[i] as Wpf.Button;
+                                return;
+                            }
+                        }
+
+                        var bg = FreezeHex("#132033");
+                        var fg = FreezeHex("#7DD3FC");
+                        var bd = FreezeHex("#0EA5E9");
+                        var btn = new Wpf.Button
+                        {
+                            Content = "🐾 Footprint",
+                            ToolTip = "VeltrixQuant FootprintPro Studio — Presets, Clusters, Absorção, Grid & Cores",
+                            Tag = TOOLBAR_TAG,
+                            Height = 22,
+                            MinWidth = 92,
+                            Margin = new Thickness(3, 1, 3, 1),
+                            Padding = new Thickness(9, 1, 9, 1),
+                            FontSize = 11,
+                            FontWeight = FontWeights.SemiBold,
+                            Background = bg,
+                            Foreground = fg,
+                            BorderBrush = bd,
+                            BorderThickness = new Thickness(1),
+                            Cursor = Cursors.Hand
+                        };
+                        btn.Click += (s, e) => OpenStudioPopup();
+                        menu.Add(btn);
+                        toolbarBtn = btn;
+                    }
+                    catch { }
+                }));
+            }
+        }
+
+        private void UnhookChartContext()
+        {
+            try
+            {
+                if (hookedCtxMenu != null)
+                {
+                    hookedCtxMenu.Opened -= OnChartContextMenuOpened;
+                    hookedCtxMenu = null;
+                }
+                if (ChartControl != null)
+                    ChartControl.PreviewMouseRightButtonDown -= OnChartRightMouseDown;
+            }
+            catch { }
+            ctxHooked = false;
+        }
+
+        private void RemoveToolbarButton()
+        {
+            if (toolbarBtn == null || toolbarHostMenu == null) return;
+            var btnRef = toolbarBtn;
+            var hostRef = toolbarHostMenu as System.Collections.IList;
+            toolbarBtn = null;
+            toolbarHostMenu = null;
+            if (hostRef != null && ChartControl != null)
+            {
+                ChartControl.Dispatcher.BeginInvoke(new Action(delegate
+                {
+                    try { if (hostRef.Contains(btnRef)) hostRef.Remove(btnRef); } catch { }
+                }));
+            }
+        }
+
+        private void OnChartRightMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (ChartControl == null) return;
+            lastMouseDownChartPx = e.GetPosition(ChartControl);
+        }
+
+        private void OnChartContextMenuOpened(object sender, RoutedEventArgs e)
+        {
+            var cm = sender as Wpf.ContextMenu;
+            ChartScale activeScale = lastRenderedChartScale;
+            if (activeScale == null && ChartPanel != null && ChartPanel.Scales != null && ChartPanel.Scales.Count > 0)
+                activeScale = ChartPanel.Scales[0];
+            if (cm == null || ChartControl == null || activeScale == null) return;
+
+            for (int i = cm.Items.Count - 1; i >= 0; i--)
+            {
+                var fe = cm.Items[i] as FrameworkElement;
+                if (fe != null && Equals(fe.Tag, CTX_TAG)) cm.Items.RemoveAt(i);
+            }
+
+            double clickedPrice = double.NaN;
+            try
+            {
+                if (!double.IsNaN(lastMouseDownChartPx.Y))
+                {
+                    double rawP = activeScale.GetValueByY((float)lastMouseDownChartPx.Y);
+                    clickedPrice = Math.Round(rawP / SafeTickSize()) * SafeTickSize();
+                }
+            }
+            catch { }
+
+            var items = new List<object>();
+            items.Add(new Wpf.MenuItem { Header = "🐾 VeltrixQuant FootprintPro", IsEnabled = false, FontWeight = FontWeights.Bold, Tag = CTX_TAG });
+
+            if (!double.IsNaN(clickedPrice))
+            {
+                double capturedP = clickedPrice;
+                string pTxt = Instrument != null ? Instrument.MasterInstrument.FormatPrice(capturedP) : capturedP.ToString("0.00", CultureInfo.InvariantCulture);
+                var miLvl = new Wpf.MenuItem { Header = "📌 Fixar / Remover Nível Chave aqui (" + pTxt + ")", Tag = CTX_TAG };
+                miLvl.Click += (s2, e2) =>
+                {
+                    lock (dataLock)
+                    {
+                        double ts = SafeTickSize() * 1.5;
+                        int existing = userLevels.FindIndex(delegate (double v) { return Math.Abs(v - capturedP) <= ts; });
+                        if (existing >= 0) userLevels.RemoveAt(existing);
+                        else userLevels.Add(capturedP);
+                        SavePersistedStateLocked();
+                    }
+                    if (ChartControl != null) ChartControl.InvalidateVisual();
+                };
+                items.Add(miLvl);
+            }
+
+            var miStudio = new Wpf.MenuItem { Header = "⚙ Abrir Footprint Pro Studio (Cores & Presets)", Tag = CTX_TAG };
+            miStudio.Click += (s2, e2) => OpenStudioPopup();
+            items.Add(miStudio);
+
+            var miClrLvls = new Wpf.MenuItem { Header = "🧹 Limpar Todos Níveis Fixados & Restaurar Zonas", Tag = CTX_TAG };
+            miClrLvls.Click += (s2, e2) =>
+            {
+                lock (dataLock)
+                {
+                    userLevels.Clear();
+                    mutedZoneIds.Clear();
+                    SavePersistedStateLocked();
+                }
+                if (ChartControl != null) ChartControl.InvalidateVisual();
+            };
+            items.Add(miClrLvls);
+            items.Add(new Wpf.Separator { Tag = CTX_TAG });
+
+            for (int k = items.Count - 1; k >= 0; k--)
+                cm.Items.Insert(0, items[k]);
+        }
+
+        private void OpenStudioPopup()
+        {
+            if (quickWin != null)
+            {
+                try { quickWin.Activate(); return; } catch { quickWin = null; }
+            }
+
+            var bgBr = FreezeHex("#0B1120");
+            var cardBr = FreezeHex("#111A2E");
+            var inputBr = FreezeHex("#16213A");
+            var bdBr = FreezeHex("#253656");
+            var txtBr = FreezeHex("#F1F5F9");
+            var mutBr = FreezeHex("#94A3B8");
+            var accBr = FreezeHex("#38BDF8");
+            var okBg = FreezeHex("#0284C7");
+
+            var win = new Window
+            {
+                Title = "VeltrixQuant — FootprintPro Studio",
+                Width = 540,
+                SizeToContent = SizeToContent.Height,
+                MaxHeight = 760,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                Background = bgBr,
+                ResizeMode = ResizeMode.NoResize,
+                Topmost = true
+            };
+
+            var root = new Wpf.StackPanel { Margin = new Thickness(12) };
+            root.Children.Add(new Wpf.TextBlock
+            {
+                Text = "🐾 FootprintPro Studio — Ordem, Absorção L2 & Design Studio",
+                Foreground = accBr,
+                FontSize = 13.5,
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+
+            // Controls bound across tabs
+            var cbLStyle = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpStyle)), SelectedItem = LeftStyle, Width = 148 };
+            var cbLShape = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpClusterShape)), SelectedItem = LeftShape, Width = 112 };
+            var cbRStyle = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpStyle)), SelectedItem = RightStyle, Width = 148 };
+            var cbRShape = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpClusterShape)), SelectedItem = RightShape, Width = 112 };
+            var chkLVal = new Wpf.CheckBox { IsChecked = LeftShowValues, Content = "Show L Vals", Foreground = txtBr };
+            var chkRVal = new Wpf.CheckBox { IsChecked = RightShowValues, Content = "Show R Vals", Foreground = txtBr };
+
+            var tbTicks = new Wpf.TextBox { Text = TicksPerLevel.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var chkLod = new Wpf.CheckBox { IsChecked = AutoZoomLOD, Content = "AutoZoom LOD", Foreground = txtBr };
+            var tbTMin = new Wpf.TextBox { Text = TradeMin.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbTMax = new Wpf.TextBox { Text = TradeMax.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbDVol = new Wpf.TextBox { Text = DisplayVolFilter.ToString(CultureInfo.InvariantCulture), Width = 54, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var cbAlgo = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpOrderflowAlgo)), SelectedItem = OrderflowAlgo, Width = 128 };
+            var tbTapeMs = new Wpf.TextBox { Text = ReconstructTapeMs.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var chkGloss = new Wpf.CheckBox { IsChecked = ShowSpecularGloss, Content = "3D Gloss", Foreground = txtBr };
+            var chkSpine = new Wpf.CheckBox { IsChecked = ShowCandleSpine, Content = "Spine", Foreground = txtBr };
+
+            var chkImb = new Wpf.CheckBox { IsChecked = ShowImbalance, Content = "Imbalances", Foreground = txtBr };
+            var chkOnlyImb = new Wpf.CheckBox { IsChecked = OnlyImbalance, Content = "Only Imb", Foreground = txtBr };
+            var cbImbDir = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpImbalanceDir)), SelectedItem = ImbalanceDirection, Width = 104 };
+            var tbImbPct = new Wpf.TextBox { Text = ImbalancePct.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbImbVol = new Wpf.TextBox { Text = ImbalanceMinVol.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var chkStkZ = new Wpf.CheckBox { IsChecked = ShowStackedZones, Content = "Stacked S/R Zones", Foreground = txtBr };
+            var tbStkCnt = new Wpf.TextBox { Text = StackedConsecutive.ToString(CultureInfo.InvariantCulture), Width = 44, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbStkVol = new Wpf.TextBox { Text = StackedZoneMinVol.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+
+            var chkAbs = new Wpf.CheckBox { IsChecked = ShowAbsorption, Content = "Absorption", Foreground = txtBr };
+            var chkAbsL2 = new Wpf.CheckBox { IsChecked = RequireL2Confirm, Content = "Require L2", Foreground = txtBr };
+            var chkAbsZ = new Wpf.CheckBox { IsChecked = ShowAbsorptionZones, Content = "Abs Zones", Foreground = txtBr };
+            var tbAbsPct = new Wpf.TextBox { Text = AbsorptionPct.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbAbsVol = new Wpf.TextBox { Text = AbsorptionFilter.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+
+            var chkVpoc = new Wpf.CheckBox { IsChecked = ShowBarVpoc, Content = "Bar VPOC", Foreground = txtBr };
+            var chkNPoc = new Wpf.CheckBox { IsChecked = ShowNakedBarVpoc, Content = "Naked VPOC", Foreground = txtBr };
+            var chkBVa = new Wpf.CheckBox { IsChecked = ShowBarValueArea, Content = "Bar VA 68%", Foreground = txtBr };
+            var chkUa = new Wpf.CheckBox { IsChecked = ShowUnfinishedAuction, Content = "Unfinished", Foreground = txtBr };
+            var chkExh = new Wpf.CheckBox { IsChecked = ShowExhaustion, Content = "Exhaustion", Foreground = txtBr };
+            var chkTrap = new Wpf.CheckBox { IsChecked = ShowBuyingSellingTraps, Content = "Traps", Foreground = txtBr };
+            var chkRatio = new Wpf.CheckBox { IsChecked = ShowBarRatioNumbers, Content = "Ratio Numbers", Foreground = txtBr };
+            var chkStatG = new Wpf.CheckBox { IsChecked = ShowStatGrid, Content = "Bottom Stat Grid", Foreground = txtBr };
+            var chkGVol = new Wpf.CheckBox { IsChecked = GridShowVolume, Content = "Vol", Foreground = txtBr };
+            var chkGDel = new Wpf.CheckBox { IsChecked = GridShowDelta, Content = "Delta", Foreground = txtBr };
+            var chkGCum = new Wpf.CheckBox { IsChecked = GridShowCumDelta, Content = "CumΔ", Foreground = txtBr };
+            var chkGVs = new Wpf.CheckBox { IsChecked = GridShowVolPerSec, Content = "Vol/s", Foreground = txtBr };
+            var chkGPred = new Wpf.CheckBox { IsChecked = GridShowPredicted, Content = "Predicted", Foreground = txtBr };
+            var chkGCot = new Wpf.CheckBox { IsChecked = GridShowCotHighLow, Content = "COT H/L", Foreground = txtBr };
+
+            var chkAlStk = new Wpf.CheckBox { IsChecked = AlertStackedZone, Content = "Alert Stacked", Foreground = txtBr };
+            var chkAlAbs = new Wpf.CheckBox { IsChecked = AlertAbsorption, Content = "Alert L2 Abs", Foreground = txtBr };
+            var chkAlTrp = new Wpf.CheckBox { IsChecked = AlertTrap, Content = "Alert Traps", Foreground = txtBr };
+            var chkAlAud = new Wpf.CheckBox { IsChecked = EnableAudioAlerts, Content = "Audio", Foreground = txtBr };
+
+            var tbColPos = new Wpf.TextBox { Text = BrushToHex(ColPositiveDelta, "#10B981"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbColNeg = new Wpf.TextBox { Text = BrushToHex(ColNegativeDelta, "#F43F5E"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbColPoc = new Wpf.TextBox { Text = BrushToHex(ColPocGlow, "#FACC15"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbColBuyZ = new Wpf.TextBox { Text = BrushToHex(ColBuyZone, "#10B981"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbColSelZ = new Wpf.TextBox { Text = BrushToHex(ColSellZone, "#EF4444"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbColAbsS = new Wpf.TextBox { Text = BrushToHex(ColAbsSupport, "#06B6D4"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbColAbsR = new Wpf.TextBox { Text = BrushToHex(ColAbsResistance, "#EC4899"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+            var tbColGridBg = new Wpf.TextBox { Text = BrushToHex(ColStatGridBg, "#090D16"), Width = 80, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
+
+            Action applyChanges = () =>
+            {
+                if (cbLStyle.SelectedItem is VeltrixFpStyle) LeftStyle = (VeltrixFpStyle)cbLStyle.SelectedItem;
+                if (cbLShape.SelectedItem is VeltrixFpClusterShape) LeftShape = (VeltrixFpClusterShape)cbLShape.SelectedItem;
+                if (cbRStyle.SelectedItem is VeltrixFpStyle) RightStyle = (VeltrixFpStyle)cbRStyle.SelectedItem;
+                if (cbRShape.SelectedItem is VeltrixFpClusterShape) RightShape = (VeltrixFpClusterShape)cbRShape.SelectedItem;
+                LeftShowValues = (chkLVal.IsChecked == true);
+                RightShowValues = (chkRVal.IsChecked == true);
+
+                int iv;
+                if (int.TryParse(tbTicks.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) TicksPerLevel = Math.Max(1, Math.Min(100, iv));
+                AutoZoomLOD = (chkLod.IsChecked == true);
+                if (int.TryParse(tbTMin.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) TradeMin = Math.Max(1, Math.Min(10000, iv));
+                if (int.TryParse(tbTMax.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) TradeMax = Math.Max(-1, Math.Min(100000, iv));
+                if (int.TryParse(tbDVol.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) DisplayVolFilter = Math.Max(0, Math.Min(100000, iv));
+                if (cbAlgo.SelectedItem is VeltrixFpOrderflowAlgo) OrderflowAlgo = (VeltrixFpOrderflowAlgo)cbAlgo.SelectedItem;
+                if (int.TryParse(tbTapeMs.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) ReconstructTapeMs = Math.Max(0, Math.Min(250, iv));
+                ShowSpecularGloss = (chkGloss.IsChecked == true);
+                ShowCandleSpine = (chkSpine.IsChecked == true);
+
+                ShowImbalance = (chkImb.IsChecked == true);
+                OnlyImbalance = (chkOnlyImb.IsChecked == true);
+                if (cbImbDir.SelectedItem is VeltrixFpImbalanceDir) ImbalanceDirection = (VeltrixFpImbalanceDir)cbImbDir.SelectedItem;
+                if (int.TryParse(tbImbPct.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) ImbalancePct = Math.Max(120, Math.Min(1000, iv));
+                if (int.TryParse(tbImbVol.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) ImbalanceMinVol = Math.Max(1, Math.Min(50000, iv));
+                ShowStackedZones = (chkStkZ.IsChecked == true);
+                if (int.TryParse(tbStkCnt.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) StackedConsecutive = Math.Max(2, Math.Min(10, iv));
+                if (int.TryParse(tbStkVol.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) StackedZoneMinVol = Math.Max(1, Math.Min(50000, iv));
+
+                ShowAbsorption = (chkAbs.IsChecked == true);
+                RequireL2Confirm = (chkAbsL2.IsChecked == true);
+                ShowAbsorptionZones = (chkAbsZ.IsChecked == true);
+                if (int.TryParse(tbAbsPct.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) AbsorptionPct = Math.Max(110, Math.Min(1000, iv));
+                if (int.TryParse(tbAbsVol.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) AbsorptionFilter = Math.Max(1, Math.Min(50000, iv));
+
+                ShowBarVpoc = (chkVpoc.IsChecked == true);
+                ShowNakedBarVpoc = (chkNPoc.IsChecked == true);
+                ShowBarValueArea = (chkBVa.IsChecked == true);
+                ShowUnfinishedAuction = (chkUa.IsChecked == true);
+                ShowExhaustion = (chkExh.IsChecked == true);
+                ShowBuyingSellingTraps = (chkTrap.IsChecked == true);
+                ShowBarRatioNumbers = (chkRatio.IsChecked == true);
+                ShowStatGrid = (chkStatG.IsChecked == true);
+                GridShowVolume = (chkGVol.IsChecked == true);
+                GridShowDelta = (chkGDel.IsChecked == true);
+                GridShowCumDelta = (chkGCum.IsChecked == true);
+                GridShowVolPerSec = (chkGVs.IsChecked == true);
+                GridShowPredicted = (chkGPred.IsChecked == true);
+                GridShowCotHighLow = (chkGCot.IsChecked == true);
+
+                AlertStackedZone = (chkAlStk.IsChecked == true);
+                AlertAbsorption = (chkAlAbs.IsChecked == true);
+                AlertTrap = (chkAlTrp.IsChecked == true);
+                EnableAudioAlerts = (chkAlAud.IsChecked == true);
+
+                ColPositiveDelta = HexToFrozenBrush(tbColPos.Text, ColPositiveDelta);
+                ColNegativeDelta = HexToFrozenBrush(tbColNeg.Text, ColNegativeDelta);
+                ColPocGlow = HexToFrozenBrush(tbColPoc.Text, ColPocGlow);
+                ColBuyZone = HexToFrozenBrush(tbColBuyZ.Text, ColBuyZone);
+                ColSellZone = HexToFrozenBrush(tbColSelZ.Text, ColSellZone);
+                ColAbsSupport = HexToFrozenBrush(tbColAbsS.Text, ColAbsSupport);
+                ColAbsResistance = HexToFrozenBrush(tbColAbsR.Text, ColAbsResistance);
+                ColStatGridBg = HexToFrozenBrush(tbColGridBg.Text, ColStatGridBg);
+
+                lock (dataLock) { RecomputeAnalyticsLocked(true); }
+                lastDxSig = "";
+                if (ChartControl != null) ChartControl.InvalidateVisual();
+            };
+
+            // Asset Presets bar
+            var presetPanel = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+            presetPanel.Children.Add(new Wpf.TextBlock { Text = "Asset Presets:", Foreground = mutBr, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 4), FontSize = 11 });
+            Action<string, int, int, int, int> addAssetPreset = (lbl, ticks, imbV, absV, stkV) =>
+            {
+                var btn = new Wpf.Button { Content = lbl, Height = 22, Padding = new Thickness(8, 1, 8, 1), Margin = new Thickness(0, 0, 5, 4), Background = inputBr, Foreground = accBr, BorderBrush = bdBr, Cursor = Cursors.Hand };
+                btn.Click += (s2, e2) => { tbTicks.Text = ticks.ToString(CultureInfo.InvariantCulture); tbImbVol.Text = imbV.ToString(CultureInfo.InvariantCulture); tbAbsVol.Text = absV.ToString(CultureInfo.InvariantCulture); tbStkVol.Text = stkV.ToString(CultureInfo.InvariantCulture); applyChanges(); };
+                presetPanel.Children.Add(btn);
+            };
+            addAssetPreset("ES/MES", 4, 40, 60, 35);
+            addAssetPreset("NQ/MNQ", 8, 12, 20, 10);
+            addAssetPreset("GC/CL", 2, 15, 25, 12);
+            addAssetPreset("ZB/ZN", 1, 80, 120, 60);
+            addAssetPreset("FX 6E/6J", 2, 20, 30, 15);
+            root.Children.Add(presetPanel);
+
+            Func<Wpf.Grid> makeGrid = () =>
+            {
+                var g = new Wpf.Grid { Margin = new Thickness(6) };
+                g.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = new GridLength(165) });
+                g.ColumnDefinitions.Add(new Wpf.ColumnDefinition { Width = GridLength.Auto });
+                return g;
+            };
+            Action<Wpf.Grid, string, UIElement> addRow = (g, lblTxt, ctrl) =>
+            {
+                int rIdx = g.RowDefinitions.Count;
+                g.RowDefinitions.Add(new Wpf.RowDefinition { Height = GridLength.Auto });
+                var lbl = new Wpf.TextBlock { Text = lblTxt, Foreground = mutBr, FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 3, 10, 3) };
+                Wpf.Grid.SetRow(lbl, rIdx); Wpf.Grid.SetColumn(lbl, 0); g.Children.Add(lbl);
+                var fe = ctrl as FrameworkElement;
+                if (fe != null) { fe.Margin = new Thickness(0, 3, 0, 3); fe.VerticalAlignment = VerticalAlignment.Center; }
+                Wpf.Grid.SetRow(ctrl, rIdx); Wpf.Grid.SetColumn(ctrl, 1); g.Children.Add(ctrl);
+            };
+            Func<UIElement[], Wpf.WrapPanel> wp = (els) =>
+            {
+                var p = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal };
+                for (int i = 0; i < els.Length; i++)
+                {
+                    var fe = els[i] as FrameworkElement;
+                    if (fe != null) fe.Margin = new Thickness(0, 0, 8, 2);
+                    p.Children.Add(els[i]);
+                }
+                return p;
+            };
+            Func<Wpf.TextBox, Wpf.StackPanel> colorRow = (tb) =>
+            {
+                var sp = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal };
+                var sw = new Wpf.Border { Width = 16, Height = 16, CornerRadius = new CornerRadius(3), Margin = new Thickness(0, 0, 6, 0), BorderBrush = bdBr, BorderThickness = new Thickness(1), Background = HexToFrozenBrush(tb.Text, cardBr) };
+                tb.TextChanged += (s2, e2) => { sw.Background = HexToFrozenBrush(tb.Text, sw.Background); };
+                sp.Children.Add(sw); sp.Children.Add(tb); return sp;
+            };
+
+            var tabs = new Wpf.TabControl { Background = cardBr, BorderBrush = bdBr, BorderThickness = new Thickness(1), MaxHeight = 460 };
+
+            // Tab 1: Clusters & Filters
+            var g1 = makeGrid();
+            addRow(g1, "Left Style / Shape", wp(new UIElement[] { cbLStyle, cbLShape }));
+            addRow(g1, "Right Style / Shape", wp(new UIElement[] { cbRStyle, cbRShape }));
+            addRow(g1, "Values / Visual", wp(new UIElement[] { chkLVal, chkRVal, chkGloss, chkSpine }));
+            addRow(g1, "Ticks / Level & LOD", wp(new UIElement[] { tbTicks, chkLod }));
+            addRow(g1, "Lot Filter Min / Max", wp(new UIElement[] { tbTMin, new Wpf.TextBlock { Text = "/", Foreground = mutBr }, tbTMax }));
+            addRow(g1, "Display Min Vol", tbDVol);
+            addRow(g1, "Orderflow Algo", wp(new UIElement[] { cbAlgo, new Wpf.TextBlock { Text = "Tape ms:", Foreground = mutBr }, tbTapeMs }));
+            tabs.Items.Add(new Wpf.TabItem { Header = "Clusters & Tape", Background = inputBr, Foreground = txtBr, Content = g1 });
+
+            // Tab 2: Imbalance & Absorption
+            var g2 = makeGrid();
+            addRow(g2, "Imbalance Toggles", wp(new UIElement[] { chkImb, chkOnlyImb, cbImbDir }));
+            addRow(g2, "Imb % / Min Vol", wp(new UIElement[] { tbImbPct, new Wpf.TextBlock { Text = "% |", Foreground = mutBr }, tbImbVol }));
+            addRow(g2, "Stacked S/R Zones", wp(new UIElement[] { chkStkZ, new Wpf.TextBlock { Text = "Lvl:", Foreground = mutBr }, tbStkCnt, new Wpf.TextBlock { Text = "Vol:", Foreground = mutBr }, tbStkVol }));
+            addRow(g2, "Absorption Mode", wp(new UIElement[] { chkAbs, chkAbsL2, chkAbsZ }));
+            addRow(g2, "Abs Ratio % / Min Vol", wp(new UIElement[] { tbAbsPct, new Wpf.TextBlock { Text = "% |", Foreground = mutBr }, tbAbsVol }));
+            tabs.Items.Add(new Wpf.TabItem { Header = "Imbalance & L2 Abs", Background = inputBr, Foreground = txtBr, Content = g2 });
+
+            // Tab 3: Signals & Bottom Grid
+            var g3 = makeGrid();
+            addRow(g3, "Bar POC & Value Area", wp(new UIElement[] { chkVpoc, chkNPoc, chkBVa }));
+            addRow(g3, "Orderflow Signals", wp(new UIElement[] { chkUa, chkExh, chkTrap, chkRatio }));
+            addRow(g3, "Bottom Stat Grid", chkStatG);
+            addRow(g3, "Grid Metrics", wp(new UIElement[] { chkGVol, chkGDel, chkGCum, chkGVs, chkGPred, chkGCot }));
+            addRow(g3, "Focused 4 Alerts", wp(new UIElement[] { chkAlStk, chkAlAbs, chkAlTrp, chkAlAud }));
+            tabs.Items.Add(new Wpf.TabItem { Header = "Signals & Grid", Background = inputBr, Foreground = txtBr, Content = g3 });
+
+            // Tab 4: Color Studio
+            var g4 = makeGrid();
+            addRow(g4, "Positive Delta / Ask", colorRow(tbColPos));
+            addRow(g4, "Negative Delta / Bid", colorRow(tbColNeg));
+            addRow(g4, "Bar VPOC Glow", colorRow(tbColPoc));
+            addRow(g4, "Stacked Buy Zone", colorRow(tbColBuyZ));
+            addRow(g4, "Stacked Sell Zone", colorRow(tbColSelZ));
+            addRow(g4, "Abs Support (Cyan)", colorRow(tbColAbsS));
+            addRow(g4, "Abs Resistance (Pink)", colorRow(tbColAbsR));
+            addRow(g4, "Stat Grid Background", colorRow(tbColGridBg));
+            tabs.Items.Add(new Wpf.TabItem { Header = "Color Studio", Background = inputBr, Foreground = txtBr, Content = g4 });
+
+            root.Children.Add(tabs);
+
+            var btnRow = new Wpf.WrapPanel { Orientation = Wpf.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+            var btnApply = new Wpf.Button { Content = "Aplicar", Height = 26, Padding = new Thickness(14, 2, 14, 2), Margin = new Thickness(0, 0, 6, 0), Background = okBg, Foreground = txtBr, BorderBrush = accBr, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand };
+            var btnOk = new Wpf.Button { Content = "OK", Height = 26, Padding = new Thickness(14, 2, 14, 2), Margin = new Thickness(0, 0, 6, 0), Background = cardBr, Foreground = accBr, BorderBrush = accBr, Cursor = Cursors.Hand };
+            var btnClose = new Wpf.Button { Content = "Fechar", Height = 26, Padding = new Thickness(12, 2, 12, 2), Background = inputBr, Foreground = mutBr, BorderBrush = bdBr, Cursor = Cursors.Hand };
+
+            btnApply.Click += (s2, e2) => applyChanges();
+            btnOk.Click += (s2, e2) => { applyChanges(); win.Close(); };
+            btnClose.Click += (s2, e2) => win.Close();
+            btnRow.Children.Add(btnApply); btnRow.Children.Add(btnOk); btnRow.Children.Add(btnClose);
+            root.Children.Add(btnRow);
+
+            win.Content = root;
+            win.Closed += (s2, e2) => { if (object.ReferenceEquals(quickWin, win)) quickWin = null; };
+            quickWin = win;
+            win.Show();
+        }
+        #endregion
+    }
+}
+"""
+
+# ==============================================================================
 # FERRAMENTA DE DESENHO CUSTOMIZADA: RANGE VWAP (DrawingTools/VeltrixRangeVWAP.cs)
 # ==============================================================================
 TOOL_RANGE_VWAP = r'''#region Using declarations
@@ -16608,32 +19633,32 @@ namespace NinjaTrader.NinjaScript.DrawingTools
         [Display(Name = "Ancora Final", Order = 2, GroupName = "1. Ancoras")]
         public ChartAnchor EndAnchor { get; set; }
 
-        [Display(Name = "Modo da Faixa", Order = 1, GroupName = "2. Range VWAP (Rancho Style)")]
+        [Display(Name = "Modo da Faixa", Order = 1, GroupName = "2. Range VWAP (Institucional)")]
         public VeltrixRangeVwapModo ModoCalculo { get; set; }
 
         [Range(1, 4)]
-        [Display(Name = "Numero de Bandas SD (1..4)", Order = 2, GroupName = "2. Range VWAP (Rancho Style)")]
+        [Display(Name = "Numero de Bandas SD (1..4)", Order = 2, GroupName = "2. Range VWAP (Institucional)")]
         public int NumBandas { get; set; }
 
         [Range(0.25, 6.0)]
-        [Display(Name = "Multiplicador Desvio Maximo", Order = 3, GroupName = "2. Range VWAP (Rancho Style)")]
+        [Display(Name = "Multiplicador Desvio Maximo", Order = 3, GroupName = "2. Range VWAP (Institucional)")]
         public double DesvioMaximo { get; set; }
 
-        [Display(Name = "Sombrear Canal de Valor", Order = 4, GroupName = "2. Range VWAP (Rancho Style)")]
+        [Display(Name = "Sombrear Canal de Valor", Order = 4, GroupName = "2. Range VWAP (Institucional)")]
         public bool SombrearCanal { get; set; }
 
         [Range(1, 4)]
-        [Display(Name = "Banda Canal Sombreado (1=0.5, 2=1.0, 3=1.5, 4=2.0)", Order = 5, GroupName = "2. Range VWAP (Rancho Style)")]
+        [Display(Name = "Banda Canal Sombreado (1=0.5, 2=1.0, 3=1.5, 4=2.0)", Order = 5, GroupName = "2. Range VWAP (Institucional)")]
         public int BandaCanal { get; set; }
 
         [Range(5, 80)]
-        [Display(Name = "Opacidade Canal (%)", Order = 6, GroupName = "2. Range VWAP (Rancho Style)")]
+        [Display(Name = "Opacidade Canal (%)", Order = 6, GroupName = "2. Range VWAP (Institucional)")]
         public int OpacidadeCanalPct { get; set; }
 
-        [Display(Name = "Mostrar Moldura Vertical", Order = 7, GroupName = "2. Range VWAP (Rancho Style)")]
+        [Display(Name = "Mostrar Moldura Vertical", Order = 7, GroupName = "2. Range VWAP (Institucional)")]
         public bool MostrarMoldura { get; set; }
 
-        [Display(Name = "Mostrar Tags Direita", Order = 8, GroupName = "2. Range VWAP (Rancho Style)")]
+        [Display(Name = "Mostrar Tags Direita", Order = 8, GroupName = "2. Range VWAP (Institucional)")]
         public bool MostrarTags { get; set; }
 
         [XmlIgnore]
@@ -16699,7 +19724,7 @@ namespace NinjaTrader.NinjaScript.DrawingTools
         {
             if (State == State.SetDefaults)
             {
-                Description = "VeltrixQuant Range VWAP Drawing Tool (Rancho Style) com Canal Sombreado ±0.5 / ±1.0 / ±1.5 / ±2.0 SD entre duas ancoras.";
+                Description = "VeltrixQuant Range VWAP Drawing Tool (Institucional) com Canal Sombreado ±0.5 / ±1.0 / ±1.5 / ±2.0 SD entre duas ancoras.";
                 Name = "VeltrixQuant - Range VWAP";
                 DrawingState = DrawingState.Building;
 
@@ -17365,6 +20390,25 @@ def build_chart_templates():
     tick_60m = _xml_ind("NyseTickBreadthPro", "NyseTickBreadthPro", "VeltrixQuant - NyseTickBreadthPro", 2, 4, 60, is_overlay="false", zorder=30021)
     delta_1m = _xml_ind("DeltaCumulativePro", "DeltaCumulativePro", "VeltrixQuant - DeltaCumulativePro", 1, 4, 1, is_overlay="false", zorder=30022)
 
+    fp_20r = _xml_ind(
+        "FootprintPro", "FootprintPro", "VeltrixQuant - FootprintPro", 0, 2, 20,
+        "          <TicksPerLevel>4</TicksPerLevel>\n"
+        "          <AutoZoomLOD>true</AutoZoomLOD>\n"
+        "          <ShowImbalance>true</ShowImbalance>\n"
+        "          <ShowStackedZones>true</ShowStackedZones>\n"
+        "          <ShowAbsorption>true</ShowAbsorption>\n"
+        "          <ShowBarVpoc>true</ShowBarVpoc>\n"
+        "          <ShowNakedBarVpoc>true</ShowNakedBarVpoc>\n"
+        "          <ShowStatGrid>true</ShowStatGrid>\n",
+        zorder=30001
+    )
+    hm_flod_20r_side = hm_flod_20r.replace(
+        "          <MostrarBolhasVolume>true</MostrarBolhasVolume>\n",
+        "          <MostrarBolhasVolume>true</MostrarBolhasVolume>\n"
+        "          <PosicaoBolhasNoCandle>DireitaDoCandle</PosicaoBolhasNoCandle>\n"
+        "          <DeslocamentoBolhaPx>38</DeslocamentoBolhaPx>\n"
+    )
+
     return {
         "VeltrixQuant - 01 Flodometer L2 + Watchdog (30s Sem TickReplay).xml": _build_nt8_chart_template(3, 30, 2, [hm_flod, wd_30s, imb_30s, vwap_30s, risk_30s], [620], False, 300),
         "VeltrixQuant - 02 Flodometer + GEX + DarkPool (20 Range Sem TickReplay).xml": _build_nt8_chart_template(2, 20, 3, [hm_flod_20r, gamma_20r, est_20r, dp_20r, wd_20r, imb_20r, vwap_20r, risk_20r], [620], False, 300),
@@ -17373,6 +20417,7 @@ def build_chart_templates():
         "VeltrixQuant - 05 Flodometer + Delta Cumulativo (1m).xml": _build_nt8_chart_template(4, 1, 2, [hm_flod_1m, vwap_1m, imb_1m, delta_1m], [480, 140], False, 300),
         "VeltrixQuant - 06 Solitario Flodometer L2 Puro (30s).xml": _build_nt8_chart_template(3, 30, 2, [hm_flod], [620], False, 300),
         "VeltrixQuant - 07 Solitario TPO + VolumeProfile + VWAP (30m).xml": _build_nt8_chart_template(4, 30, 10, [tpo_30m, vwap_30m], [620], False, 140),
+        "VeltrixQuant - 08 Footprint Pro + Flodometer + Watchdog (20 Range).xml": _build_nt8_chart_template(2, 20, 3, [fp_20r, hm_flod_20r_side, wd_20r, imb_20r, vwap_20r, risk_20r], [620], False, 240),
     }
 
 # ==============================================================================
@@ -17406,6 +20451,7 @@ arquivos_para_instalar = {
     "QuantEnginePainelPro.cs": CODE_QUANT_PANEL,
     "HeatmapLiquidezPro.cs": CODE_HEATMAP_LIQUIDEZ,
     "PerfilTpoVolumePro.cs": CODE_TPO_VOLUME,
+    "FootprintPro.cs": CODE_FOOTPRINT_PRO,
 }
 
 drawing_tools_para_instalar = {
@@ -17430,6 +20476,7 @@ PREFIXOS_ECOSISTEMA = (
     "QuantEnginePainel",
     "HeatmapLiquidez",
     "PerfilTpoVolume",
+    "FootprintPro",
 )
 
 print(f"\n--- ORGANIZANDO PASTA DA MARCA: {pasta_marca} ---")
@@ -17507,9 +20554,10 @@ try:
         f"🗂️ Templates Prontos ({len(chart_templates)}): {pasta_chart_templates}"
         f"{resumo_movidos}\n\n"
         "Principais novidades desta versão:\n"
+        "• FootprintPro (#17) -> Orderflow Clusters, L2 Absorption, Stacked S/R, Traps & Grid (🐾 Footprint)\n"
+        "• HeatmapLiquidezPro -> Flodometer Pro + Bolhas Laterais ao Footprint (Direita/Esquerda)\n"
         "• VWAPInstitucionalPro -> VWAP Value Channel (Canal Sombreado + Tags + Barra 📐)\n"
         "• VeltrixRangeVWAP -> Ferramenta de Desenho Range VWAP (2 cliques)\n"
-        "• HeatmapLiquidezPro -> Flodometer Pro (Bolhas + Depth | LΔ PΔ | SVP + Spoofing)\n"
         "• PerfilTpoVolumePro -> TPO + Volume Profile (Merge/Split + Clique Direito por Dia)\n\n"
         "👉 AGORA: Abra o NinjaTrader, abra o NinjaScript Editor e aperte F5 (Compile).",
     )

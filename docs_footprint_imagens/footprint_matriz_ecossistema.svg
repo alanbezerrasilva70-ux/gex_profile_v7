@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 760" width="1360" height="760" font-family="'Segoe UI', 'Consolas', sans-serif">
+  <defs>
+    <linearGradient id="bgMat" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#050811"/>
+      <stop offset="100%" stop-color="#0d1424"/>
+    </linearGradient>
+  </defs>
+  <rect width="1360" height="760" fill="url(#bgMat)"/>
+
+  <text x="36" y="42" fill="#f8fafc" font-size="22" font-weight="700">VeltrixQuant Footprint Pro (#17) — Decision Matrix (Keep · Upgrade · Omit)</text>
+  <text x="36" y="66" fill="#94a3b8" font-size="13.5">Exact Feature Distribution Inside Our Modular 17-Indicator Suite (Zero Overlap · Maximum Speed)</text>
+
+  <!-- COL 1: CORE PORTED FEATURES -->
+  <rect x="36" y="92" width="414" height="632" rx="10" fill="#0b1324" stroke="#38bdf8" stroke-width="1.5"/>
+  <text x="56" y="124" fill="#38bdf8" font-size="15.5" font-weight="700">1. Essential Core (Port &amp; Improve)</text>
+  <text x="56" y="144" fill="#94a3b8" font-size="11.5">Every battle-tested cluster &amp; stat feature kept in English</text>
+  <g font-size="10.5" fill="#e2e8f0">
+    <text x="52" y="178" fill="#7dd3fc" font-weight="700">• Dual Panels (Left &amp; Right Footprint)</text>
+    <text x="64" y="196" fill="#cbd5e1">BidAsk, Vol, Delta, SplitDeltaImb, Trades</text>
+    <text x="52" y="226" fill="#7dd3fc" font-weight="700">• Cluster Style &amp; Gradients</text>
+    <text x="64" y="244" fill="#cbd5e1">Brick, Histogram, Split, Ladder, Saturation</text>
+    <text x="52" y="274" fill="#7dd3fc" font-weight="700">• Filters &amp; Orderflow Classification</text>
+    <text x="64" y="292" fill="#cbd5e1">Ticks/level, Trade min/max, Spread Split</text>
+    <text x="52" y="322" fill="#7dd3fc" font-weight="700">• Imbalance &amp; Stacked S/R Zones</text>
+    <text x="64" y="340" fill="#cbd5e1">Diag/Horiz Imb %, Consecutive S/R Zones</text>
+    <text x="52" y="370" fill="#7dd3fc" font-weight="700">• Bar Volume Profile &amp; Unfinished</text>
+    <text x="64" y="388" fill="#cbd5e1">Primary/Other VPOCs, Bar VA 68%, 0-side</text>
+    <text x="52" y="418" fill="#7dd3fc" font-weight="700">• Bar Statistic &amp; Statistic Grid</text>
+    <text x="64" y="436" fill="#cbd5e1">Vol, Delta, %, Min/Max, COT H/L, Ratio, Vol/s</text>
+    <text x="52" y="466" fill="#7dd3fc" font-weight="700">• Predicted Values &amp; Quick Levels</text>
+    <text x="64" y="484" fill="#cbd5e1">Predicted vol + mouse-drag local S/R</text>
+  </g>
+  <rect x="52" y="530" width="382" height="168" rx="6" fill="#09101d" stroke="#1e293b"/>
+  <text x="68" y="556" fill="#38bdf8" font-size="12" font-weight="700">Calculation Modes Covered:</text>
+  <text x="68" y="580" fill="#cbd5e1" font-size="10.5">1. Bid / Ask Real-Time Classification</text>
+  <text x="68" y="602" fill="#cbd5e1" font-size="10.5">2. UpDownTick (Quote Gap Fallback)</text>
+  <text x="68" y="624" fill="#cbd5e1" font-size="10.5">3. Hybrid (Bid/Ask + TickRule Split)</text>
+  <text x="68" y="646" fill="#cbd5e1" font-size="10.5">4. Real-Time Tape Recon (&lt;10ms merges)</text>
+  <text x="68" y="668" fill="#cbd5e1" font-size="10.5">5. Bar Impulse &amp; Exhaustion Scanners</text>
+
+  <!-- COL 2: VELTRIX QUANT SUPERIOR UPGRADES -->
+  <rect x="473" y="92" width="414" height="632" rx="10" fill="#081a15" stroke="#10b981" stroke-width="1.6"/>
+  <text x="490" y="124" fill="#34d399" font-size="15" font-weight="700">2. New VeltrixQuant Upgrades</text>
+  <text x="490" y="144" fill="#94a3b8" font-size="11">Superior performance, precision, &amp; edge</text>
+  <g font-size="10.5" fill="#e2e8f0">
+    <text x="490" y="178" fill="#6ee7b7" font-weight="700">• Smart 1m / Sub-Bar Hybrid History</text>
+    <text x="502" y="196" fill="#cbd5e1">No heavy Tick Replay required on chart</text>
+    <text x="490" y="226" fill="#6ee7b7" font-weight="700">• Direct2D Viewport Batching (60+ FPS)</text>
+    <text x="502" y="244" fill="#cbd5e1">Zero GDI+ locks, zero frame allocations</text>
+    <text x="490" y="274" fill="#6ee7b7" font-weight="700">• Dynamic Zoom LOD Aggregation</text>
+    <text x="502" y="292" fill="#cbd5e1">Auto-merges NQ ticks when zooming out</text>
+    <text x="490" y="322" fill="#6ee7b7" font-weight="700">• True L2-Verified Absorption Engine</text>
+    <text x="502" y="340" fill="#cbd5e1">Cross-checks tape + DOM L2 reload</text>
+    <text x="490" y="370" fill="#6ee7b7" font-weight="700">• Delta Divergence &amp; Trap Badges</text>
+    <text x="502" y="388" fill="#cbd5e1">Flags trapped wick buyers/sellers at Walls</text>
+    <text x="490" y="418" fill="#6ee7b7" font-weight="700">• Non-Overlapping Side Bubble Lane</text>
+    <text x="502" y="436" fill="#cbd5e1">Bubbles sit cleanly beside cluster bricks</text>
+    <text x="490" y="466" fill="#6ee7b7" font-weight="700">• Topbar Quick Popup &amp; Presets</text>
+    <text x="502" y="484" fill="#cbd5e1">1-click ES (1t) vs NQ (4t) presets</text>
+  </g>
+  <rect x="490" y="530" width="380" height="168" rx="6" fill="#06140f" stroke="#10b981"/>
+  <text x="506" y="556" fill="#34d399" font-size="12" font-weight="700">Confluence Highlighting:</text>
+  <text x="506" y="580" fill="#cbd5e1" font-size="10.5">• Stacked Imb + TPO VAH/VAL Breakout</text>
+  <text x="506" y="602" fill="#cbd5e1" font-size="10.5">• Wick Abs inside Call/Put Wall = A+</text>
+  <text x="506" y="624" fill="#cbd5e1" font-size="10.5">• Naked Bar VPOC (auto ends on touch)</text>
+  <text x="506" y="646" fill="#cbd5e1" font-size="10.5">• Persistence across F5 &amp; NT8 reopen</text>
+  <text x="506" y="668" fill="#cbd5e1" font-size="10.5">• Zero external Hardware ID polling</text>
+
+  <!-- COL 3: OMITTED REDUNDANCIES -->
+  <rect x="910" y="92" width="414" height="632" rx="10" fill="#1b1116" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="927" y="124" fill="#fbbf24" font-size="15" font-weight="700">3. Omit (Already Better in Suite)</text>
+  <text x="927" y="144" fill="#94a3b8" font-size="11">Zero duplicate CPU or visual clutter</text>
+  <g font-size="10.5" fill="#e2e8f0">
+    <text x="927" y="178" fill="#fde047" font-weight="700">✕ Session Volume Profile Levels</text>
+    <text x="939" y="196" fill="#cbd5e1">Covered by PerfilTpoVolumePro (#16)</text>
+    <text x="927" y="226" fill="#fde047" font-weight="700">✕ Standalone Cumulative Delta Line</text>
+    <text x="939" y="244" fill="#cbd5e1">Dedicated in DeltaCumulativePro (#9)</text>
+    <text x="927" y="274" fill="#fde047" font-weight="700">✕ Raw DOM Spoofing / Depth Heat</text>
+    <text x="939" y="292" fill="#cbd5e1">Built for 60 FPS in HeatmapLiquidez (#15)</text>
+    <text x="927" y="322" fill="#fde047" font-weight="700">✕ Full Iceberg Reload Tracking</text>
+    <text x="939" y="340" fill="#cbd5e1">Dedicated in FluentliWatchdog (#10)</text>
+    <text x="927" y="370" fill="#fde047" font-weight="700">✕ Tape Speed / Burst Flash Box</text>
+    <text x="939" y="388" fill="#cbd5e1">0ms live in Market Pulse (#13)</text>
+    <text x="927" y="418" fill="#fde047" font-weight="700">✕ 30 Individual .wav Alert Slots</text>
+    <text x="939" y="436" fill="#cbd5e1">Replaced by 4 focused high-signal alerts</text>
+    <text x="927" y="466" fill="#fde047" font-weight="700">✕ Crypto Divider &amp; Licensing Bloat</text>
+    <text x="939" y="484" fill="#cbd5e1">Clean native CME Futures focus</text>
+  </g>
+  <rect x="930" y="530" width="374" height="168" rx="6" fill="#140c10" stroke="#f59e0b"/>
+  <text x="946" y="556" fill="#fbbf24" font-size="12.5" font-weight="700">Result of Modular Pruning:</text>
+  <text x="946" y="582" fill="#cbd5e1" font-size="11.5">• 60% smaller property grid — fast setup</text>
+  <text x="946" y="606" fill="#cbd5e1" font-size="11.5">• Zero duplicate OnMarketData handlers per bar</text>
+  <text x="946" y="630" fill="#cbd5e1" font-size="11.5">• Zero overlapping VA rectangles competing</text>
+  <text x="946" y="654" fill="#cbd5e1" font-size="11.5">• Footprint focuses 100% on inside-the-bar edge</text>
+</svg>

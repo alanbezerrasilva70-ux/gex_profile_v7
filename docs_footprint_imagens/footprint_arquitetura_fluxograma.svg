@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 820" width="1360" height="820" font-family="'Segoe UI', 'Consolas', sans-serif">
+  <defs>
+    <linearGradient id="bgFlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#050811"/>
+      <stop offset="100%" stop-color="#0b1220"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+  </defs>
+  <rect width="1360" height="820" fill="url(#bgFlow)"/>
+
+  <!-- Header -->
+  <text x="36" y="42" fill="#f8fafc" font-size="22" font-weight="700">VeltrixQuant Footprint Pro (#17) — Technical Architecture Flowchart</text>
+  <text x="36" y="66" fill="#94a3b8" font-size="13.5">Hybrid History Without Mandatory Heavy Tick Replay · Lock-Free Tick Aggregation · Direct2D GPU LOD Batcher · Cross-Chart Hub</text>
+
+  <!-- LAYER 1: DATA SOURCES -->
+  <text x="36" y="106" fill="#38bdf8" font-size="13" font-weight="700">STAGE 1 · DUAL DATA INGESTION (NO MANDATORY FULL-CHART TICK REPLAY)</text>
+
+  <rect x="36" y="122" width="380" height="122" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+  <text x="54" y="148" fill="#7dd3fc" font-size="14" font-weight="700">1A. Hybrid Historical Seeder (Light Mode)</text>
+  <text x="54" y="170" fill="#cbd5e1" font-size="11.5">• Loads internal 1-Tick / 1-Minute CME volume series</text>
+  <text x="54" y="190" fill="#cbd5e1" font-size="11.5">• Instant load on NQ 20 Range / 30m WITHOUT freeze</text>
+  <text x="54" y="210" fill="#34d399" font-size="11.5">• Optional: Tick Replay = ON enables 100% raw tape history</text>
+  <text x="54" y="230" fill="#94a3b8" font-size="11">Default: MaxBarsLookBack 256+ · Zero full-chart hang</text>
+
+  <rect x="448" y="122" width="420" height="122" rx="8" fill="#0f172a" stroke="#10b981" stroke-width="1.5"/>
+  <text x="466" y="148" fill="#6ee7b7" font-size="14" font-weight="700">1B. Live 0ms Tape + Depth Feeds (Realtime)</text>
+  <text x="466" y="170" fill="#cbd5e1" font-size="11.5">• OnMarketData(Last): exact Price, Volume, BestBid, BestAsk</text>
+  <text x="466" y="190" fill="#cbd5e1" font-size="11.5">• OnMarketDepth(L2): resting liquidity &amp; pull/replenish</text>
+  <text x="466" y="210" fill="#34d399" font-size="11.5">• Reconstruct Tape Engine: merges split prints &lt; 10ms</text>
+  <text x="466" y="230" fill="#94a3b8" font-size="11">Supports Tradovate (10-lvl L2) + Rithmic (MBO/Full)</text>
+
+  <rect x="900" y="122" width="424" height="122" rx="8" fill="#0f172a" stroke="#a855f7" stroke-width="1.5"/>
+  <text x="918" y="148" fill="#d8b4fe" font-size="14" font-weight="700">1C. Ecosystem Sync Bridges (Read-Only)</text>
+  <text x="918" y="170" fill="#cbd5e1" font-size="11.5">• Reads VeltrixTpoCrossChartHub (#16 VAH/VAL/POC)</text>
+  <text x="918" y="190" fill="#cbd5e1" font-size="11.5">• Reads NiveisGammaPro Walls (Call/Put/Flip strikes)</text>
+  <text x="918" y="210" fill="#cbd5e1" font-size="11.5">• Reads Watchdog / Heatmap Bubble offset config</text>
+  <text x="918" y="230" fill="#94a3b8" font-size="11">Zero duplicate math — clean shared memory hub</text>
+
+  <!-- Arrows down to Stage 2 -->
+  <line x1="226" y1="244" x2="226" y2="294" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="658" y1="244" x2="658" y2="294" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="1112" y1="244" x2="1112" y2="294" stroke="#34d399" stroke-width="2" marker-end="url(#arrG)"/>
+
+  <!-- STAGE 2: CLASSIFICATION & LOCK-FREE RING BUFFER -->
+  <text x="36" y="286" fill="#38bdf8" font-size="13" font-weight="700">STAGE 2 · ORDERFLOW CLASSIFICATION &amp; O(1) LOCK-FREE CLUSTER AGGREGATOR</text>
+
+  <rect x="36" y="302" width="1288" height="148" rx="8" fill="#0a101d" stroke="#38bdf8" stroke-width="1.5"/>
+
+  <rect x="56" y="320" width="386" height="112" rx="6" fill="#111827" stroke="#334155"/>
+  <text x="70" y="344" fill="#facc15" font-size="12" font-weight="700">2A. Trade Classification &amp; Tape Recon</text>
+  <text x="70" y="366" fill="#cbd5e1" font-size="10.2">• Mode: BidAsk | UpDownTick | Hybrid</text>
+  <text x="70" y="386" fill="#cbd5e1" font-size="10.2">• Spread: Split 50/50 | Ignore | TickRule</text>
+  <text x="70" y="406" fill="#cbd5e1" font-size="10.2">• Filters: Ticks/lvl, Trade min/max (-1)</text>
+
+  <rect x="468" y="320" width="416" height="112" rx="6" fill="#111827" stroke="#334155"/>
+  <text x="482" y="344" fill="#38bdf8" font-size="12" font-weight="700">2B. BarClusterStore (Zero GC Pause)</text>
+  <text x="482" y="366" fill="#cbd5e1" font-size="10.2">• Int Tick -> BidVol, AskVol, Trades, Max</text>
+  <text x="482" y="386" fill="#cbd5e1" font-size="10.2">• O(1) BarDelta, CumDelta, COT H/L, Min/Max</text>
+  <text x="482" y="406" fill="#34d399" font-size="10.2">• Dynamic LOD: merges N ticks on zoom out</text>
+
+  <rect x="910" y="320" width="394" height="112" rx="6" fill="#111827" stroke="#334155"/>
+  <text x="924" y="344" fill="#f472b6" font-size="12" font-weight="700">2C. Microstructure Analytics Engines</text>
+  <text x="924" y="366" fill="#cbd5e1" font-size="10.2">• Diag/Horiz Imbalance % + Stacked S/R</text>
+  <text x="924" y="386" fill="#cbd5e1" font-size="10.2">• True L2 Absorption (Tape + DOM Reload)</text>
+  <text x="924" y="406" fill="#cbd5e1" font-size="10.2">• Unfinished Auction, Ratio, Delta Traps</text>
+
+  <!-- Arrows down to Stage 3 -->
+  <line x1="250" y1="450" x2="250" y2="500" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="680" y1="450" x2="680" y2="500" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="1110" y1="450" x2="1110" y2="500" stroke="#34d399" stroke-width="2" marker-end="url(#arrG)"/>
+
+  <!-- STAGE 3: DIRECT2D GPU RENDER & PRESENTATION -->
+  <text x="36" y="492" fill="#34d399" font-size="13" font-weight="700">STAGE 3 · DIRECT2D GPU BATCH RENDERER (60+ FPS · VISIBLE VIEWPORT CULLING)</text>
+
+  <rect x="36" y="508" width="626" height="176" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+  <text x="54" y="534" fill="#7dd3fc" font-size="13.5" font-weight="700">3A. Direct2D Viewport-Only Batched Painter</text>
+  <text x="54" y="558" fill="#cbd5e1" font-size="10.8">• Loops ONLY ChartBars.FromIndex .. ToIndex (culls offscreen)</text>
+  <text x="54" y="578" fill="#cbd5e1" font-size="10.8">• Pre-built Brushes + TextFormats in OnRenderTargetChanged</text>
+  <text x="54" y="598" fill="#cbd5e1" font-size="10.8">• Renders: Left/Right Footprint · Body · Bar VPOC/VA Box</text>
+  <text x="54" y="618" fill="#34d399" font-size="10.8">• Smart LOD Switch: numbers hide cleanly &lt; 28px bar width</text>
+  <text x="54" y="638" fill="#facc15" font-size="10.8">• Lateral Bubble Lane prevents Heatmap bubble occlusion</text>
+  <text x="54" y="658" fill="#94a3b8" font-size="10.5">Draws Bar Statistic + Docked Statistic Grid aligned to bar X</text>
+
+  <rect x="688" y="508" width="636" height="176" rx="8" fill="#0f172a" stroke="#10b981" stroke-width="1.5"/>
+  <text x="706" y="534" fill="#6ee7b7" font-size="13.5" font-weight="700">3B. Topbar Popup (Footprint) + Essential Alerts</text>
+  <text x="706" y="558" fill="#cbd5e1" font-size="10.8">• 1-Click Presets: NQ Scalp (4t) | ES Standard (1t) | Trap</text>
+  <text x="706" y="578" fill="#cbd5e1" font-size="10.8">• Hot-swap Left/Right Style, Ticks/level, Imbalance %, Colors</text>
+  <text x="706" y="598" fill="#cbd5e1" font-size="10.8">• 4 High-Signal Alerts (Stacked Imb, L2 Abs, Unfin, Div)</text>
+  <text x="706" y="618" fill="#34d399" font-size="10.8">• Persistent JSON/XML state across F5 &amp; NT8 Restart</text>
+  <text x="706" y="638" fill="#94a3b8" font-size="10.5">Zero Hardware ID / DRM polling -- 100% native compiled speed</text>
+  <text x="706" y="658" fill="#94a3b8" font-size="10.5">Optional Chart Trader confluence highlight near Gamma Walls</text>
+
+  <!-- Footer -->
+  <rect x="36" y="708" width="1288" height="82" rx="8" fill="#111827" stroke="#334155"/>
+  <text x="56" y="734" fill="#f8fafc" font-size="13" font-weight="700">CPU &amp; Frame-Time Budget Target (NQ Open 09:30 ET):</text>
+  <text x="56" y="758" fill="#34d399" font-size="11.2">• Tick: &lt; 0.02ms/print (zero LINQ)  |  Frame Render: &lt; 4ms GPU Direct2D  |  History Load: &lt; 1.2s (Hybrid 1m)</text>
+  <text x="56" y="778" fill="#94a3b8" font-size="10.8">Eliminates GDI+ locks, 30+ redundant .wav audio slots, and mandatory 20-day full Tick Replay RAM spikes.</text>
+</svg>
