@@ -741,5 +741,22 @@ git push origin main
 - **Validação Técnica Pós-Edição:**
   - `verify_installer_cs.py`: `py_compile: OK`, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` (incluindo **`FootprintPro.cs`**) e **`COMBINED_18_PASS`** (`combined_rc=0`) contra DLLs `.NET 4.0` locais do NinjaTrader 8.
 
+---
+
+## 50. 21/11/2026 08:53 — Redesign Visual Institucional (`3D Glass Bevel` Real, Clusters Sem Vazamento de Texto e `Statistic Grid` Moderno)
+
+- **Arquivo Modificado:** [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py) (`CODE_FOOTPRINT_PRO`, `OpenStudioPopup`, `_build_nt8_chart_template`, `build_chart_templates`).
+- **Melhorias Visuais & Estéticas Implementadas:**
+  1. **`3D Glass Bevel` Real (`EnsureDxResources`, `DisposeDx`, `RenderSideCell`):** Substituída a antiga linha quase invisível (`1.8px`, `0.16` alpha) por acabamento em vidro 3D em múltiplas camadas (`dxCellBackdrop` vidro escuro translúcido -> preenchimento cromático -> gradiente especular superior `dxGlassTopGrad` via `LinearGradientBrush`/`GradientStopCollection` -> filete luminoso superior `dxGlassRimHighlight` -> sombra inferior profunda `dxGlassBotShadow` -> borda em relevo).
+  2. **Tipografia Auto-Fit Sem Sobreposição (`DrawTextOptions.Clip`, `DrawTextShadowed`, `FormatCompactNum`):** Adicionado recorte estrito por célula (`D2D.DrawTextOptions.Clip`), sombra de leitura (`dxTextShadow`) e cascata automática de fontes (`dxFontLeft` -> `dxFontMid` -> `dxFontCompact`) com compactação inteligente em `K` (`1.6K x 875`) para que números grandes nunca invadam o candle central ou barras vizinhas, além de `DW.WordWrapping.NoWrap` garantido no `instalador_cloud2.0.py`.
+  3. **Clusters, VPOC & Corredores S/R Mais Limpos:** Espaçamento central ajustado (`colGap = 3.5f`), VPOC com aura dourada e abas laterais luminosas (`beacon tabs`), zonas Stacked/Absorption suavizadas (`ZoneOpacityPct = 14`, âncora lateral `3.5px` e borda tracejada com pill `⚡ STK` / `🛡 ABS`), e padrões mais limpos (`CandleSpineMode = None` e `FillEmptyPriceLevels = false`) no `SetDefaults` e **Template #08** (com candles nativos translúcidos `#36...`).
+  4. **Redesign Completo do `Statistic Grid` (`RenderStatisticGrid`) & Studio (`Width = 590`):**
+     - Dock inferior com fundo obsidian (`#060A12`), linha divisória superior com brilho ciano, margem inferior estendida (`+ 12f`, `StatCellHeightPx = 22`) evitando corte da linha `Predicted`, e sidebar de legenda com indicadores coloridos por métrica (`dxFontLegend`).
+     - Cada célula transformada em mini-card (`RadiusX = 3.5f`) com codificação visual viva e barras de progresso inferiores (`Volume`, `Buy Vol`, `Sell Vol`, `Trades`, `Cum Delta`, `Vol / sec`), medidor bidirecional no `Delta %`, card 3D no `Delta`, destaque âmbar/violeta em `Min/Max Δ` / `COT H / L` e card dourado em `Predicted` na barra ativa.
+     - Janela `FootprintPro Studio` alargada para `Width = 590` (aba **`Color Studio`** exibida sem truncar o título) e label atualizado para `3D Glass Bevel`.
+- **Validação Pós-Edição:**
+  - `verify_installer_cs.py`: `py_compile: OK`, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` (incluindo **`FootprintPro.cs`**) e **`COMBINED_18_PASS`** (`combined_rc=0`).
+
+
 
 
