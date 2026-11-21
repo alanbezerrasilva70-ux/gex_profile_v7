@@ -757,6 +757,21 @@ git push origin main
 - **Validação Pós-Edição:**
   - `verify_installer_cs.py`: `py_compile: OK`, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` (incluindo **`FootprintPro.cs`**) e **`COMBINED_18_PASS`** (`combined_rc=0`).
 
+---
+
+## 51. 21/11/2026 09:18 — Pílulas 3D Glass em Todo o `Statistic Grid`, Fim das Linhas/Divisória, Borda Simétrica & Tipografia Maior (`FootprintPro`)
+
+- **Arquivo Modificado:** [instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py) (`CODE_FOOTPRINT_PRO`, `RenderStatisticGrid`, `EnsureDxResources`, `OpenStudioPopup`, `build_chart_templates`).
+- **Melhorias Visuais Aplicadas:**
+  - **Remoção total das linhas fininhas internas e divisória da legenda:** Removidas as barras de progresso inferiores e divisórias horizontais/verticais dentro do `Statistic Grid` (inclusive a linha divisória que separava `Volume` / `Sell Vol` / `Delta` dos quadros).
+  - **Cards em Pílula 3D Glass em todas as linhas & Legenda em Cards:** Todas as linhas de métricas (`Volume`, `Buy Vol`, `Sell Vol`, `Trades`, `Delta`, `Delta %`, `Cum Delta`, `Min/Max Δ`, `Δ Change`, `Δ Rate/s`, `Vol / sec`, `COT H / L`, `Predicted`) e os rótulos da legenda lateral agora usam o mesmo formato de **cápsula 3D Glass arredondada (`RadiusX = 5.0f`)** com gradiente especular (`dxGlassTopGrad`), filete superior iluminado, sombra inferior em relevo e borda luminosa proporcional à intensidade.
+  - **Dock Simétrico, Livre da Marca D'água NT8 & Tipografia Maior:**
+    - Dock inferior flutuante com moldura simétrica (`dockX = panelLeft + 6f`, `dockW = panelRight - panelLeft - 12f`, `RadiusX = 8f`), folga inferior abaixo do dock (`statGridH + 26f`) deixando `© 2026 NinjaTrader, LLC` fora de `Predicted`, e recorte estrito por `RenderTarget.PushAxisAlignedClip(...)` / `PopAxisAlignedClip()` para alinhar colunas nas bordas direita/esquerda sem buracos.
+    - Fontes maiores e nítidas por padrão: **`StatCellHeightPx = 25`**, **`StatFontSize = 12`** (`Segoe UI Bold` em `dxFontStat` sem sombra borrada), **`dxFontLegend = 11.0f Bold`** (`legW = 104f`), **`LeftFontSize = 12`**, **`RightFontSize = 12`**, todos editáveis ao vivo nas abas `Clusters & Tape` e `Signals & Grid` do **`FootprintPro Studio`** e gravados explicitamente no **Template #08**.
+- **Validação Pós-Edição:**
+  - `verify_installer_cs.py`: `py_compile: OK`, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` (incluindo **`FootprintPro.cs`**) e **`COMBINED_18_PASS`** (`combined_rc=0`).
+
+
 
 
 
