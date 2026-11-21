@@ -705,3 +705,21 @@ git push origin main
   - Compilação `.NET 4.0 csc.exe` contra as DLLs locais do NinjaTrader 8 (`NinjaTrader.Core.dll`, `NinjaTrader.Gui.dll`, `NinjaTrader.Custom.dll`, `SharpDX*.dll`): **`16/18 PASS_RAW`** (incluindo **`FootprintPro.cs`**, `HeatmapLiquidezPro.cs`, `PerfilTpoVolumePro.cs`, `VeltrixRangeVWAP.cs`; os 2 restantes apenas referenciam o rodapé `@Indicator` gerado no `F5` do NT8) e **`COMBINED_18_PASS`** (**`0` erros / `0` colisões** compilando todos os 18 arquivos juntos num assembly único!).
   - **`npx tsc --noEmit`** (`0` erros) e **`npm run lint`** (`0` erros, `1` warning pré-existente `no-img-element` em `app/biblioteca/page.tsx`) em `gex-dashboard`.
 
+---
+
+## 48. 21/11/2026 04:49 — Correção Definitiva dos 8 Templates XML NT8 + Redesign Neon & Histórico Sem Tick Replay no `FootprintPro`
+
+- **Causa Raiz do Erro ao Carregar Templates (`Unable to load chart template` / `Direct2DForm.CreateChartControlResources()`):**
+  - Diagnóstico direto nos logs do NinjaTrader (`trace.20261121.00001.txt`) e validação via `XmlSerializer` em `.NET 4.0` revelaram que os templates XML gerados omitiam propriedades obrigatórias do `<CandleStyle>` (`StrokeSerialize`, `Stroke2Serialize`, `DojiBrushSerialize`), `<BarsProperties>` (`BarsSeriesId`, `Id`, `PriceMarker`, `From`, `To`, `Long/ShortExecutionBrushSerialize`, `PositionPen*`), `<ChartControlProperties>` (`AxisPenSerialize`, `CrosshairPen`, `ChartTextSerialize`, `LabelFont`, `BarDistance`, `TimeHighlighter0..9`) e `<ChartTrader>`.
+  - **`_xml_ind` + `_build_nt8_chart_template` + `build_chart_templates` ([instalador_cloud2.0.py](file:///c:/Users/alanb/source/gex_profile_v7/gex_profile_v7/instalador_cloud2.0.py)):** Esquema 100% alinhado ao `Default.xml` nativo do NT8 (`miss_cc=[]`, `miss_bp=[]`, `miss_cs=[]`, `miss_root=[]`, e `CANDLE_OK` em todos os **8 templates**), com `BarDistance=94` e candlesticks nativos ultrafinos/translúcidos (`BarWidth=1.2`) no **Template #08** para não poluir o Footprint.
+- **Correções Visuais & Motor Sem `Tick Replay` no `FootprintPro.cs`:**
+  - **Carregamento Histórico 100% Funcional Sem `Tick Replay` (mesmo com mercado fechado):** Novo modo padrão **`HybridFastInstant`** re-semeia cada barra histórica (`SeededVol`, `SeededH`, `SeededL`) com distribuição completa `[Low..High]` assim que `Volumes[0][0]` atualiza, eliminando barras vazias no carregamento sem `Tick Replay` e corrigindo `Real1TickNoReplay` para mapear via `CurrentBars[0]` em gráficos `Range`/`Tick`.
+  - **Estética Limpa, Contínua e Sem Linhas Feias:**
+    - Preenchimento opcional de lacunas de preço (`FillEmptyPriceLevels=true` padrão) com alinhamento pixel-a-pixel pelas bordas reais do tick e acabamento translúcido 3D glass.
+    - Removida a linha curta laranja de `UA` em cima dos números, removida a linha vertical ciana externa de Value Area (substituída por barra neon interna e contraste de brilho na VA), e substituída a vela central grossa pelo **`VeltrixFpCandleSpineMode.LeftSlimRail`** (mini trilho OHLC limpo à esquerda, mantendo `Bid x Ask | Delta` livres).
+    - **Marcadores Imbalance & Absorção Grandes e Luminosos:** Substituída a bolinha minúscula (`3px`) pelos modos personalizáveis **`NeonAuraBadge`** / `GlowingOrb` / `GlowingDiamond` / `LightningPill` (`ImbMarkerSizePx=10px` padrão) e **`ShieldPulseRing`** / `GlowingDoubleOrb` / `HexagonBadge` (`AbsMarkerSizePx=12px` padrão) com halo em múltiplas camadas + borda luminosa no cluster e painel **`🐾 Footprint`** atualizado.
+- **Implantação & Verificação Pós-Edição:**
+  - Arquivos atualizados em `C:\Users\alanb\Documents\NinjaTrader 8\bin\Custom\Indicators\VeltrixQuant\`, `DrawingTools\` e `templates\Chart\` (`8` templates verificados contra `Default.xml` + `TestXmlV4`).
+  - Revalidação final pós-edição: `py_compile` OK, `COMPETITOR_HITS=0`, `ALL 8 XML templates valid`, `16/18 PASS_RAW` e **`COMBINED_18_PASS`** (`combined_rc=0`) no `csc.exe` `.NET 4.0`.
+
+

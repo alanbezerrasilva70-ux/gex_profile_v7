@@ -16683,7 +16683,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
     public enum VeltrixFpHistoryMode
     {
-        Hybrid1Minute = 0,
+        HybridFastInstant = 0,
         Real1TickNoReplay = 1,
         BarVolumeOnly = 2
     }
@@ -16696,10 +16696,26 @@ namespace NinjaTrader.NinjaScript.Indicators
 
     public enum VeltrixFpMarkerType
     {
-        Dot = 0,
-        Diamond = 1,
-        GlowBox = 2,
-        Line = 3
+        NeonAuraBadge = 0,
+        GlowingOrb = 1,
+        GlowingDiamond = 2,
+        LightningPill = 3,
+        CellNeonRim = 4
+    }
+
+    public enum VeltrixFpAbsVisual
+    {
+        ShieldPulseRing = 0,
+        GlowingDoubleOrb = 1,
+        HexagonBadge = 2,
+        CellNeonFrame = 3
+    }
+
+    public enum VeltrixFpCandleSpineMode
+    {
+        LeftSlimRail = 0,
+        CenterMicroWick = 1,
+        None = 2
     }
 
     public enum VeltrixFpZoneEndMode
@@ -16753,6 +16769,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             public bool InValueArea;
             public bool IsExhaustion;
             public bool IsImpulse;
+            public bool IsEmptyFiller;
             public long Delta { get { return AskVol - BidVol; } }
         }
 
@@ -16790,7 +16807,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             public long CumDeltaAtBar;
             public bool IsSessionStart;
             public bool HasLiveTape;
-            public bool HasHistSubData;
+            public bool HasHistTickTape;
+            public long SeededVol = -1;
+            public double SeededH = -1.0;
+            public double SeededL = -1.0;
             public long PocTick;
             public double PocPrice;
             public double VahPrice;
@@ -16986,25 +17006,29 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Imbalance Volume Filter", GroupName = "04. Imbalance & S/R Zones", Order = 5)]
         public int ImbalanceMinVol { get; set; }
 
-        [Display(Name = "Imbalance Marker Type", GroupName = "04. Imbalance & S/R Zones", Order = 6)]
+        [Display(Name = "Imbalance Marker Visual", GroupName = "04. Imbalance & S/R Zones", Order = 6)]
         public VeltrixFpMarkerType ImbMarkerType { get; set; }
 
-        [Display(Name = "Show Stacked Imbalance S/R Zones", GroupName = "04. Imbalance & S/R Zones", Order = 7)]
+        [Range(6, 24)]
+        [Display(Name = "Imbalance Marker Size (px)", GroupName = "04. Imbalance & S/R Zones", Order = 7)]
+        public int ImbMarkerSizePx { get; set; }
+
+        [Display(Name = "Show Stacked Imbalance S/R Zones", GroupName = "04. Imbalance & S/R Zones", Order = 8)]
         public bool ShowStackedZones { get; set; }
 
         [Range(2, 10)]
-        [Display(Name = "S/R Zones: Consecutive Levels", GroupName = "04. Imbalance & S/R Zones", Order = 8)]
+        [Display(Name = "S/R Zones: Consecutive Levels", GroupName = "04. Imbalance & S/R Zones", Order = 9)]
         public int StackedConsecutive { get; set; }
 
         [Range(1, 50000)]
-        [Display(Name = "S/R Zones: Min Avg Volume", GroupName = "04. Imbalance & S/R Zones", Order = 9)]
+        [Display(Name = "S/R Zones: Min Avg Volume", GroupName = "04. Imbalance & S/R Zones", Order = 10)]
         public int StackedZoneMinVol { get; set; }
 
-        [Display(Name = "S/R Zones: Ended By", GroupName = "04. Imbalance & S/R Zones", Order = 10)]
+        [Display(Name = "S/R Zones: Ended By", GroupName = "04. Imbalance & S/R Zones", Order = 11)]
         public VeltrixFpZoneEndMode StackedEndMode { get; set; }
 
         [Range(5, 80)]
-        [Display(Name = "S/R Zones: Fill Opacity (%)", GroupName = "04. Imbalance & S/R Zones", Order = 11)]
+        [Display(Name = "S/R Zones: Fill Opacity (%)", GroupName = "04. Imbalance & S/R Zones", Order = 12)]
         public int ZoneOpacityPct { get; set; }
         #endregion
 
@@ -17023,18 +17047,25 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Absorption Volume Filter", GroupName = "05. Absorption & L2 Defense", Order = 4)]
         public int AbsorptionFilter { get; set; }
 
-        [Display(Name = "Require Live L2 Replenishment Confirmation", GroupName = "05. Absorption & L2 Defense", Order = 5)]
+        [Display(Name = "Absorption Marker Visual", GroupName = "05. Absorption & L2 Defense", Order = 5)]
+        public VeltrixFpAbsVisual AbsMarkerType { get; set; }
+
+        [Range(6, 24)]
+        [Display(Name = "Absorption Marker Size (px)", GroupName = "05. Absorption & L2 Defense", Order = 6)]
+        public int AbsMarkerSizePx { get; set; }
+
+        [Display(Name = "Require Live L2 Replenishment Confirmation", GroupName = "05. Absorption & L2 Defense", Order = 7)]
         public bool RequireL2Confirm { get; set; }
 
-        [Display(Name = "Show Absorption S/R Zones", GroupName = "05. Absorption & L2 Defense", Order = 6)]
+        [Display(Name = "Show Absorption S/R Zones", GroupName = "05. Absorption & L2 Defense", Order = 8)]
         public bool ShowAbsorptionZones { get; set; }
 
         [Range(1, 6)]
-        [Display(Name = "Absorption Zones: Consecutive Levels", GroupName = "05. Absorption & L2 Defense", Order = 7)]
+        [Display(Name = "Absorption Zones: Consecutive Levels", GroupName = "05. Absorption & L2 Defense", Order = 9)]
         public int AbsZoneConsecutive { get; set; }
 
         [Range(1, 50000)]
-        [Display(Name = "Absorption Zones: Min Volume", GroupName = "05. Absorption & L2 Defense", Order = 8)]
+        [Display(Name = "Absorption Zones: Min Volume", GroupName = "05. Absorption & L2 Defense", Order = 10)]
         public int AbsZoneMinVol { get; set; }
         #endregion
 
@@ -17045,14 +17076,14 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Extend Naked Bar VPOC Rays", GroupName = "06. Candle Internals", Order = 2)]
         public bool ShowNakedBarVpoc { get; set; }
 
-        [Display(Name = "Show Bar Value Area (68% Bracket)", GroupName = "06. Candle Internals", Order = 3)]
+        [Display(Name = "Highlight Bar Value Area (68% Clusters)", GroupName = "06. Candle Internals", Order = 3)]
         public bool ShowBarValueArea { get; set; }
 
         [Range(50, 90)]
         [Display(Name = "Bar Value Area (%)", GroupName = "06. Candle Internals", Order = 4)]
         public int BarVaPct { get; set; }
 
-        [Display(Name = "Show Unfinished Auctions (UA Caps)", GroupName = "06. Candle Internals", Order = 5)]
+        [Display(Name = "Show Unfinished Auctions (UA Badges)", GroupName = "06. Candle Internals", Order = 5)]
         public bool ShowUnfinishedAuction { get; set; }
 
         [Display(Name = "Show Exhaustion Prints", GroupName = "06. Candle Internals", Order = 6)]
@@ -17065,11 +17096,17 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Show Buying/Selling Traps (Delta Divergence)", GroupName = "06. Candle Internals", Order = 8)]
         public bool ShowBuyingSellingTraps { get; set; }
 
-        [Display(Name = "Show Center Candle Spine", GroupName = "06. Candle Internals", Order = 9)]
-        public bool ShowCandleSpine { get; set; }
+        [Display(Name = "Candle Spine Mode (LeftSlimRail Recommended)", GroupName = "06. Candle Internals", Order = 9)]
+        public VeltrixFpCandleSpineMode CandleSpineMode { get; set; }
 
         [Display(Name = "Show Cluster Specular Highlights (3D Gloss)", GroupName = "06. Candle Internals", Order = 10)]
         public bool ShowSpecularGloss { get; set; }
+
+        [Display(Name = "Fill Empty Price Levels Across Bar Range", GroupName = "06. Candle Internals", Order = 11)]
+        public bool FillEmptyPriceLevels { get; set; }
+
+        [Display(Name = "Hide Text on Zero-Volume Filler Cells", GroupName = "06. Candle Internals", Order = 12)]
+        public bool HideZeroText { get; set; }
         #endregion
 
         #region Properties - 07. Bar Statistic (Above/Below Candle)
@@ -17252,7 +17289,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 DisplayVolFilter = 0;
                 OrderflowAlgo = VeltrixFpOrderflowAlgo.Hybrid;
                 ReconstructTapeMs = 15;
-                HistoryMode = VeltrixFpHistoryMode.Hybrid1Minute;
+                HistoryMode = VeltrixFpHistoryMode.HybridFastInstant;
                 MinBarWidthHintPx = 115;
                 BarOuterMarginPx = 8;
 
@@ -17261,17 +17298,20 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ImbalanceDirection = VeltrixFpImbalanceDir.Diagonal;
                 ImbalancePct = 300;
                 ImbalanceMinVol = 40;
-                ImbMarkerType = VeltrixFpMarkerType.Dot;
+                ImbMarkerType = VeltrixFpMarkerType.NeonAuraBadge;
+                ImbMarkerSizePx = 10;
                 ShowStackedZones = true;
                 StackedConsecutive = 3;
                 StackedZoneMinVol = 35;
                 StackedEndMode = VeltrixFpZoneEndMode.ByBarHighLow;
-                ZoneOpacityPct = 24;
+                ZoneOpacityPct = 20;
 
                 ShowAbsorption = true;
                 OnlyAbsorption = false;
                 AbsorptionPct = 260;
                 AbsorptionFilter = 60;
+                AbsMarkerType = VeltrixFpAbsVisual.ShieldPulseRing;
+                AbsMarkerSizePx = 12;
                 RequireL2Confirm = false;
                 ShowAbsorptionZones = true;
                 AbsZoneConsecutive = 1;
@@ -17285,8 +17325,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ShowExhaustion = true;
                 ExhaustionMaxVol = 15;
                 ShowBuyingSellingTraps = true;
-                ShowCandleSpine = true;
+                CandleSpineMode = VeltrixFpCandleSpineMode.LeftSlimRail;
                 ShowSpecularGloss = true;
+                FillEmptyPriceLevels = true;
+                HideZeroText = true;
 
                 ShowBarRatioNumbers = true;
                 RatioLowBound = 0.71;
@@ -17344,21 +17386,12 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 usesSubSeries = false;
                 bool isTickReplay = (Bars != null && Bars.IsTickReplay);
-                bool alreadyMin1 = (BarsPeriod != null && BarsPeriod.BarsPeriodType == BarsPeriodType.Minute && BarsPeriod.Value == 1);
                 bool alreadyTick1 = (BarsPeriod != null && BarsPeriod.BarsPeriodType == BarsPeriodType.Tick && BarsPeriod.Value == 1);
 
-                if (!isTickReplay && !alreadyMin1 && !alreadyTick1)
+                if (!isTickReplay && !alreadyTick1 && HistoryMode == VeltrixFpHistoryMode.Real1TickNoReplay)
                 {
-                    if (HistoryMode == VeltrixFpHistoryMode.Hybrid1Minute)
-                    {
-                        AddDataSeries(BarsPeriodType.Minute, 1);
-                        usesSubSeries = true;
-                    }
-                    else if (HistoryMode == VeltrixFpHistoryMode.Real1TickNoReplay)
-                    {
-                        AddDataSeries(BarsPeriodType.Tick, 1);
-                        usesSubSeries = true;
-                    }
+                    AddDataSeries(BarsPeriodType.Tick, 1);
+                    usesSubSeries = true;
                 }
             }
             else if (State == State.DataLoaded)
@@ -17680,13 +17713,14 @@ namespace NinjaTrader.NinjaScript.Indicators
                 FpBarData bar = GetOrCreateBarLocked(targetIdx, Times[0][0], Opens[0][0], Highs[0][0], Lows[0][0], Closes[0][0], Bars.IsFirstBarOfSessionByIndex(targetIdx));
                 if (!bar.HasLiveTape)
                 {
-                    // Switching from historical hybrid estimate to true 100% L1+L2 live stream on this forming bar
-                    if (bar.HasHistSubData && State == State.Realtime)
+                    // Switching from historical seed to true 100% L1+L2 live stream on this forming bar
+                    if ((bar.SeededVol > 0 || bar.HasHistTickTape) && State == State.Realtime)
                     {
                         bar.Cells.Clear();
                         bar.TotalVol = 0; bar.BuyVol = 0; bar.SellVol = 0; bar.BarDelta = 0;
                         bar.TradesCount = 0; bar.MinDelta = 0; bar.MaxDelta = 0; bar.SpreadVol = 0;
-                        bar.HasHistSubData = false;
+                        bar.HasHistTickTape = false;
+                        bar.SeededVol = -1;
                         bar.StartUtc = DateTime.UtcNow;
                     }
                     bar.HasLiveTape = true;
@@ -17875,33 +17909,28 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (CurrentBars[0] < 0 || CurrentBars[1] <= lastProcessedSubBar) return;
                 lastProcessedSubBar = CurrentBars[1];
 
+                // During Historical execution in NT8, CurrentBars[0] accurately points to the enclosing primary bar (even on fast Range bars sharing the same minute!)
                 int pIdx = CurrentBars[0];
-                DateTime subT = Times[1][0];
-                try
-                {
-                    int mapped = BarsArray[0].GetBar(subT);
-                    if (mapped >= 0 && mapped <= CurrentBars[0]) pIdx = mapped;
-                }
-                catch { }
+                if (pIdx < 0) return;
 
                 lock (dataLock)
                 {
                     FpBarData bar = GetOrCreateBarLocked(pIdx, Times[0][0], Opens[0][0], Highs[0][0], Lows[0][0], Closes[0][0], BarsArray[0].IsFirstBarOfSessionByIndex(pIdx));
                     if (bar.HasLiveTape) return;
-                    bar.HasHistSubData = true;
+                    if (!bar.HasHistTickTape && bar.SeededVol >= 0)
+                    {
+                        bar.Cells.Clear();
+                        bar.TotalVol = 0; bar.BuyVol = 0; bar.SellVol = 0; bar.BarDelta = 0;
+                        bar.TradesCount = 0; bar.MinDelta = 0; bar.MaxDelta = 0; bar.SpreadVol = 0;
+                        bar.SeededVol = -1;
+                    }
+                    bar.HasHistTickTape = true;
                     long sVol = Math.Max(0L, (long)Math.Round(Volumes[1][0]));
-                    if (HistoryMode == VeltrixFpHistoryMode.Real1TickNoReplay)
-                    {
-                        double px = Closes[1][0];
-                        bool isAsk = !double.IsNaN(prevHistTickPrice) ? (px > prevHistTickPrice ? true : (px < prevHistTickPrice ? false : prevHistTickWasAsk)) : true;
-                        prevHistTickPrice = px;
-                        prevHistTickWasAsk = isAsk;
-                        ApplyTradeToBarLocked(bar, PriceToTick(px), Math.Max(1L, sVol), isAsk, false, false);
-                    }
-                    else
-                    {
-                        DistributeHistoricalBarOHLC(bar, Opens[1][0], Highs[1][0], Lows[1][0], Closes[1][0], sVol);
-                    }
+                    double px = Closes[1][0];
+                    bool isAsk = !double.IsNaN(prevHistTickPrice) ? (px > prevHistTickPrice ? true : (px < prevHistTickPrice ? false : prevHistTickWasAsk)) : true;
+                    prevHistTickPrice = px;
+                    prevHistTickWasAsk = isAsk;
+                    ApplyTradeToBarLocked(bar, PriceToTick(px), Math.Max(1L, sVol), isAsk, false, false);
                 }
                 return;
             }
@@ -17911,22 +17940,34 @@ namespace NinjaTrader.NinjaScript.Indicators
             lock (dataLock)
             {
                 bool isFirstSess = Bars.IsFirstBarOfSessionByIndex(CurrentBar);
-                FpBarData bar = GetOrCreateBarLocked(CurrentBar, Times[0][0], Opens[0][0], Highs[0][0], Lows[0][0], Closes[0][0], isFirstSess);
+                double o0 = Opens[0][0], h0 = Highs[0][0], l0 = Lows[0][0], c0 = Closes[0][0];
+                FpBarData bar = GetOrCreateBarLocked(CurrentBar, Times[0][0], o0, h0, l0, c0, isFirstSess);
 
                 if (State == State.Realtime && !bar.HasLiveTape && CurrentBar > 0 && IsFirstTickOfBar)
                     bar.StartUtc = DateTime.UtcNow;
 
-                // Fallback OHLC seed if no Tick Replay and no sub-series cells arrived yet on historical bars
-                if (State == State.Historical && !bar.HasLiveTape && !bar.HasHistSubData && (IsFirstTickOfBar || bar.Cells.Count == 0))
+                // Always keep historical bar OHLC volume seeded & refreshed cleanly without requiring Tick Replay (works even when market is closed!)
+                if (State == State.Historical && !bar.HasLiveTape && !bar.HasHistTickTape)
                 {
                     long v = Math.Max(0L, (long)Math.Round(Volumes[0][0]));
-                    if (v > 0 && bar.TotalVol == 0)
-                        DistributeHistoricalBarOHLC(bar, Opens[0][0], Highs[0][0], Lows[0][0], Closes[0][0], v);
+                    double ts = SafeTickSize();
+                    if (v > 0 && (bar.SeededVol != v || Math.Abs(h0 - bar.SeededH) > ts * 0.1 || Math.Abs(l0 - bar.SeededL) > ts * 0.1))
+                    {
+                        bar.Cells.Clear();
+                        bar.TotalVol = 0; bar.BuyVol = 0; bar.SellVol = 0; bar.BarDelta = 0;
+                        bar.TradesCount = 0; bar.MinDelta = 0; bar.MaxDelta = 0; bar.SpreadVol = 0;
+                        bar.Open = o0; bar.High = h0; bar.Low = l0; bar.Close = c0;
+                        DistributeHistoricalBarOHLC(bar, o0, h0, l0, c0, v);
+                        bar.SeededVol = v;
+                        bar.SeededH = h0;
+                        bar.SeededL = l0;
+                    }
                 }
 
-                // Periodically recompute analytics on bar closes or every 400ms live
-                bool shouldCompute = (IsFirstTickOfBar && CurrentBar != lastAnalyticsBarCount)
-                    || (State == State.Realtime && (DateTime.UtcNow - lastAnalyticsRunUtc).TotalMilliseconds >= 400.0);
+                // Periodically recompute analytics on historical bars / closes or every 350ms live
+                bool shouldCompute = (State == State.Historical)
+                    || (IsFirstTickOfBar && CurrentBar != lastAnalyticsBarCount)
+                    || (State == State.Realtime && (DateTime.UtcNow - lastAnalyticsRunUtc).TotalMilliseconds >= 350.0);
                 if (shouldCompute)
                 {
                     lastAnalyticsBarCount = CurrentBar;
@@ -18697,24 +18738,58 @@ namespace NinjaTrader.NinjaScript.Indicators
                     if (!barsMap.TryGetValue(b, out bar)) continue;
 
                     float cx = (float)chartControl.GetXByBarIndex(ChartBars, b);
-                    if (cx < panelLeft - 90f || cx > panelRight + 90f) continue;
+                    if (cx < panelLeft - 95f || cx > panelRight + 95f) continue;
 
                     float nxtX = (b < toIdx) ? (float)chartControl.GetXByBarIndex(ChartBars, b + 1) : (cx + defaultPitch);
                     float prvX = (b > fromIdx) ? (float)chartControl.GetXByBarIndex(ChartBars, b - 1) : (cx - defaultPitch);
                     float pitchPx = Math.Max(8f, Math.Min(Math.Abs(nxtX - cx), Math.Abs(cx - prvX)));
-                    float availW = Math.Max(6f, pitchPx - BarOuterMarginPx);
+                    float availW = Math.Max(8f, pitchPx - BarOuterMarginPx);
 
                     bool hasL = (LeftStyle != VeltrixFpStyle.None);
                     bool hasR = (RightStyle != VeltrixFpStyle.None);
-                    float spineW = ShowCandleSpine ? Math.Min(6f, Math.Max(2f, availW * 0.08f)) : 0f;
+                    float barLeftEdge = cx - availW * 0.5f;
+                    float railW = 0f;
+                    float railGap = 0f;
+                    float midSpineW = 0f;
 
-                    float leftX = cx - availW * 0.5f;
-                    float leftW = hasL ? (hasR ? (availW - spineW) * 0.52f : availW) : 0f;
-                    float rightX = hasL ? (cx + spineW * 0.5f + 1.5f) : (cx - availW * 0.5f);
-                    float rightW = hasR ? (hasL ? (availW - spineW) * 0.44f : availW) : 0f;
+                    if (CandleSpineMode == VeltrixFpCandleSpineMode.LeftSlimRail && availW >= 24f)
+                    {
+                        railW = Math.Min(5.5f, Math.Max(3.5f, availW * 0.06f));
+                        railGap = 4.0f;
+                    }
+                    else if (CandleSpineMode == VeltrixFpCandleSpineMode.CenterMicroWick && hasL && hasR)
+                    {
+                        midSpineW = 3.0f;
+                    }
+
+                    float clusterStartX = barLeftEdge + railW + railGap;
+                    float clusterTotalW = Math.Max(6f, availW - railW - railGap);
+                    float leftX = clusterStartX;
+                    float leftW = hasL ? (hasR ? (clusterTotalW - midSpineW - 2f) * 0.55f : clusterTotalW) : 0f;
+                    float rightX = hasL ? (leftX + leftW + midSpineW + 2f) : clusterStartX;
+                    float rightW = hasR ? (hasL ? Math.Max(4f, clusterTotalW - leftW - midSpineW - 2f) : clusterTotalW) : 0f;
 
                     // Re-bucket cells at effective Group LOD
                     SortedDictionary<long, BucketRenderCell> bMap = new SortedDictionary<long, BucketRenderCell>();
+                    long lowTick = PriceToTick(bar.Low);
+                    long highTick = PriceToTick(bar.High);
+                    long minG = (long)Math.Floor((double)lowTick / effGroup);
+                    long maxG = (long)Math.Floor((double)highTick / effGroup);
+                    if (FillEmptyPriceLevels && maxG >= minG && (maxG - minG) <= 180)
+                    {
+                        for (long g = minG; g <= maxG; g++)
+                        {
+                            bMap[g] = new BucketRenderCell
+                            {
+                                GroupIdx = g,
+                                PriceLow = (g * effGroup - 0.5) * ts,
+                                PriceHigh = ((g + 1) * effGroup - 0.5) * ts,
+                                PriceMid = (g * effGroup + effGroup * 0.5) * ts,
+                                IsEmptyFiller = true
+                            };
+                        }
+                    }
+
                     foreach (KeyValuePair<long, PriceCell> kv in bar.Cells)
                     {
                         long tk = kv.Key;
@@ -18725,8 +18800,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                             bc = new BucketRenderCell
                             {
                                 GroupIdx = gIdx,
-                                PriceLow = TickToPrice(gIdx * effGroup),
-                                PriceHigh = TickToPrice((gIdx + 1) * effGroup - 1),
+                                PriceLow = (gIdx * effGroup - 0.5) * ts,
+                                PriceHigh = ((gIdx + 1) * effGroup - 0.5) * ts,
                                 PriceMid = (gIdx * effGroup + effGroup * 0.5) * ts
                             };
                             bMap[gIdx] = bc;
@@ -18736,6 +18811,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         bc.BidVol += pc.BidVol;
                         bc.AskVol += pc.AskVol;
                         bc.Trades += pc.Trades;
+                        if (bc.Vol > 0) bc.IsEmptyFiller = false;
                         if (pc.L2AbsBid) bc.AbsBid = true;
                         if (pc.L2AbsAsk) bc.AbsAsk = true;
                     }
@@ -18752,102 +18828,166 @@ namespace NinjaTrader.NinjaScript.Indicators
                         if (ad > barMaxDelta) barMaxDelta = ad;
                     }
 
-                    // Candle Spine (Open-Close body + Wick)
-                    if (ShowCandleSpine)
+                    // Sleek Candle Spine (LeftSlimRail or CenterMicroWick - never obscures cluster numbers!)
+                    if (CandleSpineMode == VeltrixFpCandleSpineMode.LeftSlimRail && railW > 0f)
                     {
-                        float yH = Math.Max(panelTop, (float)chartScale.GetYByValue(bar.High));
-                        float yL = Math.Min(plotBottom, (float)chartScale.GetYByValue(bar.Low));
-                        float yO = Math.Max(panelTop, Math.Min(plotBottom, (float)chartScale.GetYByValue(bar.Open)));
-                        float yC = Math.Max(panelTop, Math.Min(plotBottom, (float)chartScale.GetYByValue(bar.Close)));
+                        float rxCenter = barLeftEdge + railW * 0.5f;
+                        float yH = Math.Max(panelTop + 2f, (float)chartScale.GetYByValue(bar.High));
+                        float yL = Math.Min(plotBottom - 2f, (float)chartScale.GetYByValue(bar.Low));
+                        float yO = Math.Max(panelTop + 2f, Math.Min(plotBottom - 2f, (float)chartScale.GetYByValue(bar.Open)));
+                        float yC = Math.Max(panelTop + 2f, Math.Min(plotBottom - 2f, (float)chartScale.GetYByValue(bar.Close)));
                         D2D.SolidColorBrush spBr = (bar.Close >= bar.Open) ? dxSpineUp : dxSpineDown;
-                        RenderTarget.DrawLine(new SharpDX.Vector2(cx, yH), new SharpDX.Vector2(cx, yL), spBr, 1.3f);
+                        RenderTarget.DrawLine(new SharpDX.Vector2(rxCenter, yH), new SharpDX.Vector2(rxCenter, yL), spBr, 1.4f);
                         float bTop = Math.Min(yO, yC);
                         float bBot = Math.Max(yO, yC);
-                        RenderTarget.FillRectangle(new SharpDX.RectangleF(cx - spineW * 0.5f, bTop, spineW, Math.Max(2f, bBot - bTop)), spBr);
+                        var railRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(barLeftEdge, bTop, railW, Math.Max(3f, bBot - bTop)), RadiusX = 1.5f, RadiusY = 1.5f };
+                        RenderTarget.FillRoundedRectangle(railRect, spBr);
                     }
-
-                    // Value Area vertical bracket along left of candle
-                    if (ShowBarValueArea && tmpBuckets.Count > 0 && availW >= 18f)
+                    else if (CandleSpineMode == VeltrixFpCandleSpineMode.CenterMicroWick && midSpineW > 0f)
                     {
-                        float vaTopY = Math.Max(panelTop, (float)chartScale.GetYByValue(bar.VahPrice));
-                        float vaBotY = Math.Min(plotBottom, (float)chartScale.GetYByValue(bar.ValPrice));
-                        if (vaBotY > vaTopY + 2f)
-                            RenderTarget.DrawLine(new SharpDX.Vector2(leftX - 2f, vaTopY), new SharpDX.Vector2(leftX - 2f, vaBotY), dxVaBarBr, 2.2f);
+                        float spineCx = leftX + leftW + 1f + midSpineW * 0.5f;
+                        float yH = Math.Max(panelTop + 2f, (float)chartScale.GetYByValue(bar.High));
+                        float yL = Math.Min(plotBottom - 2f, (float)chartScale.GetYByValue(bar.Low));
+                        D2D.SolidColorBrush spBr = (bar.Close >= bar.Open) ? dxSpineUp : dxSpineDown;
+                        RenderTarget.DrawLine(new SharpDX.Vector2(spineCx, yH), new SharpDX.Vector2(spineCx, yL), spBr, 1.6f);
                     }
 
-                    float cellH = Math.Max(3f, rowHeightPx - 1.5f);
-                    bool drawTextL = LeftShowValues && cellH >= 11f && leftW >= 34f;
-                    bool drawTextR = RightShowValues && cellH >= 11f && rightW >= 24f;
+                    bool drawTextL = LeftShowValues && rowHeightPx >= 11f && leftW >= 32f;
+                    bool drawTextR = RightShowValues && rowHeightPx >= 11f && rightW >= 22f;
 
                     for (int i = 0; i < tmpBuckets.Count; i++)
                     {
                         BucketRenderCell bc = tmpBuckets[i];
-                        if (bc.Vol < DisplayVolFilter) continue;
+                        if (!bc.IsEmptyFiller && bc.Vol < DisplayVolFilter) continue;
                         if (OnlyImbalance && !bc.BuyImb && !bc.SellImb) continue;
                         if (OnlyAbsorption && !bc.AbsBid && !bc.AbsAsk) continue;
 
-                        float cy = (float)chartScale.GetYByValue(bc.PriceMid);
-                        float ry = cy - cellH * 0.5f;
+                        float yTopCell = (float)chartScale.GetYByValue(bc.PriceHigh) + 0.8f;
+                        float yBotCell = (float)chartScale.GetYByValue(bc.PriceLow) - 0.8f;
+                        float cellH = Math.Max(2.5f, yBotCell - yTopCell);
+                        float cy = yTopCell + cellH * 0.5f;
+                        float ry = yTopCell;
                         if (ry + cellH < panelTop || ry > plotBottom) continue;
 
                         // LEFT SIDE CLUSTER
                         if (hasL && leftW >= 4f)
-                            RenderSideCell(bc, true, leftX, ry, leftW, cellH, drawTextL, barMaxVol, barMaxDelta, chartMaxBucketVol, chartMaxDeltaAbs, posR, posG, posB, negR, negG, negB, neuR, neuG, neuB);
+                            RenderSideCell(bc, true, leftX, ry, leftW, cellH, drawTextL && !(HideZeroText && bc.Vol == 0), barMaxVol, barMaxDelta, chartMaxBucketVol, chartMaxDeltaAbs, posR, posG, posB, negR, negG, negB, neuR, neuG, neuB);
 
                         // RIGHT SIDE CLUSTER
                         if (hasR && rightW >= 4f)
-                            RenderSideCell(bc, false, rightX, ry, rightW, cellH, drawTextR, barMaxVol, barMaxDelta, chartMaxBucketVol, chartMaxDeltaAbs, posR, posG, posB, negR, negG, negB, neuR, neuG, neuB);
+                            RenderSideCell(bc, false, rightX, ry, rightW, cellH, drawTextR && !(HideZeroText && bc.Vol == 0), barMaxVol, barMaxDelta, chartMaxBucketVol, chartMaxDeltaAbs, posR, posG, posB, negR, negG, negB, neuR, neuG, neuB);
 
-                        // Imbalance Dot / Diamond / Box Markers
+                        // Inner Value Area Neon Accent Bar (NO ugly floating outer wire!)
+                        if (ShowBarValueArea && bc.InValueArea && !bc.IsEmptyFiller && hasL && leftW >= 8f)
+                            RenderTarget.FillRectangle(new SharpDX.RectangleF(leftX + 0.8f, ry + 1.5f, 2.2f, Math.Max(1.5f, cellH - 3f)), dxVaBarBr);
+
+                        // BIG GLOWING IMBALANCE MARKERS (Customizable Size + Multi-Layer Bloom!)
                         if (ShowImbalance && (bc.BuyImb || bc.SellImb) && availW >= 14f)
                         {
-                            float mx = bc.BuyImb ? (hasR ? rightX + rightW + 3f : leftX + leftW + 3f) : (leftX - 4f);
+                            float mx = bc.BuyImb ? (hasR ? rightX + rightW + 5f : leftX + leftW + 5f) : (clusterStartX - 5f);
+                            float mRad = Math.Max(4f, Math.Min(12f, ImbMarkerSizePx * 0.5f));
+                            byte ir = bc.BuyImb ? posR : negR;
+                            byte ig = bc.BuyImb ? posG : negG;
+                            byte ib = bc.BuyImb ? posB : negB;
                             D2D.SolidColorBrush imbBr = bc.BuyImb ? dxBuyZoneEdge : dxSellZoneEdge;
-                            if (ImbMarkerType == VeltrixFpMarkerType.Dot)
-                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(mx, cy), 3.0f, 3.0f), imbBr);
-                            else if (ImbMarkerType == VeltrixFpMarkerType.Diamond)
-                                RenderTarget.FillRectangle(new SharpDX.RectangleF(mx - 2.5f, cy - 2.5f, 5f, 5f), imbBr);
-                            else if (ImbMarkerType == VeltrixFpMarkerType.GlowBox)
-                                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(leftX, ry, availW, cellH), RadiusX = 2f, RadiusY = 2f }, imbBr, 1.4f);
+
+                            // Glow cell frame whenever Imbalance fires
+                            float targetX = bc.BuyImb ? (hasR ? rightX : leftX) : leftX;
+                            float targetW = bc.BuyImb ? (hasR ? rightW : leftW) : (hasL ? leftW : rightW);
+                            if (targetW >= 6f)
+                                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(targetX, ry, targetW, cellH), RadiusX = 2.5f, RadiusY = 2.5f }, imbBr, 1.5f);
+
+                            if (ImbMarkerType == VeltrixFpMarkerType.NeonAuraBadge || ImbMarkerType == VeltrixFpMarkerType.GlowingOrb)
+                            {
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(mx, cy), mRad * 1.55f, mRad * 1.55f), GetDynBrush(ir, ig, ib, 0.22f));
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(mx, cy), mRad * 1.05f, mRad * 1.05f), GetDynBrush(ir, ig, ib, 0.52f));
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(mx, cy), mRad * 0.65f, mRad * 0.65f), imbBr);
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(mx - mRad * 0.18f, cy - mRad * 0.18f), Math.Max(1.3f, mRad * 0.22f), Math.Max(1.3f, mRad * 0.22f)), dxTextBright);
+                            }
+                            else if (ImbMarkerType == VeltrixFpMarkerType.GlowingDiamond)
+                            {
+                                RenderTarget.FillRectangle(new SharpDX.RectangleF(mx - mRad, cy - mRad, mRad * 2f, mRad * 2f), GetDynBrush(ir, ig, ib, 0.30f));
+                                RenderTarget.FillRectangle(new SharpDX.RectangleF(mx - mRad * 0.58f, cy - mRad * 0.58f, mRad * 1.16f, mRad * 1.16f), imbBr);
+                                RenderTarget.DrawRectangle(new SharpDX.RectangleF(mx - mRad * 0.78f, cy - mRad * 0.78f, mRad * 1.56f, mRad * 1.56f), dxTextBright, 0.9f);
+                            }
+                            else if (ImbMarkerType == VeltrixFpMarkerType.LightningPill)
+                            {
+                                float pw = Math.Max(18f, mRad * 2.4f);
+                                float px = bc.BuyImb ? mx : (mx - pw);
+                                var pillR = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(px, cy - 6.5f, pw, 13f), RadiusX = 4f, RadiusY = 4f };
+                                RenderTarget.FillRoundedRectangle(pillR, GetDynBrush(ir, ig, ib, 0.38f));
+                                RenderTarget.DrawRoundedRectangle(pillR, imbBr, 1.3f);
+                                DrawTextCentered(bc.BuyImb ? "▲IMB" : "▼IMB", dxFontSmall, new SharpDX.RectangleF(px, cy - 6.5f, pw, 13f), dxTextBright);
+                            }
                         }
 
-                        // Absorption Halo Markers
+                        // BIG GLOWING ABSORPTION SHIELD / PULSE MARKERS
                         if (ShowAbsorption && (bc.AbsBid || bc.AbsAsk) && availW >= 14f)
                         {
                             D2D.SolidColorBrush absBr = bc.AbsBid ? dxAbsSupEdge : dxAbsResEdge;
-                            float ax = bc.AbsBid ? (leftX + 3f) : (cx + availW * 0.5f - 3f);
-                            RenderTarget.DrawEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), 4.5f, 4.5f), absBr, 1.8f);
+                            byte ar, ag, ab;
+                            ToRgb(bc.AbsBid ? ColAbsSupport : ColAbsResistance, out ar, out ag, out ab);
+                            float aRad = Math.Max(4.5f, Math.Min(13f, AbsMarkerSizePx * 0.5f));
+                            float ax = bc.AbsBid ? (leftX + 5f) : (hasR ? rightX + rightW - 5f : leftX + leftW - 5f);
+
+                            float fullSpanW = (hasL ? leftW : 0f) + (hasR ? rightW + (hasL ? midSpineW + 2f : 0f) : 0f);
+                            float boxStart = hasL ? leftX : rightX;
+                            if (fullSpanW >= 6f)
+                                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(boxStart, ry, fullSpanW, cellH), RadiusX = 3f, RadiusY = 3f }, GetDynBrush(ar, ag, ab, 0.78f), 1.6f);
+
+                            if (AbsMarkerType == VeltrixFpAbsVisual.ShieldPulseRing || AbsMarkerType == VeltrixFpAbsVisual.GlowingDoubleOrb)
+                            {
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), aRad * 1.45f, aRad * 1.45f), GetDynBrush(ar, ag, ab, 0.20f));
+                                RenderTarget.DrawEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), aRad * 1.05f, aRad * 1.05f), absBr, 1.8f);
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), aRad * 0.52f, aRad * 0.52f), absBr);
+                                RenderTarget.FillEllipse(new D2D.Ellipse(new SharpDX.Vector2(ax, cy), Math.Max(1.5f, aRad * 0.22f), Math.Max(1.5f, aRad * 0.22f)), dxTextBright);
+                            }
+                            else if (AbsMarkerType == VeltrixFpAbsVisual.HexagonBadge)
+                            {
+                                float bw = Math.Max(22f, aRad * 2.5f);
+                                var badgeR = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(ax - bw * 0.5f, cy - 6.5f, bw, 13f), RadiusX = 4f, RadiusY = 4f };
+                                RenderTarget.FillRoundedRectangle(badgeR, GetDynBrush(ar, ag, ab, 0.42f));
+                                RenderTarget.DrawRoundedRectangle(badgeR, absBr, 1.4f);
+                                DrawTextCentered("ABS", dxFontSmall, new SharpDX.RectangleF(ax - bw * 0.5f, cy - 6.5f, bw, 13f), dxTextBright);
+                            }
                         }
 
-                        // Bar VPOC Gold Frame
-                        if (ShowBarVpoc && bc.IsVpoc)
+                        // Bar VPOC Radiant Gold Double-Glow Frame
+                        if (ShowBarVpoc && bc.IsVpoc && !bc.IsEmptyFiller)
                         {
                             float vx = hasL ? leftX : rightX;
-                            float vw = (hasL ? leftW : 0f) + (hasR ? rightW + (hasL ? spineW + 2f : 0f) : 0f);
-                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(vx - 1f, ry - 0.5f, Math.Max(4f, vw + 2f), cellH + 1f), RadiusX = 2.5f, RadiusY = 2.5f }, dxPocBr, 1.7f);
+                            float vw = (hasL ? leftW : 0f) + (hasR ? rightW + (hasL ? midSpineW + 2f : 0f) : 0f);
+                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(vx - 1.5f, ry - 0.8f, Math.Max(4f, vw + 3f), cellH + 1.6f), RadiusX = 3f, RadiusY = 3f }, GetDynBrush(250, 204, 21, 0.35f), 2.8f);
+                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(vx - 0.8f, ry - 0.3f, Math.Max(4f, vw + 1.6f), cellH + 0.6f), RadiusX = 2.5f, RadiusY = 2.5f }, dxPocBr, 1.4f);
                         }
                     }
 
-                    // Bar Extremes Annotations (Unfinished Auction, Exhaustion, Ratio Numbers, Traps, Delta Badge)
-                    float yBarTop = Math.Max(panelTop + 2f, (float)chartScale.GetYByValue(bar.High));
-                    float yBarBot = Math.Min(plotBottom - 4f, (float)chartScale.GetYByValue(bar.Low));
-
-                    if (ShowUnfinishedAuction)
-                    {
-                        if (bar.UnfinishedHigh && availW >= 14f)
-                        {
-                            RenderTarget.DrawLine(new SharpDX.Vector2(cx - availW * 0.42f, yBarTop), new SharpDX.Vector2(cx + availW * 0.42f, yBarTop), dxUnfBr, 2.0f);
-                            if (availW >= 40f) DrawTextCentered("UA", dxFontSmall, new SharpDX.RectangleF(cx + availW * 0.42f, yBarTop - 6f, 20f, 12f), dxUnfBr);
-                        }
-                        if (bar.UnfinishedLow && availW >= 14f)
-                        {
-                            RenderTarget.DrawLine(new SharpDX.Vector2(cx - availW * 0.42f, yBarBot), new SharpDX.Vector2(cx + availW * 0.42f, yBarBot), dxUnfBr, 2.0f);
-                            if (availW >= 40f) DrawTextCentered("UA", dxFontSmall, new SharpDX.RectangleF(cx + availW * 0.42f, yBarBot - 6f, 20f, 12f), dxUnfBr);
-                        }
-                    }
-
-                    float topBadgeY = yBarTop - 16f;
+                    // Clean Anti-Collision Header & Footer Badges (NO short ugly crossbar lines!)
+                    float yBarTop = Math.Max(panelTop + 4f, (float)chartScale.GetYByValue(bar.High + ts * 0.5));
+                    float yBarBot = Math.Min(plotBottom - 4f, (float)chartScale.GetYByValue(bar.Low - ts * 0.5));
+                    float badgeCx = clusterStartX + clusterTotalW * 0.5f;
+                    float topBadgeY = yBarTop - 18f;
                     float botBadgeY = yBarBot + 4f;
+
+                    if (ShowUnfinishedAuction && availW >= 24f)
+                    {
+                        if (bar.UnfinishedHigh && topBadgeY > panelTop + 2f)
+                        {
+                            var rUaT = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(badgeCx - 15f, topBadgeY, 30f, 13f), RadiusX = 3f, RadiusY = 3f };
+                            RenderTarget.FillRoundedRectangle(rUaT, dxBadgeBg);
+                            RenderTarget.DrawRoundedRectangle(rUaT, dxUnfBr, 1.1f);
+                            DrawTextCentered("UA", dxFontSmall, new SharpDX.RectangleF(badgeCx - 15f, topBadgeY, 30f, 13f), dxUnfBr);
+                            topBadgeY -= 16f;
+                        }
+                        if (bar.UnfinishedLow && botBadgeY + 13f < plotBottom)
+                        {
+                            var rUaB = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(badgeCx - 15f, botBadgeY, 30f, 13f), RadiusX = 3f, RadiusY = 3f };
+                            RenderTarget.FillRoundedRectangle(rUaB, dxBadgeBg);
+                            RenderTarget.DrawRoundedRectangle(rUaB, dxUnfBr, 1.1f);
+                            DrawTextCentered("UA", dxFontSmall, new SharpDX.RectangleF(badgeCx - 15f, botBadgeY, 30f, 13f), dxUnfBr);
+                            botBadgeY += 16f;
+                        }
+                    }
 
                     if (ShowBarRatioNumbers && availW >= 32f)
                     {
@@ -18855,15 +18995,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                         {
                             bool rejT = (bar.TopRatio < RatioLowBound || bar.TopRatio >= RatioHighBound);
                             string rTxt = bar.TopRatio >= 99.9 ? "99+" : bar.TopRatio.ToString("0.00", CultureInfo.InvariantCulture);
-                            DrawTextCentered(rTxt, dxFontSmall, new SharpDX.RectangleF(cx - 24f, topBadgeY, 48f, 13f), rejT ? dxRatioRejBr : dxRatioNeutralBr);
-                            topBadgeY -= 14f;
+                            var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(badgeCx - 20f, topBadgeY, 40f, 13f), RadiusX = 3f, RadiusY = 3f };
+                            RenderTarget.FillRoundedRectangle(rRect, dxBadgeBg);
+                            DrawTextCentered(rTxt, dxFontSmall, new SharpDX.RectangleF(badgeCx - 20f, topBadgeY, 40f, 13f), rejT ? dxRatioRejBr : dxRatioNeutralBr);
+                            topBadgeY -= 16f;
                         }
                         if (bar.BottomRatio >= 0 && botBadgeY + 13f < plotBottom)
                         {
                             bool rejB = (bar.BottomRatio < RatioLowBound || bar.BottomRatio >= RatioHighBound);
                             string rTxt = bar.BottomRatio >= 99.9 ? "99+" : bar.BottomRatio.ToString("0.00", CultureInfo.InvariantCulture);
-                            DrawTextCentered(rTxt, dxFontSmall, new SharpDX.RectangleF(cx - 24f, botBadgeY, 48f, 13f), rejB ? dxRatioRejBr : dxRatioNeutralBr);
-                            botBadgeY += 14f;
+                            var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(badgeCx - 20f, botBadgeY, 40f, 13f), RadiusX = 3f, RadiusY = 3f };
+                            RenderTarget.FillRoundedRectangle(rRect, dxBadgeBg);
+                            DrawTextCentered(rTxt, dxFontSmall, new SharpDX.RectangleF(badgeCx - 20f, botBadgeY, 40f, 13f), rejB ? dxRatioRejBr : dxRatioNeutralBr);
+                            botBadgeY += 16f;
                         }
                     }
 
@@ -18871,13 +19015,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                     {
                         if (bar.HasExhaustionHigh && topBadgeY > panelTop + 2f)
                         {
-                            DrawTextCentered("EXH", dxFontSmall, new SharpDX.RectangleF(cx - 18f, topBadgeY, 36f, 12f), dxUnfBr);
-                            topBadgeY -= 13f;
+                            DrawTextCentered("EXH", dxFontSmall, new SharpDX.RectangleF(badgeCx - 18f, topBadgeY, 36f, 13f), dxUnfBr);
+                            topBadgeY -= 15f;
                         }
-                        if (bar.HasExhaustionLow && botBadgeY + 12f < plotBottom)
+                        if (bar.HasExhaustionLow && botBadgeY + 13f < plotBottom)
                         {
-                            DrawTextCentered("EXH", dxFontSmall, new SharpDX.RectangleF(cx - 18f, botBadgeY, 36f, 12f), dxUnfBr);
-                            botBadgeY += 13f;
+                            DrawTextCentered("EXH", dxFontSmall, new SharpDX.RectangleF(badgeCx - 18f, botBadgeY, 36f, 13f), dxUnfBr);
+                            botBadgeY += 15f;
                         }
                     }
 
@@ -18885,29 +19029,31 @@ namespace NinjaTrader.NinjaScript.Indicators
                     {
                         if (bar.HasBuyingTrap && topBadgeY > panelTop + 2f)
                         {
-                            RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cx - 26f, topBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f }, dxBadgeBg);
-                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cx - 26f, topBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f }, dxSellZoneEdge, 1.0f);
-                            DrawTextCentered("TRAP ▼", dxFontSmall, new SharpDX.RectangleF(cx - 26f, topBadgeY, 52f, 14f), dxSellZoneEdge);
-                            topBadgeY -= 15f;
+                            var rTrpT = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(badgeCx - 26f, topBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f };
+                            RenderTarget.FillRoundedRectangle(rTrpT, dxBadgeBg);
+                            RenderTarget.DrawRoundedRectangle(rTrpT, dxSellZoneEdge, 1.0f);
+                            DrawTextCentered("TRAP ▼", dxFontSmall, new SharpDX.RectangleF(badgeCx - 26f, topBadgeY, 52f, 14f), dxSellZoneEdge);
+                            topBadgeY -= 16f;
                         }
                         if (bar.HasSellingTrap && botBadgeY + 14f < plotBottom)
                         {
-                            RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f }, dxBadgeBg);
-                            RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f }, dxBuyZoneEdge, 1.0f);
-                            DrawTextCentered("TRAP ▲", dxFontSmall, new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 14f), dxBuyZoneEdge);
-                            botBadgeY += 15f;
+                            var rTrpB = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(badgeCx - 26f, botBadgeY, 52f, 14f), RadiusX = 3f, RadiusY = 3f };
+                            RenderTarget.FillRoundedRectangle(rTrpB, dxBadgeBg);
+                            RenderTarget.DrawRoundedRectangle(rTrpB, dxBuyZoneEdge, 1.0f);
+                            DrawTextCentered("TRAP ▲", dxFontSmall, new SharpDX.RectangleF(badgeCx - 26f, botBadgeY, 52f, 14f), dxBuyZoneEdge);
+                            botBadgeY += 16f;
                         }
                     }
 
                     if (ShowBarDeltaTag && availW >= 26f && botBadgeY + 13f < plotBottom)
                     {
                         string dTxt = (bar.BarDelta > 0 ? "+" : "") + bar.BarDelta.ToString(CultureInfo.InvariantCulture);
-                        DrawTextCentered(dTxt, dxFontSmall, new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 13f), bar.BarDelta >= 0 ? dxPosDeltaBr : dxNegDeltaBr);
-                        botBadgeY += 13f;
+                        DrawTextCentered(dTxt, dxFontSmall, new SharpDX.RectangleF(badgeCx - 26f, botBadgeY, 52f, 13f), bar.BarDelta >= 0 ? dxPosDeltaBr : dxNegDeltaBr);
+                        botBadgeY += 14f;
                     }
                     if (ShowBarVolTag && availW >= 26f && botBadgeY + 13f < plotBottom)
                     {
-                        DrawTextCentered(bar.TotalVol.ToString(CultureInfo.InvariantCulture), dxFontSmall, new SharpDX.RectangleF(cx - 26f, botBadgeY, 52f, 13f), dxTextBright);
+                        DrawTextCentered(bar.TotalVol.ToString(CultureInfo.InvariantCulture), dxFontSmall, new SharpDX.RectangleF(badgeCx - 26f, botBadgeY, 52f, 13f), dxTextBright);
                     }
                 }
 
@@ -18917,11 +19063,11 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 // 6) Sleek Top-Left Engine Status Pill
                 bool isReplay = (Bars.IsTickReplay);
-                string engineTag = isReplay ? "L1+L2 TICK REPLAY" : (usesSubSeries ? (HistoryMode == VeltrixFpHistoryMode.Real1TickNoReplay ? "1-TICK NO REPLAY" : "HYBRID 1m + LIVE L1/L2") : "LIVE L1+L2 + BAR");
+                string engineTag = isReplay ? "L1+L2 TICK REPLAY" : (usesSubSeries ? "1-TICK NO REPLAY + LIVE" : "HYBRID FAST + LIVE L1/L2");
                 string hudTxt = string.Format(CultureInfo.InvariantCulture, "FOOTPRINT PRO · {0} · {1}t{2}", engineTag, effGroup, (AutoZoomLOD && effGroup != baseGroup) ? " (AutoLOD)" : "");
-                RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(panelLeft + 8f, panelTop + 6f, 308f, 18f), RadiusX = 4f, RadiusY = 4f }, dxBadgeBg);
-                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(panelLeft + 8f, panelTop + 6f, 308f, 18f), RadiusX = 4f, RadiusY = 4f }, dxGridBorder, 1.0f);
-                DrawTextCentered(hudTxt, dxFontHdr, new SharpDX.RectangleF(panelLeft + 10f, panelTop + 6f, 304f, 18f), dxVaBarBr);
+                RenderTarget.FillRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(panelLeft + 8f, panelTop + 6f, 326f, 19f), RadiusX = 4f, RadiusY = 4f }, dxBadgeBg);
+                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(panelLeft + 8f, panelTop + 6f, 326f, 19f), RadiusX = 4f, RadiusY = 4f }, dxGridBorder, 1.0f);
+                DrawTextCentered(hudTxt, dxFontHdr, new SharpDX.RectangleF(panelLeft + 10f, panelTop + 6f, 322f, 19f), dxVaBarBr);
             }
         }
 
@@ -18938,11 +19084,19 @@ namespace NinjaTrader.NinjaScript.Indicators
             DW.TextFormat tf = isLeft ? dxFontLeft : dxFontRight;
             int div = isLeft ? LeftValuesDivider : RightValuesDivider;
 
+            if (bc.IsEmptyFiller || bc.Vol <= 0)
+            {
+                var eRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(x, y, w, h), RadiusX = 2.0f, RadiusY = 2.0f };
+                RenderTarget.FillRoundedRectangle(eRect, GetDynBrush(15, 24, 42, 0.34f));
+                RenderTarget.DrawRoundedRectangle(eRect, GetDynBrush(38, 54, 82, 0.35f), 0.7f);
+                return;
+            }
+
             long numVal = (scSrc == VeltrixFpScaleSource.Delta) ? Math.Abs(bc.Delta) : (scSrc == VeltrixFpScaleSource.BidAskMax ? Math.Max(bc.BidVol, bc.AskVol) : bc.Vol);
             long denVal = (scSrc == VeltrixFpScaleSource.Delta)
                 ? (scope == VeltrixFpScaleScope.Chart ? chartMaxDelta : barMaxDelta)
                 : (scope == VeltrixFpScaleScope.Chart ? chartMaxVol : barMaxVol);
-            double norm = Math.Max(0.08, Math.Min(1.0, (double)numVal / Math.Max(1.0, (double)denVal)));
+            double norm = Math.Max(0.10, Math.Min(1.0, (double)numVal / Math.Max(1.0, (double)denVal)));
 
             byte cr = neuR, cg = neuG, cb = neuB;
             if (cSrc == VeltrixFpColorSource.Delta)
@@ -18956,17 +19110,16 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else { cr = negR; cg = negG; cb = negB; }
             }
 
-            float baseAlpha = (shape == VeltrixFpClusterShape.HeatGradient)
-                ? (float)(0.24 + 0.64 * norm)
-                : (float)(0.26 + 0.56 * norm);
+            float vaMult = (ShowBarValueArea && !bc.InValueArea) ? 0.56f : 1.0f;
+            float baseAlpha = (float)((shape == VeltrixFpClusterShape.HeatGradient ? (0.20 + 0.62 * norm) : (0.22 + 0.54 * norm)) * vaMult);
             D2D.SolidColorBrush fillBr = GetDynBrush(cr, cg, cb, baseAlpha);
-            D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, Math.Min(0.95f, baseAlpha + 0.22f));
+            D2D.SolidColorBrush edgeBr = GetDynBrush(cr, cg, cb, Math.Min(0.96f, baseAlpha + 0.28f));
 
             float drawX = x;
             float drawW = w;
             if (shape == VeltrixFpClusterShape.Histogram)
             {
-                drawW = Math.Max(3f, (float)(w * norm));
+                drawW = Math.Max(4f, (float)(w * norm));
                 drawX = isLeft ? (x + w - drawW) : x;
             }
 
@@ -18977,16 +19130,15 @@ namespace NinjaTrader.NinjaScript.Indicators
                 float askW = drawW - bidW;
                 if (bidW >= 1f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX, y, bidW, h), GetDynBrush(negR, negG, negB, baseAlpha));
                 if (askW >= 1f) RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX + bidW, y, askW, h), GetDynBrush(posR, posG, posB, baseAlpha));
-                if (bc.InValueArea) RenderTarget.DrawRectangle(new SharpDX.RectangleF(drawX, y, drawW, h), edgeBr, 0.8f);
+                RenderTarget.DrawRoundedRectangle(new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 2.0f, RadiusY = 2.0f }, edgeBr, 0.9f);
             }
             else
             {
-                var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 2.2f, RadiusY = 2.2f };
+                var rRect = new D2D.RoundedRectangle { Rect = new SharpDX.RectangleF(drawX, y, drawW, h), RadiusX = 2.4f, RadiusY = 2.4f };
                 RenderTarget.FillRoundedRectangle(rRect, fillBr);
-                if (ShowSpecularGloss && norm >= 0.55 && h >= 8f)
-                    RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX + 1f, y + 0.5f, Math.Max(1f, drawW - 2f), 2f), dxSpecGloss);
-                if (shape == VeltrixFpClusterShape.HeatGradient || norm >= 0.72)
-                    RenderTarget.DrawRoundedRectangle(rRect, edgeBr, 1.0f);
+                if (ShowSpecularGloss && norm >= 0.42 && h >= 8f)
+                    RenderTarget.FillRectangle(new SharpDX.RectangleF(drawX + 1.5f, y + 0.6f, Math.Max(1f, drawW - 3f), 1.8f), dxSpecGloss);
+                RenderTarget.DrawRoundedRectangle(rRect, edgeBr, (norm >= 0.68 || bc.InValueArea) ? 1.15f : 0.7f);
             }
 
             if (drawText)
@@ -19358,11 +19510,15 @@ namespace NinjaTrader.NinjaScript.Indicators
             var cbAlgo = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpOrderflowAlgo)), SelectedItem = OrderflowAlgo, Width = 128 };
             var tbTapeMs = new Wpf.TextBox { Text = ReconstructTapeMs.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var chkGloss = new Wpf.CheckBox { IsChecked = ShowSpecularGloss, Content = "3D Gloss", Foreground = txtBr };
-            var chkSpine = new Wpf.CheckBox { IsChecked = ShowCandleSpine, Content = "Spine", Foreground = txtBr };
+            var chkFillEmpty = new Wpf.CheckBox { IsChecked = FillEmptyPriceLevels, Content = "Fill Gaps", Foreground = txtBr };
+            var cbSpine = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpCandleSpineMode)), SelectedItem = CandleSpineMode, Width = 128 };
+            var cbHistMode = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpHistoryMode)), SelectedItem = HistoryMode, Width = 136 };
 
             var chkImb = new Wpf.CheckBox { IsChecked = ShowImbalance, Content = "Imbalances", Foreground = txtBr };
             var chkOnlyImb = new Wpf.CheckBox { IsChecked = OnlyImbalance, Content = "Only Imb", Foreground = txtBr };
             var cbImbDir = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpImbalanceDir)), SelectedItem = ImbalanceDirection, Width = 104 };
+            var cbImbVis = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpMarkerType)), SelectedItem = ImbMarkerType, Width = 126 };
+            var tbImbSize = new Wpf.TextBox { Text = ImbMarkerSizePx.ToString(CultureInfo.InvariantCulture), Width = 40, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbImbPct = new Wpf.TextBox { Text = ImbalancePct.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbImbVol = new Wpf.TextBox { Text = ImbalanceMinVol.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var chkStkZ = new Wpf.CheckBox { IsChecked = ShowStackedZones, Content = "Stacked S/R Zones", Foreground = txtBr };
@@ -19372,6 +19528,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             var chkAbs = new Wpf.CheckBox { IsChecked = ShowAbsorption, Content = "Absorption", Foreground = txtBr };
             var chkAbsL2 = new Wpf.CheckBox { IsChecked = RequireL2Confirm, Content = "Require L2", Foreground = txtBr };
             var chkAbsZ = new Wpf.CheckBox { IsChecked = ShowAbsorptionZones, Content = "Abs Zones", Foreground = txtBr };
+            var cbAbsVis = new Wpf.ComboBox { ItemsSource = Enum.GetValues(typeof(VeltrixFpAbsVisual)), SelectedItem = AbsMarkerType, Width = 132 };
+            var tbAbsSize = new Wpf.TextBox { Text = AbsMarkerSizePx.ToString(CultureInfo.InvariantCulture), Width = 40, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbAbsPct = new Wpf.TextBox { Text = AbsorptionPct.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
             var tbAbsVol = new Wpf.TextBox { Text = AbsorptionFilter.ToString(CultureInfo.InvariantCulture), Width = 48, Background = inputBr, Foreground = txtBr, BorderBrush = bdBr, Padding = new Thickness(4, 2, 4, 2) };
 
@@ -19422,11 +19580,15 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (cbAlgo.SelectedItem is VeltrixFpOrderflowAlgo) OrderflowAlgo = (VeltrixFpOrderflowAlgo)cbAlgo.SelectedItem;
                 if (int.TryParse(tbTapeMs.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) ReconstructTapeMs = Math.Max(0, Math.Min(250, iv));
                 ShowSpecularGloss = (chkGloss.IsChecked == true);
-                ShowCandleSpine = (chkSpine.IsChecked == true);
+                FillEmptyPriceLevels = (chkFillEmpty.IsChecked == true);
+                if (cbSpine.SelectedItem is VeltrixFpCandleSpineMode) CandleSpineMode = (VeltrixFpCandleSpineMode)cbSpine.SelectedItem;
+                if (cbHistMode.SelectedItem is VeltrixFpHistoryMode) HistoryMode = (VeltrixFpHistoryMode)cbHistMode.SelectedItem;
 
                 ShowImbalance = (chkImb.IsChecked == true);
                 OnlyImbalance = (chkOnlyImb.IsChecked == true);
                 if (cbImbDir.SelectedItem is VeltrixFpImbalanceDir) ImbalanceDirection = (VeltrixFpImbalanceDir)cbImbDir.SelectedItem;
+                if (cbImbVis.SelectedItem is VeltrixFpMarkerType) ImbMarkerType = (VeltrixFpMarkerType)cbImbVis.SelectedItem;
+                if (int.TryParse(tbImbSize.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) ImbMarkerSizePx = Math.Max(6, Math.Min(24, iv));
                 if (int.TryParse(tbImbPct.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) ImbalancePct = Math.Max(120, Math.Min(1000, iv));
                 if (int.TryParse(tbImbVol.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) ImbalanceMinVol = Math.Max(1, Math.Min(50000, iv));
                 ShowStackedZones = (chkStkZ.IsChecked == true);
@@ -19436,6 +19598,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ShowAbsorption = (chkAbs.IsChecked == true);
                 RequireL2Confirm = (chkAbsL2.IsChecked == true);
                 ShowAbsorptionZones = (chkAbsZ.IsChecked == true);
+                if (cbAbsVis.SelectedItem is VeltrixFpAbsVisual) AbsMarkerType = (VeltrixFpAbsVisual)cbAbsVis.SelectedItem;
+                if (int.TryParse(tbAbsSize.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) AbsMarkerSizePx = Math.Max(6, Math.Min(24, iv));
                 if (int.TryParse(tbAbsPct.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) AbsorptionPct = Math.Max(110, Math.Min(1000, iv));
                 if (int.TryParse(tbAbsVol.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out iv)) AbsorptionFilter = Math.Max(1, Math.Min(50000, iv));
 
@@ -19531,19 +19695,22 @@ namespace NinjaTrader.NinjaScript.Indicators
             var g1 = makeGrid();
             addRow(g1, "Left Style / Shape", wp(new UIElement[] { cbLStyle, cbLShape }));
             addRow(g1, "Right Style / Shape", wp(new UIElement[] { cbRStyle, cbRShape }));
-            addRow(g1, "Values / Visual", wp(new UIElement[] { chkLVal, chkRVal, chkGloss, chkSpine }));
+            addRow(g1, "Spine & Gaps / Gloss", wp(new UIElement[] { cbSpine, chkFillEmpty, chkGloss }));
+            addRow(g1, "Values Display", wp(new UIElement[] { chkLVal, chkRVal }));
             addRow(g1, "Ticks / Level & LOD", wp(new UIElement[] { tbTicks, chkLod }));
-            addRow(g1, "Lot Filter Min / Max", wp(new UIElement[] { tbTMin, new Wpf.TextBlock { Text = "/", Foreground = mutBr }, tbTMax }));
-            addRow(g1, "Display Min Vol", tbDVol);
-            addRow(g1, "Orderflow Algo", wp(new UIElement[] { cbAlgo, new Wpf.TextBlock { Text = "Tape ms:", Foreground = mutBr }, tbTapeMs }));
+            addRow(g1, "Lot Filter Min / Max", wp(new UIElement[] { tbTMin, new Wpf.TextBlock { Text = "/", Foreground = mutBr }, tbTMax, new Wpf.TextBlock { Text = "MinV:", Foreground = mutBr }, tbDVol }));
+            addRow(g1, "Orderflow / History", wp(new UIElement[] { cbAlgo, cbHistMode }));
+            addRow(g1, "Tape Reconstr. (ms)", tbTapeMs);
             tabs.Items.Add(new Wpf.TabItem { Header = "Clusters & Tape", Background = inputBr, Foreground = txtBr, Content = g1 });
 
             // Tab 2: Imbalance & Absorption
             var g2 = makeGrid();
             addRow(g2, "Imbalance Toggles", wp(new UIElement[] { chkImb, chkOnlyImb, cbImbDir }));
+            addRow(g2, "Imb Visual / Size(px)", wp(new UIElement[] { cbImbVis, tbImbSize }));
             addRow(g2, "Imb % / Min Vol", wp(new UIElement[] { tbImbPct, new Wpf.TextBlock { Text = "% |", Foreground = mutBr }, tbImbVol }));
             addRow(g2, "Stacked S/R Zones", wp(new UIElement[] { chkStkZ, new Wpf.TextBlock { Text = "Lvl:", Foreground = mutBr }, tbStkCnt, new Wpf.TextBlock { Text = "Vol:", Foreground = mutBr }, tbStkVol }));
             addRow(g2, "Absorption Mode", wp(new UIElement[] { chkAbs, chkAbsL2, chkAbsZ }));
+            addRow(g2, "Abs Visual / Size(px)", wp(new UIElement[] { cbAbsVis, tbAbsSize }));
             addRow(g2, "Abs Ratio % / Min Vol", wp(new UIElement[] { tbAbsPct, new Wpf.TextBlock { Text = "% |", Foreground = mutBr }, tbAbsVol }));
             tabs.Items.Add(new Wpf.TabItem { Header = "Imbalance & L2 Abs", Background = inputBr, Foreground = txtBr, Content = g2 });
 
@@ -20156,6 +20323,7 @@ namespace NinjaTrader.NinjaScript.DrawingTools
 # TEMPLATES DE GRAFICO NT8 PRONTOS PARA IMPORTAR (SEM TICK REPLAY PESADO)
 # ==============================================================================
 def _xml_ind(full_class, short_tag, display_name, panel, bpt, bpv, extra_props="", is_overlay="true", zorder=30010):
+    ind_id = 100 + (zorder % 900)
     return f"""      <Indicator BarsIndex="0" Instrument="ES DEC26 Globex" Name="NinjaTrader.NinjaScript.Indicators.{full_class}" Panel="{panel}" DisplayName="{display_name}">
         <{short_tag} xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
           <IsVisible>true</IsVisible>
@@ -20177,14 +20345,16 @@ def _xml_ind(full_class, short_tag, display_name, panel, bpt, bpv, extra_props="
           <Calculate>OnEachTick</Calculate>
           <Displacement>0</Displacement>
           <DisplayInDataBox>false</DisplayInDataBox>
+          <From>2026-01-01T00:00:00</From>
           <IsAutoScale>true</IsAutoScale>
           <Lines />
           <MaximumBarsLookBack>TwoHundredFiftySix</MaximumBarsLookBack>
-          <Name>{display_name}</Name>
+          <Name />
           <Panel>{panel}</Panel>
           <Plots />
           <ScaleJustification>Right</ScaleJustification>
           <ShowTransparentPlotsInDataBox>false</ShowTransparentPlotsInDataBox>
+          <To>2099-12-01T00:00:00</To>
           <IsDataSeriesRequired>true</IsDataSeriesRequired>
           <IsOverlay>{is_overlay}</IsOverlay>
           <SelectedValueSeries>0</SelectedValueSeries>
@@ -20195,6 +20365,9 @@ def _xml_ind(full_class, short_tag, display_name, panel, bpt, bpv, extra_props="
           <DrawVerticalGridLines>true</DrawVerticalGridLines>
           <DrawOnPricePanel>{is_overlay}</DrawOnPricePanel>
           <ChartHashCodeDeserialized>0</ChartHashCodeDeserialized>
+          <IndicatorId>{ind_id}</IndicatorId>
+          <MaxSerialized>0</MaxSerialized>
+          <MinSerialized>0</MinSerialized>
           <ZOrder>{zorder}</ZOrder>
 {extra_props}        </{short_tag}>
         <Input>
@@ -20232,10 +20405,25 @@ def _xml_chart_panel(height):
         </Overlay>
       </ChartPanel>"""
 
-def _build_nt8_chart_template(bpt, bpv, days_back, indicators_xml, panel_heights, is_tick_replay=False, right_margin_px=265):
+def _build_nt8_chart_template(bpt, bpv, days_back, indicators_xml, panel_heights, is_tick_replay=False, right_margin_px=265, bar_distance=16.0, candle_width=3.5, candle_transparent=False):
+    import hashlib
+    series_id = hashlib.md5(f"{bpt}-{bpv}-{days_back}-{right_margin_px}-{len(indicators_xml)}".encode("utf-8")).hexdigest()
     tr_val = "true" if is_tick_replay else "false"
     panels_xml = "\n".join(_xml_chart_panel(h) for h in panel_heights)
     inds_xml = "\n".join(indicators_xml)
+    down_hex = "#18DC2626" if candle_transparent else "#FFDC2626"
+    up_hex = "#1816A34A" if candle_transparent else "#FF16A34A"
+    stroke_col = "#22475569" if candle_transparent else "#FF334155"
+    stroke_ser = f'&lt;Pen Brush="{stroke_col}" Thickness="1" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;'
+    th_items = "\n".join(
+        f"""        <TimeHighlighter{k}>
+          <StartTime>2026-01-01T09:00:00</StartTime>
+          <EndTime>2026-01-01T17:00:00</EndTime>
+          <Opacity>25</Opacity>
+          <BrushSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FF6495ED&lt;/SolidColorBrush&gt;</BrushSerialize>
+        </TimeHighlighter{k}>"""
+        for k in range(10)
+    )
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <NinjaTrader>
   <NTTabPage>
@@ -20260,34 +20448,63 @@ def _build_nt8_chart_template(bpt, bpv, days_back, indicators_xml, panel_heights
           <RangeType>Days</RangeType>
           <BarsBack>50</BarsBack>
           <DaysBack>{days_back}</DaysBack>
+          <From>2026-01-01T00:00:00</From>
           <IsStableSession>true</IsStableSession>
           <IsTickReplay>{tr_val}</IsTickReplay>
+          <To>2099-12-01T00:00:00</To>
           <TradingHoursSerializable />
           <AutoScale>true</AutoScale>
           <CenterPriceOnScale>false</CenterPriceOnScale>
           <DisplayInDataBox>true</DisplayInDataBox>
           <Label>ES DEC26</Label>
+          <MaxSerialized>0</MaxSerialized>
+          <MinSerialized>0</MinSerialized>
+          <MonthsBack>0</MonthsBack>
           <Panel>0</Panel>
+          <PriceMarker>
+            <AskBackgroundSerialize>DEFAULT</AskBackgroundSerialize>
+            <BackgroundSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FFFFFFFF&lt;/SolidColorBrush&gt;</BackgroundSerialize>
+            <BidBackgroundSerialize>DEFAULT</BidBackgroundSerialize>
+            <IsVisible>true</IsVisible>
+            <ShowAskPrice>false</ShowAskPrice>
+            <ShowAskPriceLine>false</ShowAskPriceLine>
+            <ShowBidPrice>false</ShowBidPrice>
+            <ShowBidPriceLine>false</ShowBidPriceLine>
+            <ShowLastPriceLine>true</ShowLastPriceLine>
+          </PriceMarker>
           <ShowGlobalDrawObjects>true</ShowGlobalDrawObjects>
+          <ShowTradeLines>true</ShowTradeLines>
           <ScaleJustification>Right</ScaleJustification>
           <TradingHoursVisibility>AllSessions</TradingHoursVisibility>
           <TradingHoursBreakPenSerialize>&lt;Pen Brush="#FF334155" Thickness="1" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</TradingHoursBreakPenSerialize>
+          <LongExecutionBrushSerialize>DEFAULT</LongExecutionBrushSerialize>
           <PlotExecutions>DoNotPlot</PlotExecutions>
+          <MarkerSize>5</MarkerSize>
+          <PositionPenLoserSerialize>DEFAULT</PositionPenLoserSerialize>
+          <PositionPenWinnerSerialize>DEFAULT</PositionPenWinnerSerialize>
+          <ShortExecutionBrushSerialize>DEFAULT</ShortExecutionBrushSerialize>
+          <BarsSeriesId>{series_id}</BarsSeriesId>
+          <Id>{series_id}</Id>
           <Instrument>ES DEC26</Instrument>
           <IsLinked>true</IsLinked>
           <IsPrimarySeries>true</IsPrimarySeries>
           <ZOrder>1</ZOrder>
+          <WeeksBack>0</WeeksBack>
+          <YearsBack>0</YearsBack>
         </BarsProperties>
         <ChartStyles>
           <ChartStyle>
             <CandleStyle>
               <CandleStyle xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
                 <IsVisible>true</IsVisible>
-                <BarWidth>0.42</BarWidth>
+                <BarWidth>{candle_width}</BarWidth>
                 <ChartStyleTypeSerialize>1</ChartStyleTypeSerialize>
-                <DownBrushSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FFDC2626&lt;/SolidColorBrush&gt;</DownBrushSerialize>
-                <UpBrushSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FF16A34A&lt;/SolidColorBrush&gt;</UpBrushSerialize>
+                <DownBrushSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;{down_hex}&lt;/SolidColorBrush&gt;</DownBrushSerialize>
+                <UpBrushSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;{up_hex}&lt;/SolidColorBrush&gt;</UpBrushSerialize>
+                <StrokeSerialize>{stroke_ser}</StrokeSerialize>
+                <Stroke2Serialize>{stroke_ser}</Stroke2Serialize>
                 <WickMatchesBody>true</WickMatchesBody>
+                <DojiBrushSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FF94A3B8&lt;/SolidColorBrush&gt;</DojiBrushSerialize>
                 <WickStyle>Solid</WickStyle>
                 <WickWidth>1</WickWidth>
               </CandleStyle>
@@ -20303,12 +20520,46 @@ def _build_nt8_chart_template(bpt, bpv, days_back, indicators_xml, panel_heights
     <StayInDrawMode>False</StayInDrawMode>
     <Properties>
       <ChartControlProperties xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        <AlwaysOnTop>false</AlwaysOnTop>
+        <AreTabsVisible>true</AreTabsVisible>
+        <AllowSelectionDragging>true</AllowSelectionDragging>
+        <AreDrawingToolsHidden>false</AreDrawingToolsHidden>
+        <EquidistantBarSpacing>true</EquidistantBarSpacing>
+        <LabelFont>
+          <Bold>false</Bold>
+          <FamilySerialize>Arial</FamilySerialize>
+          <Italic>false</Italic>
+          <Size>11</Size>
+        </LabelFont>
+        <BarDistance>{bar_distance}</BarDistance>
         <BarMarginRightUser>{right_margin_px}</BarMarginRightUser>
+        <ChartTimeFormat>TwentyfourHour</ChartTimeFormat>
+        <ChartTraderVisibility>Collapsed</ChartTraderVisibility>
+        <ShowDateRange>false</ShowDateRange>
+        <ShowScrollBar>true</ShowScrollBar>
+        <ShowSelectedDrawingMarkers>true</ShowSelectedDrawingMarkers>
+        <SnapMode>BarAndTick</SnapMode>
+        <HideIndicators>false</HideIndicators>
+        <TabName>@INSTRUMENT_FULL</TabName>
+        <LoadBackgroundImage>false</LoadBackgroundImage>
+        <BackgroundImageStretch>Fill</BackgroundImageStretch>
         <ChartBackgroundSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FF070A12&lt;/SolidColorBrush&gt;</ChartBackgroundSerialize>
+        <ChartTextSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FFE2E8F0&lt;/SolidColorBrush&gt;</ChartTextSerialize>
         <CrosshairLabelBackgroundSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FF1E293B&lt;/SolidColorBrush&gt;</CrosshairLabelBackgroundSerialize>
-        <GridLineHPenSerialize>&lt;Pen Brush="#FF1E293B" Thickness="1" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</GridLineHPenSerialize>
-        <GridLineVPenSerialize>&lt;Pen Brush="#FF1E293B" Thickness="1" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</GridLineVPenSerialize>
+        <InactivePriceMarkersBrushSerialize>DEFAULT</InactivePriceMarkersBrushSerialize>
+        <SelectedMarkerBrushSerialize>DEFAULT</SelectedMarkerBrushSerialize>
+        <AreHGridLinesVisible>false</AreHGridLinesVisible>
+        <AreVGridLinesVisible>false</AreVGridLinesVisible>
+        <AxisPenSerialize>&lt;Pen Brush="#FF475569" Thickness="1" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</AxisPenSerialize>
+        <CrosshairPen>&lt;Pen Brush="#FF64748B" Thickness="1" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</CrosshairPen>
+        <CrosshairIsLocked>false</CrosshairIsLocked>
+        <CrosshairCrosshairType>Local</CrosshairCrosshairType>
+        <CrosshairDrawCursorOnly>false</CrosshairDrawCursorOnly>
+        <GridLineHPenSerialize>DEFAULT</GridLineHPenSerialize>
+        <GridLineVPenSerialize>DEFAULT</GridLineVPenSerialize>
         <PanelSplitterPenSerialize>&lt;Pen Brush="#FF334155" Thickness="1" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</PanelSplitterPenSerialize>
+        <TimeHighlighters>0</TimeHighlighters>
+{th_items}
       </ChartControlProperties>
     </Properties>
     <ChartPanels>
@@ -20316,6 +20567,43 @@ def _build_nt8_chart_template(bpt, bpv, days_back, indicators_xml, panel_heights
     </ChartPanels>
     <ChartAlerts />
   </NTTabPage>
+  <ChartTrader>
+    <Properties>
+      <ChartTraderProperties xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        <AtmStrategySelectionMode>SelectActiveAtmStrategyOnOrderSubmission</AtmStrategySelectionMode>
+        <AutoScale>true</AutoScale>
+        <OrderDisplayBarLength>25</OrderDisplayBarLength>
+        <PnLDisplayUnit>Points</PnLDisplayUnit>
+        <QuantityModificationForStocks>IncreaseQuantity</QuantityModificationForStocks>
+        <ScaleQuantity>0</ScaleQuantity>
+        <ShowRealizedPnLWhenFlat>true</ShowRealizedPnLWhenFlat>
+        <SimulatedOrderVolumeTrigger>0</SimulatedOrderVolumeTrigger>
+        <StopLimitOffsetEnabled>false</StopLimitOffsetEnabled>
+        <StopLimitOffsetValue>0</StopLimitOffsetValue>
+        <PnLLongBackgroundSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FF32CD32&lt;/SolidColorBrush&gt;</PnLLongBackgroundSerialize>
+        <PnLShortBackgroundSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FFB22222&lt;/SolidColorBrush&gt;</PnLShortBackgroundSerialize>
+        <PnlPositiveForegroundSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FF32CD32&lt;/SolidColorBrush&gt;</PnlPositiveForegroundSerialize>
+        <PnlNegativeForegroundSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FFFF0000&lt;/SolidColorBrush&gt;</PnlNegativeForegroundSerialize>
+        <PositionLongForegroundSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FF000000&lt;/SolidColorBrush&gt;</PositionLongForegroundSerialize>
+        <PositionShortForegroundSerialize>&lt;SolidColorBrush xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;#FFFFFFFF&lt;/SolidColorBrush&gt;</PositionShortForegroundSerialize>
+        <ActionButtonsBackgroundSerialize>DEFAULT</ActionButtonsBackgroundSerialize>
+        <BuyButtonsBackgroundSerialize>DEFAULT</BuyButtonsBackgroundSerialize>
+        <SellButtonsBackgroundSerialize>DEFAULT</SellButtonsBackgroundSerialize>
+        <LimitSerialize>&lt;Pen Brush="#FF00FFFF" Thickness="2" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</LimitSerialize>
+        <MitSerialize>&lt;Pen Brush="#FF00FF7F" Thickness="2" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</MitSerialize>
+        <PositionEntryPriceSerialize>&lt;Pen Brush="#FFDEB887" Thickness="2" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</PositionEntryPriceSerialize>
+        <ProfitTargetSerialize>&lt;Pen Brush="#FF32CD32" Thickness="2" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</ProfitTargetSerialize>
+        <StopLimitSerialize>&lt;Pen Brush="#FFEE82EE" Thickness="2" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</StopLimitSerialize>
+        <StopLossSerialize>&lt;Pen Brush="#FFFF0000" Thickness="2" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</StopLossSerialize>
+        <StopMarketSerialize>&lt;Pen Brush="#FFFFC0CB" Thickness="2" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"&gt;&lt;Pen.DashStyle&gt;&lt;DashStyle /&gt;&lt;/Pen.DashStyle&gt;&lt;/Pen&gt;</StopMarketSerialize>
+      </ChartTraderProperties>
+    </Properties>
+    <Account>Sim101</Account>
+    <ATM></ATM>
+    <Instrument>ES DEC26</Instrument>
+    <Quantity>1</Quantity>
+    <TIF>Day</TIF>
+  </ChartTrader>
 </NinjaTrader>
 """
 
@@ -20394,9 +20682,17 @@ def build_chart_templates():
         "FootprintPro", "FootprintPro", "VeltrixQuant - FootprintPro", 0, 2, 20,
         "          <TicksPerLevel>4</TicksPerLevel>\n"
         "          <AutoZoomLOD>true</AutoZoomLOD>\n"
+        "          <HistoryMode>HybridFastInstant</HistoryMode>\n"
+        "          <CandleSpineMode>LeftSlimRail</CandleSpineMode>\n"
+        "          <FillEmptyPriceLevels>true</FillEmptyPriceLevels>\n"
+        "          <HideZeroText>true</HideZeroText>\n"
         "          <ShowImbalance>true</ShowImbalance>\n"
+        "          <ImbMarkerType>NeonAuraBadge</ImbMarkerType>\n"
+        "          <ImbMarkerSizePx>10</ImbMarkerSizePx>\n"
         "          <ShowStackedZones>true</ShowStackedZones>\n"
         "          <ShowAbsorption>true</ShowAbsorption>\n"
+        "          <AbsMarkerType>ShieldPulseRing</AbsMarkerType>\n"
+        "          <AbsMarkerSizePx>12</AbsMarkerSizePx>\n"
         "          <ShowBarVpoc>true</ShowBarVpoc>\n"
         "          <ShowNakedBarVpoc>true</ShowNakedBarVpoc>\n"
         "          <ShowStatGrid>true</ShowStatGrid>\n",
@@ -20417,7 +20713,7 @@ def build_chart_templates():
         "VeltrixQuant - 05 Flodometer + Delta Cumulativo (1m).xml": _build_nt8_chart_template(4, 1, 2, [hm_flod_1m, vwap_1m, imb_1m, delta_1m], [480, 140], False, 300),
         "VeltrixQuant - 06 Solitario Flodometer L2 Puro (30s).xml": _build_nt8_chart_template(3, 30, 2, [hm_flod], [620], False, 300),
         "VeltrixQuant - 07 Solitario TPO + VolumeProfile + VWAP (30m).xml": _build_nt8_chart_template(4, 30, 10, [tpo_30m, vwap_30m], [620], False, 140),
-        "VeltrixQuant - 08 Footprint Pro + Flodometer + Watchdog (20 Range).xml": _build_nt8_chart_template(2, 20, 3, [fp_20r, hm_flod_20r_side, wd_20r, imb_20r, vwap_20r, risk_20r], [620], False, 240),
+        "VeltrixQuant - 08 Footprint Pro + Flodometer + Watchdog (20 Range).xml": _build_nt8_chart_template(2, 20, 3, [fp_20r, hm_flod_20r_side, wd_20r, imb_20r, vwap_20r, risk_20r], [620], False, 240, bar_distance=94.0, candle_width=1.2, candle_transparent=True),
     }
 
 # ==============================================================================
