@@ -1,3 +1,4 @@
+
 #region Using declarations
 using System;
 using System.Collections.Generic;
@@ -139,6 +140,8 @@ namespace NinjaTrader.NinjaScript.Indicators
         private SharpDX.Direct2D1.SolidColorBrush dxSellSinRing, dxSellSinCenter, dxSellSinAura, dxSellSinTrack, dxSellSinGhost;
         private SharpDX.Direct2D1.SolidColorBrush dxLabelBg, dxTextBrush, dxLeaderBrush;
         private SharpDX.Direct2D1.SolidColorBrush dxPanelBg, dxPanelBorder, dxPanelDivider, dxMutedBrush, dxBtnBg, dxHighlightRowBg;
+        private SharpDX.Direct2D1.RenderTarget dxRenderTargetRef;
+        private IntPtr dxRenderTargetPtr = IntPtr.Zero;
 
         #region Propriedades
         [NinjaScriptProperty]
@@ -363,6 +366,18 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             else if (State == State.DataLoaded)
             {
+                lock (syncLock)
+                {
+                    askSlots.Clear();
+                    bidSlots.Clear();
+                    askDepthByPrice.Clear();
+                    bidDepthByPrice.Clear();
+                    clusters.Clear();
+                    events.Clear();
+                    lastBid = 0;
+                    lastAsk = 0;
+                    lastMarketTime = DateTime.MinValue;
+                }
                 InitSpeech();
                 EnsureMouseHooked();
             }
@@ -553,6 +568,12 @@ namespace NinjaTrader.NinjaScript.Indicators
         private void OnChartPreviewMouseMove(object sender, MouseEventArgs e)
         {
             if (!isDraggingPanel || ChartControl == null || ChartControl.PresentationSource == null) return;
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                isDraggingPanel = false;
+                if (ChartControl.IsMouseCaptured) ChartControl.ReleaseMouseCapture();
+                return;
+            }
             System.Windows.Point p = e.GetPosition(ChartControl);
             float px = (float)ChartingExtensions.ConvertToHorizontalPixels(p.X, ChartControl.PresentationSource);
             float py = (float)ChartingExtensions.ConvertToVerticalPixels(p.Y, ChartControl.PresentationSource);
@@ -830,6 +851,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (e.MarketDataType != MarketDataType.Last || e.Volume <= 0)
                 return;
 
+            DateTime tradeTm = (e.Time != DateTime.MinValue) ? e.Time : ((lastMarketTime != DateTime.MinValue) ? lastMarketTime : DateTime.Now);
             if (e.Time != DateTime.MinValue) lastMarketTime = e.Time;
             if (CurrentBar < 0) return;
 
@@ -868,15 +890,15 @@ namespace NinjaTrader.NinjaScript.Indicators
                     {
                         Price = preco,
                         IsSellSide = icebergDeVenda,
-                        StartTime = e.Time,
-                        LastTradeTime = e.Time
+                        StartTime = tradeTm,
+                        LastTradeTime = tradeTm
                     };
                     clusters[key] = cl;
                 }
 
-                if ((e.Time - cl.StartTime).TotalSeconds > safeJanela)
+                if ((tradeTm - cl.StartTime).TotalSeconds > safeJanela)
                 {
-                    cl.StartTime = e.Time;
+                    cl.StartTime = tradeTm;
                     cl.ExecutedVol = 0;
                     cl.TradeCount = 0;
                     cl.ReloadCount = 0;
@@ -885,7 +907,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     cl.ActiveEvent = null;
                 }
 
-                cl.LastTradeTime = e.Time;
+                cl.LastTradeTime = tradeTm;
                 cl.ExecutedVol += agressao;
                 cl.TradeCount++;
 
@@ -893,10 +915,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                 bool hasDepthData = depthMap.Count > 0;
                 long visibleDepth = hasDepthData ? GetVisibleDepthSafe(depthMap, preco) : 0;
 
-                bool isDinamico =
-                    (cl.ReloadCount >= 2 && cl.ExecutedVol >= LotePequeno) ||
-                    (hasDepthData && agressao >= LotePequeno && agressao > visibleDepth) ||
-                    (!hasDepthData && agressao >= LotePequeno);
+                bool isDinamico = hasDepthData &&
+                    ((cl.ReloadCount >= 2 && cl.ExecutedVol >= LotePequeno) ||
+                     (agressao >= LotePequeno && agressao > visibleDepth));
 
                 bool isSintetico = !isDinamico && cl.TradeCount >= 2 && cl.ExecutedVol >= LotePequeno;
 
@@ -904,10 +925,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 {
                     IcebergKind detectedKind = isDinamico ? IcebergKind.Dinamico : IcebergKind.Sintetico;
 
-                    if (cl.ActiveEvent != null && cl.ActiveEvent.BarIndex == barIdx)
+                    if (cl.ActiveEvent != null && !cl.ActiveEvent.TrackCompleted)
                     {
                         cl.ActiveEvent.Volume = cl.ExecutedVol;
-                        cl.ActiveEvent.Timestamp = e.Time;
+                        cl.ActiveEvent.Timestamp = tradeTm;
+                        cl.ActiveEvent.TrackEndBarIndex = Math.Max(cl.ActiveEvent.TrackEndBarIndex, barIdx);
                         if (detectedKind == IcebergKind.Dinamico) cl.ActiveEvent.Kind = IcebergKind.Dinamico;
                         TentarAtivarRastreio(cl.ActiveEvent, barIdx);
                     }
@@ -920,7 +942,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                             Volume = cl.ExecutedVol,
                             IsSellSide = icebergDeVenda,
                             Kind = detectedKind,
-                            Timestamp = e.Time,
+                            Timestamp = tradeTm,
                             TrackEndBarIndex = barIdx
                         };
                         events.Add(ev);
@@ -943,6 +965,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                         else if (tier == 2) voiceMsg = "Iceberg " + tipoTxt + " Médio " + ladoTxt;
                         else voiceMsg = "Iceberg " + tipoTxt + " " + ladoTxt;
                     }
+                }
+
+                if (clusters.Count > 300)
+                {
+                    List<string> staleKeys = new List<string>();
+                    double expireSec = safeJanela * 3.0;
+                    foreach (KeyValuePair<string, PriceCluster> ckv in clusters)
+                    {
+                        if ((tradeTm - ckv.Value.LastTradeTime).TotalSeconds > expireSec)
+                            staleKeys.Add(ckv.Key);
+                    }
+                    for (int sk = 0; sk < staleKeys.Count; sk++)
+                        clusters.Remove(staleKeys[sk]);
                 }
             }
 
@@ -999,14 +1034,19 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private void EnsureRenderResources()
         {
+            if (RenderTarget == null) return;
+            IntPtr curPtr = RenderTarget.NativePointer;
             int safeAlpha = Math.Max(0, Math.Min(100, OpacidadePainelPct));
             string sig = ColorKeyPart(CorCompraDinamico) + "|" + ColorKeyPart(CorVendaDinamico)
                 + "|" + ColorKeyPart(CorCompraSintetico) + "|" + ColorKeyPart(CorVendaSintetico)
                 + "|" + ColorKeyPart(CorFundoPainel) + "|" + ColorKeyPart(CorBordaPainel) + "|" + safeAlpha;
-            if (!string.IsNullOrEmpty(lastColorSignature) && lastColorSignature != sig)
+            if ((!string.IsNullOrEmpty(lastColorSignature) && lastColorSignature != sig)
+                || (dxRenderTargetPtr != IntPtr.Zero && (curPtr != dxRenderTargetPtr || !object.ReferenceEquals(RenderTarget, dxRenderTargetRef))))
             {
                 LimparRecursosRender();
             }
+            dxRenderTargetRef = RenderTarget;
+            dxRenderTargetPtr = curPtr;
             lastColorSignature = sig;
 
             if (dxFactory == null) dxFactory = new SharpDX.DirectWrite.Factory();
@@ -1547,11 +1587,14 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (dxPanelSmallFmt != null) { dxPanelSmallFmt.Dispose(); dxPanelSmallFmt = null; }
             if (dxPanelBtnFmt != null) { dxPanelBtnFmt.Dispose(); dxPanelBtnFmt = null; }
             if (dxFactory != null) { dxFactory.Dispose(); dxFactory = null; }
+            dxRenderTargetRef = null;
+            dxRenderTargetPtr = IntPtr.Zero;
         }
 
         public override void OnRenderTargetChanged()
         {
             LimparRecursosRender();
+            base.OnRenderTargetChanged();
         }
 
         #region Toolbar & Quick Settings WPF
